@@ -1,34 +1,43 @@
 @import "tailwindcss";
 
-/* Frosted UI-inspired dark theme for Cader */
+/* Frosted UI-inspired dark theme for Cader - per DESIGN_SYSTEM.md */
 :root {
-  /* Fonts - Instrument Serif for display/headings, Inter for body, Geist Mono for code */
+  /* ============================================
+     FONTS
+     ============================================ */
   --font-display: var(--font-instrument-serif);
   --font-sans: var(--font-inter);
   --font-mono: var(--font-geist-mono);
 
-  /* Dark mode color tokens - based on mauve/neutral scale */
-  /* Backgrounds */
-  --bg-canvas: #111111;
-  --bg-base: #222222;
-  --bg-surface: #2A2A2A;
-  --bg-elevated: #313131;
-  --bg-overlay: #484848;
-  --bg-glass: rgba(42, 42, 42, 0.8);
+  /* ============================================
+     DARK SURFACES (Surface Hierarchy)
+     ============================================ */
+  --bg-canvas: #111111;     /* Page root - deepest layer */
+  --bg-base: #222222;       /* Default page background */
+  --bg-surface: #2A2A2A;   /* Cards, panels, sidebars */
+  --bg-elevated: #313131;   /* Hover states, dropdowns, popovers */
+  --bg-overlay: #484848;    /* Modal surfaces, floating panels */
+  --bg-glass: rgba(42, 42, 42, 0.8);  /* Frosted glass panels */
 
-  /* Text */
-  --text-primary: #FAFAFA;
-  --text-secondary: #A1A1AA;
-  --text-muted: #71717A;
-  --text-inverse: #18181B;
+  /* ============================================
+     TEXT COLORS
+     ============================================ */
+  --text-primary: #FAFAFA;   /* Headings, primary body text */
+  --text-secondary: #A1A1AA; /* Secondary labels, timestamps */
+  --text-muted: #71717A;     /* Placeholder text, disabled states */
+  --text-inverse: #18181B;   /* Text on very dark/bright surfaces */
 
-  /* Accent - Chargily green */
-  --accent: #1754d8;
-  --accent-hover: #406CC8;
-  --accent-subtle: rgba(23, 84, 216, 0.12);
-  --accent-muted: rgba(23, 84, 216, 0.08);
+  /* ============================================
+     ACCENT (Chargily teal)
+     ============================================ */
+  --accent: #1754d8;                    /* Primary buttons, links, active states */
+  --accent-hover: #406CC8;              /* Button/image hover */
+  --accent-subtle: rgba(23, 84, 216, 0.12);  /* Active tab backgrounds, selected states */
+  --accent-muted: rgba(23, 84, 216, 0.08);   /* Hover backgrounds for interactive rows */
 
-  /* Semantic colors - using green, red, amber, blue scales */
+  /* ============================================
+     SEMANTIC COLORS
+     ============================================ */
   --success: #22c55e;
   --success-subtle: rgba(34, 197, 94, 0.12);
   --error: #ef4444;
@@ -38,18 +47,87 @@
   --info: #3b82f6;
   --info-subtle: rgba(59, 130, 246, 0.12);
 
-  /* Chargily */
+  /* ============================================
+     CHARGILY (Payment)
+     ============================================ */
   --chargily: #7D00D6;
   --chargily-subtle: rgba(125, 0, 214, 0.12);
+
+  /* ============================================
+     MAUVE SCALE (for glass effects & backgrounds)
+     ============================================ */
+  --mauve-1: #FAFAFA;
+  --mauve-2: #F4F4F5;
+  --mauve-3: #E4E4E7;
+  --mauve-4: #D4D4D8;
+  --mauve-5: #A1A1AA;
+  --mauve-6: #71717A;
+  --mauve-7: #52525B;
+  --mauve-8: #3F3F46;
+  --mauve-9: #27272A;
+  --mauve-10: #18181B;
+  --mauve-11: #121215;
+  --mauve-12: #09090B;
+
+  /* ============================================
+     GREEN SCALE (Level 2)
+     ============================================ */
+  --green-1: #f0fdf4;
+  --green-2: #dcfce7;
+  --green-3: #bbf7d0;
+  --green-4: #86efac;
+  --green-5: #4ade80;
+  --green-6: #22c55e;
+  --green-7: #16a34a;
+  --green-8: #15803d;
+  --green-9: #166534;
+  --green-10: #14532d;
+  --green-11: #052e16;
+  --green-12: #022c22;
+
+  /* ============================================
+     BLUE SCALE (Level 3)
+     ============================================ */
+  --blue-1: #eff6ff;
+  --blue-2: #dbeafe;
+  --blue-3: #bfdbfe;
+  --blue-4: #93c5fd;
+  --blue-5: #60a5fa;
+  --blue-6: #3b82f6;
+  --blue-7: #2563eb;
+  --blue-8: #1d4ed8;
+  --blue-9: #1e40af;
+  --blue-10: #1e3a8a;
+  --blue-11: #172554;
+  --blue-12: #0c1929;
+
+  /* ============================================
+     PURPLE SCALE (Level 4)
+     ============================================ */
+  --purple-1: #faf5ff;
+  --purple-2: #f3e8ff;
+  --purple-3: #e9d5ff;
+  --purple-4: #d8b4fe;
+  --purple-5: #c084fc;
+  --purple-6: #a855f7;
+  --purple-7: #9333ea;
+  --purple-8: #7e22ce;
+  --purple-9: #6b21a8;
+  --purple-10: #581c87;
+  --purple-11: #3b0764;
+  --purple-12: #210b47;
 }
 
+/* ============================================
+   TAILWIND THEME MAPPING
+   ============================================ */
 @theme inline {
   /* Fonts */
   --font-display: var(--font-display);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
 
-  /* Background colors */
+  /* Background colors - surface hierarchy */
   --color-bg-canvas: var(--bg-canvas);
   --color-bg-base: var(--bg-base);
   --color-bg-surface: var(--bg-surface);
@@ -83,15 +161,66 @@
   --color-chargily: var(--chargily);
   --color-chargily-subtle: var(--chargily-subtle);
 
-  /* Breakpoints - Frosted UI 5-point scale */
-  --breakpoint-xs: 520px;
-  --breakpoint-sm: 768px;
-  --breakpoint-md: 1024px;
-  --breakpoint-lg: 1280px;
-  --breakpoint-xl: 1440px;
+  /* Mauve scale */
+  --color-mauve-1: var(--mauve-1);
+  --color-mauve-2: var(--mauve-2);
+  --color-mauve-3: var(--mauve-3);
+  --color-mauve-4: var(--mauve-4);
+  --color-mauve-5: var(--mauve-5);
+  --color-mauve-6: var(--mauve-6);
+  --color-mauve-7: var(--mauve-7);
+  --color-mauve-8: var(--mauve-8);
+  --color-mauve-9: var(--mauve-9);
+  --color-mauve-10: var(--mauve-10);
+  --color-mauve-11: var(--mauve-11);
+  --color-mauve-12: var(--mauve-12);
+
+  /* Green scale */
+  --color-green-1: var(--green-1);
+  --color-green-2: var(--green-2);
+  --color-green-3: var(--green-3);
+  --color-green-4: var(--green-4);
+  --color-green-5: var(--green-5);
+  --color-green-6: var(--green-6);
+  --color-green-7: var(--green-7);
+  --color-green-8: var(--green-8);
+  --color-green-9: var(--green-9);
+  --color-green-10: var(--green-10);
+  --color-green-11: var(--green-11);
+  --color-green-12: var(--green-12);
+
+  /* Blue scale */
+  --color-blue-1: var(--blue-1);
+  --color-blue-2: var(--blue-2);
+  --color-blue-3: var(--blue-3);
+  --color-blue-4: var(--blue-4);
+  --color-blue-5: var(--blue-5);
+  --color-blue-6: var(--blue-6);
+  --color-blue-7: var(--blue-7);
+  --color-blue-8: var(--blue-8);
+  --color-blue-9: var(--blue-9);
+  --color-blue-10: var(--blue-10);
+  --color-blue-11: var(--blue-11);
+  --color-blue-12: var(--blue-12);
+
+  /* Purple scale */
+  --color-purple-1: var(--purple-1);
+  --color-purple-2: var(--purple-2);
+  --color-purple-3: var(--purple-3);
+  --color-purple-4: var(--purple-4);
+  --color-purple-5: var(--purple-5);
+  --color-purple-6: var(--purple-6);
+  --color-purple-7: var(--purple-7);
+  --color-purple-8: var(--purple-8);
+  --color-purple-9: var(--purple-9);
+  --color-purple-10: var(--purple-10);
+  --color-purple-11: var(--purple-11);
+  --color-purple-12: var(--purple-12);
 }
 
-/* Base styles */
+/* ============================================
+   BASE STYLES
+   ============================================ */
 body {
   background: var(--bg-canvas);
   color: var(--text-primary);
@@ -99,7 +228,9 @@ body {
   min-height: 100vh;
 }
 
-/* Glass effect utility */
+/* ============================================
+   GLASS EFFECTS (per DESIGN_SYSTEM.md)
+   ============================================ */
 .glass {
   background: var(--bg-glass);
   backdrop-filter: blur(24px);
@@ -112,7 +243,9 @@ body {
   -webkit-backdrop-filter: blur(16px);
 }
 
-/* Custom scrollbar */
+/* ============================================
+   CUSTOM SCROLLBAR
+   ============================================ */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -131,8 +264,19 @@ body {
   background: var(--bg-overlay);
 }
 
-/* Selection */
+/* ============================================
+   SELECTION
+   ============================================ */
 ::selection {
   background: var(--accent-subtle);
   color: var(--text-primary);
 }
+
+/* ============================================
+   FOCUS VISIBLE (Accessibility)
+   ============================================ */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
