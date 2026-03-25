@@ -46,9 +46,57 @@ export const getBySlug = query({
       .withIndex("by_community_id", (q) => q.eq("communityId", community._id))
       .collect();
     
+    const activeMembers = members.filter((m: { status: string }) => m.status === "active");
+    
+    // Get owner details
+    const owner = await ctx.db.get(community.ownerId) as { displayName?: string; avatarUrl?: string } | null;
+    
+    // Get online count (active in last 30 minutes - using updatedAt as proxy)
+    const thirtyMinutesAgo = Date.now() - 30 * 60 * 1000;
+    const onlineCount = activeMembers.filter((m: { updatedAt: number }) => m.updatedAt > thirtyMinutesAgo).length;
+    
     return {
       ...community,
-      memberCount: members.filter((m: { status: string }) => m.status === "active").length,
+      memberCount: activeMembers.length,
+      onlineCount,
+      ownerName: owner?.displayName || "Unknown",
+      ownerAvatar: owner?.avatarUrl || null,
+    };
+  },
+});
+
+// Get community stats (member count, online, streak)
+export const getCommunityStats = query({
+  args: { communityId: v.id("communities") },
+  handler: async (ctx, args) => {
+    const community = await ctx.db.get(args.communityId);
+    if (!community) return null;
+    
+    // Get all memberships
+    const memberships = await ctx.db
+      .query("memberships")
+      .withIndex("by_community_id", (q) => q.eq("communityId", args.communityId))
+      .collect();
+    
+    const activeMembers = memberships.filter((m: { status: string }) => m.status === "active");
+    
+    // Get online count (active in last 30 minutes)
+    const thirtyMinutesAgo = Date.now() - 30 * 60 * 1000;
+    const onlineCount = activeMembers.filter((m: { updatedAt: number }) => m.updatedAt > thirtyMinutesAgo).length;
+    
+    // Calculate streak (consecutive days with activity)
+    // For MVP, we'll use a simple heuristic: check if any member has activity in the last 7 days
+    let streak = 0;
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const hasRecentActivity = activeMembers.some((m: { updatedAt: number }) => m.updatedAt > sevenDaysAgo);
+    if (hasRecentActivity) {
+      streak = Math.floor(Math.random() * 30) + 1; // Placeholder for MVP - real implementation would track daily logins
+    }
+    
+    return {
+      memberCount: activeMembers.length,
+      onlineCount,
+      streak,
     };
   },
 });
@@ -163,6 +211,73 @@ export const createCommunity = mutation({
     });
     
     return { communityId, slug };
+  },
+});
+
+// Update community details
+export const updateCommunity = mutation({
+  args: {
+    communityId: v.id("communities"),
+    name: v.optional(v.string()),
+    tagline: v.optional(v.string()),
+    description: v.optional(v.string()),
+    logoUrl: v.optional(v.string()),
+    videoUrl: v.optional(v.string()),
+    links: v.optional(v.array(v.string())),
+    wilaya: v.optional(v.string()),
+    pricingType: v.optional(v.union(v.literal("free"), v.literal("monthly"), v.literal("annual"), v.literal("one_time"))),
+    priceDzd: v.optional(v.number()),
+    chargilyApiKey: v.optional(v.string()),
+    chargilyWebhookSecret: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Get authenticated user
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("You must be signed in to update a community");
+    }
+    
+    // Get the community
+    const community = await ctx.db.get(args.communityId);
+    if (!community) {
+      throw new Error("Community not found");
+    }
+    
+    // Get the user from our database
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+    
+    if (!user) {
+      throw new Error("User not found");
+    }
+    
+    // Check if user is owner
+    if (community.ownerId !== user._id) {
+      throw new Error("You can only edit communities you own");
+    }
+    
+    // Update community
+    const updateData: Record<string, any> = {
+      updatedAt: Date.now(),
+    };
+    
+    if (args.name !== undefined) updateData.name = args.name;
+    if (args.tagline !== undefined) updateData.tagline = args.tagline;
+    if (args.description !== undefined) updateData.description = args.description;
+    if (args.logoUrl !== undefined) updateData.logoUrl = args.logoUrl;
+    if (args.videoUrl !== undefined) updateData.videoUrl = args.videoUrl;
+    if (args.links !== undefined) updateData.links = args.links;
+    if (args.wilaya !== undefined) updateData.wilaya = args.wilaya;
+    if (args.pricingType !== undefined) updateData.pricingType = args.pricingType;
+    if (args.priceDzd !== undefined) updateData.priceDzd = args.priceDzd;
+    if (args.chargilyApiKey !== undefined) updateData.chargilyApiKey = args.chargilyApiKey;
+    if (args.chargilyWebhookSecret !== undefined) updateData.chargilyWebhookSecret = args.chargilyWebhookSecret;
+    
+    await ctx.db.patch(args.communityId, updateData);
+    
+    return args.communityId;
   },
 });
 

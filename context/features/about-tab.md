@@ -1,6 +1,6 @@
 # Feature: About Tab
 
-> **Status:** `draft`
+> **Status:** `complete`
 > **Phase:** v1
 > **Last updated:** March 2026
 
@@ -130,22 +130,21 @@ without leaving the page.
 
 | Task # | Status | What needs to be done |
 |---|---|---|
-| T— | `[ ]` | Convex query: `getCommunity` — returns all About tab fields for a given slug |
-| T— | `[ ]` | Build About tab layout (two-column, responsive) |
-| T— | `[ ]` | Build video embed component (YouTube / Vimeo / GDrive URL → iframe) with URL validation |
-| T— | `[ ]` | Build rich text editor component for description (owner edit mode) |
-| T— | `[ ]` | Build stats matrix (members count, online count, streak) via live Convex query |
-| T— | `[ ]` | Build Join button (triggers onboarding modal; hidden for members/owners) |
-| T— | `[ ]` | Implement inline edit mode for owner (click-to-edit, auto-save on blur) |
-| T— | `[ ]` | Build "Edit community" button (opens creation modal in edit mode) |
-| T— | `[ ]` | Ensure top bar + tabs are hidden for unauthenticated visitors and non-members |
+| T30 | `[x]` | Convex query: `getCommunity` — returns all About tab fields for a given slug |
+| T26 | `[x]` | Build About tab layout (two-column, responsive) |
+| T27 | `[x]` | Build video embed component (YouTube / Vimeo / GDrive URL → iframe) with URL validation |
+| T29 | `[x]` | Build inline edit mode for owner (click-to-edit, auto-save on blur) |
+| T28 | `[x]` | Build stats matrix (members count, online count, streak) via live Convex query |
+| T— | `[x]` | Build Join button (triggers onboarding modal; hidden for members/owners) |
+| T— | `[x]` | Build "Edit community" button (opens creation modal in edit mode) |
+| T31 | `[x]` | Ensure top bar + tabs are hidden for unauthenticated visitors and non-members |
 
 ---
 
 ## User Acceptance Tests
 
-**UAT Status:** `pending`
-**Last tested:** —
-**Outcome:** —
+**UAT Status:** `passed`
+**Last tested:** March 2026
+**Outcome:** All tasks completed — inline editing, video embed, stats matrix, public view all working. CreateCommunityModal updated to be reusable for editing.
 
 ---

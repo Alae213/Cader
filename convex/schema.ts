@@ -27,7 +27,7 @@ export default defineSchema({
     wilaya: v.optional(v.string()),
     
     // Ownership
-    ownerId: v.string(),
+    ownerId: v.id("users"),
     
     // Pricing
     pricingType: v.union(v.literal("free"), v.literal("monthly"), v.literal("annual"), v.literal("one_time")),

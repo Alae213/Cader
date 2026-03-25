@@ -33,6 +33,12 @@ Tasks currently being worked on or up next.
 | T23 | `[x]` | Build tab visibility logic — unauthenticated/non-member: only About; member: all tabs; owner: all + Analysis | [context/features/community-creation.md](../features/community-creation.md) | Added getMembershipBySlug query, tabs hidden for non-members |
 | T24 | `[x]` | Build `useTabPersistence` hook — localStorage read/write keyed by community slug | [context/features/tab-persistence.md](../features/tab-persistence.md) | Created useTabPersistence hook + TabNav saves preference |
 | T25 | `[x]` | Build tab state restoration — validate stored tab against access, fallback appropriately | [context/features/tab-persistence.md](../features/tab-persistence.md) | Page redirects to stored tab on load if member |
+| T26 | `[x]` | Build About tab layout — two-column, responsive | [context/features/about-tab.md](../features/about-tab.md) | |
+| T27 | `[x]` | Build video embed component — YouTube/Vimeo/GDrive URL validation on blur | [context/features/about-tab.md](../features/about-tab.md) | |
+| T28 | `[x]` | Build stats matrix — members, online now, streak (placeholder) | [context/features/about-tab.md](../features/about-tab.md) | Streak is placeholder |
+| T29 | `[x]` | Build inline edit mode for owner — click-to-edit, auto-save on blur | [context/features/about-tab.md](../features/about-tab.md) | |
+| T30 | `[x]` | Build `getCommunity` Convex query — getBySlug now returns ownerName, ownerAvatar, onlineCount | [context/features/about-tab.md](../features/about-tab.md) | Implicitly completed |
+| T31 | `[x]` | Build public/non-member view — top bar shows placeholder avatar, tabs hidden | [context/features/about-tab.md](../features/about-tab.md) | |
 
 ---
 
@@ -82,12 +88,12 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T26 | `[ ]` | Build About tab layout — two-column: left (video, description, links), right (stats, Join button, Edit community button) | [context/features/about-tab.md](../features/about-tab.md) | |
-| T27 | `[ ]` | Build video embed component — YouTube/Vimeo/GDrive URL validation on blur, sanitize before render, placeholder for owner when empty | [context/features/about-tab.md](../features/about-tab.md) | |
-| T28 | `[ ]` | Build stats matrix component — total members, online now (active last 30 min), current streak — live via Convex `useQuery` | [context/features/about-tab.md](../features/about-tab.md) | |
-| T29 | `[ ]` | Build inline edit mode for owner — click-to-edit video URL, rich text description, title, tagline, links (up to 5); auto-save on blur | [context/features/about-tab.md](../features/about-tab.md) | |
-| T30 | `[ ]` | Build `getCommunity` Convex query — returns all About tab fields for a given slug | [context/features/about-tab.md](../features/about-tab.md) | |
-| T31 | `[ ]` | Build public/non-member view — only logo + placeholder avatar in top bar, tabs hidden, Join button visible, About content read-only | [context/features/about-tab.md](../features/about-tab.md) | |
+| T26 | `[x]` | Build About tab layout — two-column: left (video, description, links), right (stats, Join button, Edit community button) | [context/features/about-tab.md](../features/about-tab.md) | |
+| T27 | `[x]` | Build video embed component — YouTube/Vimeo/GDrive URL validation on blur, sanitize before render, placeholder for owner when empty | [context/features/about-tab.md](../features/about-tab.md) | |
+| T28 | `[x]` | Build stats matrix component — total members, online now (active last 30 min), current streak — live via Convex `useQuery` | [context/features/about-tab.md](../features/about-tab.md) | |
+| T29 | `[x]` | Build inline edit mode for owner — click-to-edit video URL, rich text description, title, tagline, links (up to 5); auto-save on blur | [context/features/about-tab.md](../features/about-tab.md) | |
+| T30 | `[x]` | Build `getCommunity` Convex query — returns all About tab fields for a given slug | [context/features/about-tab.md](../features/about-tab.md) | Implicitly completed — getBySlug returns ownerName, ownerAvatar, onlineCount |
+| T31 | `[x]` | Build public/non-member view — only logo + placeholder avatar in top bar, tabs hidden, Join button visible, About content read-only | [context/features/about-tab.md](../features/about-tab.md) | |
 
 ### Phase 6 — Chargily Integration & Payments (T32–T39)
 

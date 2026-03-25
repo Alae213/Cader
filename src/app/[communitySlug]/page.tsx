@@ -1,15 +1,14 @@
 "use client";
 
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { useAuth } from "@clerk/nextjs";
 import { api } from "@/../convex/_generated/api";
 import { CommunityShell } from "@/components/layout/CommunityShell";
-import { TabNav } from "@/components/layout/TabNav";
+import { AboutTab } from "@/components/community/AboutTab";
+import { CreateCommunityModal } from "@/components/community/CreateCommunityModal";
 import { Heading, Text } from "@/components/ui/Text";
-import { Card, CardContent } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
 
 const STORAGE_KEY_PREFIX = "cader_tab_";
 
@@ -19,6 +18,10 @@ export default function CommunityPage() {
   const { userId: clerkId } = useAuth();
   const communitySlug = params.communitySlug as string;
 
+  // Modal state
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [joinIntent, setJoinIntent] = useState<string | null>(null);
+
   // Fetch community from Convex
   const community = useQuery(api.functions.getBySlug, { slug: communitySlug });
 
@@ -27,6 +30,40 @@ export default function CommunityPage() {
     api.functions.getMembershipBySlug,
     clerkId ? { slug: communitySlug, clerkId } : "skip"
   );
+
+  // Mutation to update community video URL
+  const updateCommunity = useMutation(api.functions.updateCommunity);
+
+  // Handle Join button click
+  const handleJoinClick = () => {
+    if (!clerkId) {
+      // Store intent and trigger sign in
+      setJoinIntent(communitySlug);
+      // The sign-in modal will appear (handled by Clerk)
+      return;
+    }
+    // User is logged in - show onboarding modal (to be implemented)
+    console.log("Join clicked for community:", communitySlug);
+  };
+
+  // Handle Edit Community button click
+  const handleEditClick = () => {
+    setShowCreateModal(true);
+  };
+
+  // Handle video URL change
+  const handleVideoChange = async (url: string) => {
+    if (!community?._id) return;
+    
+    try {
+      await updateCommunity({
+        communityId: community._id,
+        videoUrl: url,
+      });
+    } catch (error) {
+      console.error("Failed to update video URL:", error);
+    }
+  };
 
   // Check if user has a stored tab preference
   useEffect(() => {
@@ -70,9 +107,12 @@ export default function CommunityPage() {
           {/* Tabs skeleton */}
           <div className="h-12 bg-bg-elevated rounded-lg mb-6" />
           {/* Content skeleton */}
-          <div className="space-y-4">
-            <div className="h-32 bg-bg-elevated rounded-lg" />
-            <div className="h-32 bg-bg-elevated rounded-lg" />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-4">
+              <div className="aspect-video bg-bg-elevated rounded-lg" />
+              <div className="h-32 bg-bg-elevated rounded-lg" />
+            </div>
+            <div className="h-64 bg-bg-elevated rounded-lg" />
           </div>
         </div>
       </div>
@@ -106,90 +146,32 @@ export default function CommunityPage() {
     description: community.description,
     imageUrl: community.logoUrl,
     memberCount: community.memberCount,
-    isVerified: false, // TODO: Add verified field to schema if needed
+    isVerified: false,
   };
 
   return (
-    <CommunityShell 
-      community={communityData}
-      showTabs={showAllTabs}
-      isOwner={isOwner}
-    >
-      {/* About Tab Content - shown on /[communitySlug] route */}
-      <div className="space-y-4">
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-start gap-3">
-              <div className="h-10 w-10 rounded-full bg-accent flex items-center justify-center">
-                <span className="font-medium text-white">AH</span>
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <Text size="2" theme="secondary">Ahmed Hassan</Text>
-                  <Text size="1" theme="muted">· 2 hours ago</Text>
-                </div>
-                <Text size="3" className="mt-1">
-                  Just launched a new course on React Native! 🚀 
-                  Building mobile apps has never been easier. 
-                  Check it out and let me know what you think!
-                </Text>
-                <div className="flex items-center gap-2 mt-3">
-                  <Badge variant="secondary">React Native</Badge>
-                  <Badge variant="accent">Course</Badge>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+    <>
+      <CommunityShell 
+        community={communityData}
+        showTabs={showAllTabs}
+        isOwner={isOwner}
+      >
+        {/* About Tab Content - shown on /[communitySlug] route */}
+        <AboutTab 
+          community={community}
+          isOwner={isOwner}
+          isMember={isMember}
+          onJoinClick={handleJoinClick}
+          onEditClick={handleEditClick}
+          onVideoChange={handleVideoChange}
+        />
+      </CommunityShell>
 
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-start gap-3">
-              <div className="h-10 w-10 rounded-full bg-success flex items-center justify-center">
-                <span className="font-medium text-white">SA</span>
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <Text size="2" theme="secondary">Sara Amrani</Text>
-                  <Text size="1" theme="muted">· 5 hours ago</Text>
-                </div>
-                <Text size="3" className="mt-1">
-                  📢 New session this Friday! We'll be covering 
-                  TypeScript best practices and how to improve your 
-                  code quality. Don't miss it!
-                </Text>
-                <div className="flex items-center gap-2 mt-3">
-                  <Badge variant="warning">Live Session</Badge>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-start gap-3">
-              <div className="h-10 w-10 rounded-full bg-chargily flex items-center justify-center">
-                <span className="font-medium text-white">OM</span>
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <Text size="2" theme="secondary">Omar Bouali</Text>
-                  <Text size="1" theme="muted">· Yesterday</Text>
-                </div>
-                <Text size="3" className="mt-1">
-                  Just hit 1000 points on the leaderboard! 🎉 
-                  Thanks to everyone who's been supporting my learning journey.
-                  Never stop coding! 💻
-                </Text>
-                <div className="flex items-center gap-2 mt-3">
-                  <Badge variant="success">Achievement</Badge>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </CommunityShell>
+      {/* Edit Community Modal */}
+      <CreateCommunityModal 
+        open={showCreateModal}
+        onOpenChange={setShowCreateModal}
+      />
+    </>
   );
 }
