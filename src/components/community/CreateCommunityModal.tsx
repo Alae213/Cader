@@ -1,7 +1,10 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "../../../convex/_generated/api";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -92,6 +95,7 @@ export function CreateCommunityModal({ open, onOpenChange }: CreateCommunityModa
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [validatingKeys, setValidatingKeys] = useState(false);
   const [error, setError] = useState("");
   
   // Step 1: Basic info
@@ -106,6 +110,27 @@ export function CreateCommunityModal({ open, onOpenChange }: CreateCommunityModa
   const [chargilyWebhookSecret, setChargilyWebhookSecret] = useState("");
   const [wilaya, setWilaya] = useState("");
 
+  // Convex mutations and actions
+  const createCommunity = useMutation(api.functions.createCommunity);
+  const validateChargilyKeys = useMutation(api.functions.validateChargilyKeys);
+  
+  // Check slug availability (debounced) - only check when slug is valid length
+  const slugExists = useQuery(
+    api.functions.slugExists,
+    slug.length >= 3 ? { slug } : { slug: "" }
+  );
+  
+  // Update slug availability based on server response
+  useEffect(() => {
+    if (slug.length >= 3) {
+      if (slugExists === true) {
+        setSlugAvailable(false);
+      } else if (slugExists === false) {
+        setSlugAvailable(true);
+      }
+    }
+  }, [slugExists, slug.length]);
+
   // Generate slug from name
   const generateSlug = useCallback((communityName: string) => {
     return communityName
@@ -117,28 +142,19 @@ export function CreateCommunityModal({ open, onOpenChange }: CreateCommunityModa
   // Handle name change and auto-generate slug
   const handleNameChange = (value: string) => {
     setName(value);
-    if (!slug || slug === generateSlug(name)) {
-      setSlug(generateSlug(value));
+    const generatedSlug = generateSlug(value);
+    // Only auto-generate slug if user hasn't manually edited it
+    if (!slug || slug === generatedSlug) {
+      setSlug(generatedSlug);
     }
   };
 
-  // Handle slug change with availability check
+  // Handle slug change with availability check (server-side validation)
   const handleSlugChange = (value: string) => {
     const newSlug = generateSlug(value);
     setSlug(newSlug);
-    
-    // Check availability (in real app, this would call an API)
-    if (newSlug.length > 0) {
-      // Reserved slugs check
-      const reservedSlugs = ["help", "api", "www", "admin", "auth"];
-      if (reservedSlugs.includes(newSlug)) {
-        setSlugAvailable(false);
-      } else {
-        setSlugAvailable(true);
-      }
-    } else {
-      setSlugAvailable(null);
-    }
+    // Server will validate, but we can do a quick client-side check for UX
+    // The actual availability is determined by the server query
   };
 
   // Validate step 1
@@ -170,28 +186,46 @@ export function CreateCommunityModal({ open, onOpenChange }: CreateCommunityModa
     setError("");
     
     try {
-      // In real app, this would call a Convex mutation
-      // For now, simulate creation and redirect
-      console.log("Creating community:", {
+      // Validate Chargily keys if provided (for paid communities)
+      if (pricingType !== "free" && chargilyApiKey && chargilyWebhookSecret) {
+        setValidatingKeys(true);
+        const validation = await validateChargilyKeys({
+          apiKey: chargilyApiKey,
+          webhookSecret: chargilyWebhookSecret,
+        });
+        
+        if (!validation.valid) {
+          setError(validation.error || "Invalid Chargily keys. Please check and try again.");
+          setLoading(false);
+          setValidatingKeys(false);
+          return;
+        }
+        setValidatingKeys(false);
+      }
+      
+      // Create the community
+      const result = await createCommunity({
         name,
         slug,
-        pricingType,
-        price: price ? parseFloat(price) : 0,
-        chargilyApiKey,
-        chargilyWebhookSecret,
-        wilaya,
+        pricingType: pricingType as "free" | "monthly" | "annual" | "one_time",
+        priceDzd: price ? parseInt(price) : undefined,
+        wilaya: wilaya || undefined,
+        chargilyApiKey: pricingType !== "free" ? chargilyApiKey || undefined : undefined,
+        chargilyWebhookSecret: pricingType !== "free" ? chargilyWebhookSecret || undefined : undefined,
       });
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      toast.success("Community created successfully!");
       
       // Close modal and redirect to community
       onOpenChange(false);
-      router.push(`/${slug}`);
+      router.push(`/${result.slug}`);
     } catch (err) {
-      setError("Failed to create community. Please try again.");
+      const errorMessage = err instanceof Error ? err.message : "Failed to create community. Please try again.";
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
+      setValidatingKeys(false);
     }
   };
 
@@ -380,9 +414,9 @@ export function CreateCommunityModal({ open, onOpenChange }: CreateCommunityModa
               </Button>
               <Button 
                 onClick={handleSubmit} 
-                disabled={!isStep2Valid() || loading}
+                disabled={!isStep2Valid() || loading || validatingKeys}
               >
-                {loading ? "Creating..." : pricingType === "free" ? "Create Community" : "Create & Set Up Payments"}
+                {validatingKeys ? "Validating keys..." : loading ? "Creating..." : pricingType === "free" ? "Create Community" : "Create & Set Up Payments"}
               </Button>
             </>
           )}

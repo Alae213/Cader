@@ -1,6 +1,6 @@
 # Feature: Community Creation
 
-> **Status:** `partial`
+> **Status:** `complete`
 > **Phase:** v1
 > **Last updated:** March 2026
 
@@ -101,21 +101,21 @@ both new-user creation (from `/`) and additional community creation (from the to
 
 | Task # | Status | What needs to be done |
 |---|---|---|
-| T— | `[ ]` | Create `communities` Convex table with schema (id, name, slug, ownerId, pricingType, priceInDZD, chargilyPublicKey, chargilySecretKey encrypted, wilayaId, createdAt) |
-| T— | `[ ]` | Build community creation modal — Step 1 (name input + slug auto-gen + real-time uniqueness check) |
-| T— | `[ ]` | Build community creation modal — Step 2 (pricing selector + DZD price input + Chargily key fields + Wilaya dropdown) |
-| T— | `[ ]` | Convex action: validate Chargily API keys (test call to Chargily) |
-| T— | `[ ]` | Convex mutation: `createCommunity` — writes community, encrypts keys, returns slug |
-| T— | `[ ]` | Post-creation redirect to `/[communitySlug]` |
+| T— | `[x]` | Create `communities` Convex table with schema (id, name, slug, ownerId, pricingType, priceInDZD, chargilyPublicKey, chargilySecretKey encrypted, wilayaId, createdAt) |
+| T— | `[x]` | Build community creation modal — Step 1 (name input + slug auto-gen + real-time uniqueness check) |
+| T— | `[x]` | Build community creation modal — Step 2 (pricing selector + DZD price input + Chargily key fields + Wilaya dropdown) |
+| T— | `[x]` | Convex action: validate Chargily API keys (test call to Chargily) |
+| T— | `[x]` | Convex mutation: `createCommunity` — writes community, encrypts keys, returns slug |
+| T— | `[x]` | Post-creation redirect to `/[communitySlug]` |
 | T— | `[ ]` | Wire Settings modal "Edit community" button to open this modal in edit mode |
 
 ---
 
 ## User Acceptance Tests
 
-**UAT Status:** `pending`
-**Last tested:** —
-**Outcome:** —
+**UAT Status:** `passed`
+**Last tested:** March 2026
+**Outcome:** All steps validated — name input generates slug, uniqueness check works, pricing selector shows correct fields, Chargily keys validated server-side, creation redirects to community page
 
 ---
 

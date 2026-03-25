@@ -1,4 +1,4 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, action } from "./_generated/server";
 import { v } from "convex/values";
 
 // Reserved slugs that cannot be used
@@ -61,10 +61,36 @@ export const createCommunity = mutation({
     pricingType: v.union(v.literal("free"), v.literal("monthly"), v.literal("annual"), v.literal("one_time")),
     priceDzd: v.optional(v.number()),
     wilaya: v.optional(v.string()),
-    ownerId: v.id("users"),
+    // Chargily keys (optional - can be added later via settings)
+    chargilyApiKey: v.optional(v.string()),
+    chargilyWebhookSecret: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    // Get authenticated user from Clerk
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("You must be signed in to create a community");
+    }
+    
+    // Get the user from our database
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+    
+    if (!user) {
+      throw new Error("User not found. Please complete onboarding first.");
+    }
+    
     const slug = args.slug.toLowerCase().trim();
+    
+    // Validate name
+    if (!args.name || args.name.trim().length === 0) {
+      throw new Error("Community name is required");
+    }
+    if (args.name.length > 60) {
+      throw new Error("Community name must be 60 characters or less");
+    }
     
     // Validate slug format
     if (slug.length < 3 || slug.length > 50) {
@@ -95,6 +121,14 @@ export const createCommunity = mutation({
       if (!args.priceDzd || args.priceDzd <= 0) {
         throw new Error("Price is required for paid communities");
       }
+      if (args.priceDzd < 100) {
+        throw new Error("Price must be at least 100 DZD");
+      }
+      if (args.priceDzd > 100000) {
+        throw new Error("Price cannot exceed 100,000 DZD");
+      }
+      // For MVP, store keys as-is. In Phase 17, these will be encrypted at rest.
+      // Keys are never returned to the client - they are used server-side only during checkout.
     }
     
     const now = Date.now();
@@ -106,9 +140,12 @@ export const createCommunity = mutation({
       wilaya: args.wilaya,
       pricingType: args.pricingType,
       priceDzd: args.priceDzd,
-      ownerId: args.ownerId,
+      ownerId: user._id,
       platformTier: "free",
       memberLimit: 50,
+      // Store Chargily keys (will be encrypted in Phase 17)
+      chargilyApiKey: args.chargilyApiKey,
+      chargilyWebhookSecret: args.chargilyWebhookSecret,
       createdAt: now,
       updatedAt: now,
     });
@@ -116,7 +153,7 @@ export const createCommunity = mutation({
     // Create owner membership
     await ctx.db.insert("memberships", {
       communityId,
-      userId: args.ownerId,
+      userId: user._id,
       role: "owner",
       status: "active",
       subscriptionType: args.pricingType,
@@ -125,7 +162,7 @@ export const createCommunity = mutation({
       updatedAt: now,
     });
     
-    return communityId;
+    return { communityId, slug };
   },
 });
 
@@ -255,5 +292,56 @@ export const getUserByClerkId = query({
       .first();
     
     return user;
+  },
+});
+
+// Validate Chargily API keys - mutation that tests keys via Chargily API
+export const validateChargilyKeys = mutation({
+  args: {
+    apiKey: v.string(),
+    webhookSecret: v.string(),
+  },
+  handler: async (ctx, args) => {
+    try {
+      // Test the keys by calling Chargily's API to get current user info
+      // This validates that the keys are valid and have the correct permissions
+      const response = await fetch("https://pay.chargily.net/api/v2/user", {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${args.apiKey}`,
+          "Content-Type": "application/json",
+        },
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return {
+          valid: false,
+          error: errorData.message || `API returned ${response.status}`,
+        };
+      }
+      
+      const userData = await response.json();
+      
+      // Verify webhook secret format (basic validation)
+      if (!args.webhookSecret || args.webhookSecret.length < 10) {
+        return {
+          valid: false,
+          error: "Invalid webhook secret format",
+        };
+      }
+      
+      return {
+        valid: true,
+        // Return non-sensitive info for UI feedback
+        email: userData.email,
+        name: userData.name,
+      };
+    } catch (error) {
+      return {
+        valid: false,
+        error: error instanceof Error ? error.message : "Failed to validate keys",
+      };
+    }
   },
 });
