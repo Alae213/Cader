@@ -1,0 +1,138 @@
+@import "tailwindcss";
+
+/* Frosted UI-inspired dark theme for Cader */
+:root {
+  /* Fonts - Instrument Serif for display/headings, Inter for body, Geist Mono for code */
+  --font-display: var(--font-instrument-serif);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-geist-mono);
+
+  /* Dark mode color tokens - based on mauve/neutral scale */
+  /* Backgrounds */
+  --bg-canvas: #111111;
+  --bg-base: #222222;
+  --bg-surface: #2A2A2A;
+  --bg-elevated: #313131;
+  --bg-overlay: #484848;
+  --bg-glass: rgba(42, 42, 42, 0.8);
+
+  /* Text */
+  --text-primary: #FAFAFA;
+  --text-secondary: #A1A1AA;
+  --text-muted: #71717A;
+  --text-inverse: #18181B;
+
+  /* Accent - Chargily green */
+  --accent: #1754d8;
+  --accent-hover: #406CC8;
+  --accent-subtle: rgba(23, 84, 216, 0.12);
+  --accent-muted: rgba(23, 84, 216, 0.08);
+
+  /* Semantic colors - using green, red, amber, blue scales */
+  --success: #22c55e;
+  --success-subtle: rgba(34, 197, 94, 0.12);
+  --error: #ef4444;
+  --error-subtle: rgba(239, 68, 68, 0.12);
+  --warning: #f59e0b;
+  --warning-subtle: rgba(245, 158, 11, 0.12);
+  --info: #3b82f6;
+  --info-subtle: rgba(59, 130, 246, 0.12);
+
+  /* Chargily */
+  --chargily: #7D00D6;
+  --chargily-subtle: rgba(125, 0, 214, 0.12);
+}
+
+@theme inline {
+  /* Fonts */
+  --font-display: var(--font-display);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  /* Background colors */
+  --color-bg-canvas: var(--bg-canvas);
+  --color-bg-base: var(--bg-base);
+  --color-bg-surface: var(--bg-surface);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-bg-overlay: var(--bg-overlay);
+  --color-bg-glass: var(--bg-glass);
+
+  /* Text colors */
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-inverse: var(--text-inverse);
+
+  /* Accent */
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-subtle: var(--accent-subtle);
+  --color-accent-muted: var(--accent-muted);
+
+  /* Semantic */
+  --color-success: var(--success);
+  --color-success-subtle: var(--success-subtle);
+  --color-error: var(--error);
+  --color-error-subtle: var(--error-subtle);
+  --color-warning: var(--warning);
+  --color-warning-subtle: var(--warning-subtle);
+  --color-info: var(--info);
+  --color-info-subtle: var(--info-subtle);
+
+  /* Chargily */
+  --color-chargily: var(--chargily);
+  --color-chargily-subtle: var(--chargily-subtle);
+
+  /* Breakpoints - Frosted UI 5-point scale */
+  --breakpoint-xs: 520px;
+  --breakpoint-sm: 768px;
+  --breakpoint-md: 1024px;
+  --breakpoint-lg: 1280px;
+  --breakpoint-xl: 1440px;
+}
+
+/* Base styles */
+body {
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  min-height: 100vh;
+}
+
+/* Glass effect utility */
+.glass {
+  background: var(--bg-glass);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+.glass-light {
+  background: rgba(49, 49, 49, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-base);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bg-elevated);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--bg-overlay);
+}
+
+/* Selection */
+::selection {
+  background: var(--accent-subtle);
+  color: var(--text-primary);
+}

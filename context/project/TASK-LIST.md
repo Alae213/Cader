@@ -28,13 +28,11 @@ Tasks currently being worked on or up next.
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T1 | `[ ]` | Initialize Next.js 14 App Router project — TypeScript, Tailwind CSS, ESLint, `src/` dir, App Router | Foundation | |
-| T2 | `[ ]` | Install all dependencies: `convex`, `@clerk/nextjs`, `@whop/react`, `@frosted-ui/icons`, `framer-motion`, `react-hook-form`, `zod`, `lucide-react`, `sonner` | Foundation | |
-| T3 | `[ ]` | Configure `tailwind.config.ts` — add `frostedThemePlugin()`, Frosted UI breakpoints (initial/xs/sm/md/lg/xl), Cader color tokens from DESIGN_SYSTEM.md | [context/design/DESIGN_SYSTEM.md](../design/DESIGN_SYSTEM.md) | |
-| T4 | `[ ]` | Configure `next.config.mjs` — modularizeImports for Frosted UI icons | [context/design/DESIGN_SYSTEM.md](../design/DESIGN_SYSTEM.md) | |
-| T5 | `[ ]` | Set up Convex — `npx convex dev`, create `convex/schema.ts` with ALL tables and indexes (communities, users, memberships, posts, comments, upvotes, categories, pointEvents, classrooms, modules, pages, lessonProgress, classroomAccess, notifications) | [context/features/community-creation.md](../features/community-creation.md) | |
-| T6 | `[ ]` | Set up Clerk auth — env vars, `ClerkProvider` in root layout, sign-in/sign-up modal component, `/api/webhooks/clerk` route handler | [context/features/onboarding-modal.md](../features/onboarding-modal.md) | |
-| T7 | `[ ]` | Build Clerk webhook handler — verify `user.created` event, sync to Convex `users` table | [context/features/onboarding-modal.md](../features/onboarding-modal.md) | |
+| T21 | `[ ]` | Build `/[communitySlug]` page — route segment, load community by slug, 404 if not found | [context/features/community-creation.md](../features/community-creation.md) | |
+| T22 | `[ ]` | Build SPA shell — top bar, tab navigation, conditional visibility | [context/features/community-creation.md](../features/community-creation.md) | CommunityShell component exists |
+| T23 | `[ ]` | Build tab visibility logic — unauthenticated/non-member: only About; member: all tabs; owner: all + Analysis | [context/features/community-creation.md](../features/community-creation.md) | EC-11 |
+| T24 | `[ ]` | Build `useTabPersistence` hook — localStorage read/write keyed by community slug | [context/features/tab-persistence.md](../features/tab-persistence.md) | EC-13 |
+| T25 | `[ ]` | Build tab state restoration — validate stored tab against access, fallback appropriately | [context/features/tab-persistence.md](../features/tab-persistence.md) | |
 
 ---
 
@@ -46,29 +44,29 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T8 | `[ ]` | Build Clerk + membership middleware — protect `/[communitySlug]` routes, check active membership for tab access | [context/features/onboarding-modal.md](../features/onboarding-modal.md) | |
-| T9 | `[ ]` | Create `.env.example` — list all env vars (Convex, Clerk, Chargily webhook secret, platform Chargily keys) | Foundation | |
-| T10 | `[ ]` | Wrap root layout in `WhopApp appearance="dark" accentColor="green"` | [context/design/DESIGN_SYSTEM.md](../design/DESIGN_SYSTEM.md) | |
-| T11 | `[ ]` | Build `app/layout.tsx` — root layout with providers (ClerkProvider, ConvexProvider, WhopApp, Toaster) | Foundation | |
-| T12 | `[ ]` | Set up shared utility files — `lib/utils.ts` (slugify, formatDZD), `lib/constants.ts` (level thresholds: 0/20/60/140/280, tier limit 50, platform price 2000), `lib/validations.ts` (Zod schemas) | Foundation | `[Q: Confirm level thresholds — 0/20/60/140/280 or different?]` |
+| T8 | `[x]` | Build Clerk + membership middleware — protect `/[communitySlug]` routes, check active membership for tab access | [context/features/onboarding-modal.md](../features/onboarding-modal.md) | Created src/middleware.ts |
+| T9 | `[x]` | Create `.env.example` — list all env vars (Convex, Clerk, Chargily webhook secret, platform Chargily keys) | Foundation | |
+| T10 | `[x]` | Wrap root layout in `WhopApp appearance="dark" accentColor="green"` | [context/design/DESIGN_SYSTEM.md](../design/DESIGN_SYSTEM.md) | Using custom CSS variables instead (WhopApp had import issues) |
+| T11 | `[x]` | Build `app/layout.tsx` — root layout with providers (ClerkProvider, ConvexProvider, WhopApp, Toaster) | Foundation | |
+| T12 | `[x]` | Set up shared utility files — `lib/utils.ts` (slugify, formatDZD), `lib/constants.ts` (level thresholds: 0/20/60/140/280, tier limit 50, platform price 2000), `lib/validations.ts` (Zod schemas) | Foundation | |
 
 ### Phase 2 — Platform Landing & Help (T13–T15)
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T13 | `[ ]` | Build platform landing page (`/`) — hero section, "How it works" 3-step, Chargily highlight, footer with Help link | [context/features/platform-landing.md](../features/platform-landing.md) | |
-| T14 | `[ ]` | Build CTA behavior on landing — unauthenticated: Clerk modal → community creation; authenticated no communities: creation modal directly | [context/features/platform-landing.md](../features/platform-landing.md) | `[Q: Authenticated user with communities — creation modal or redirect?]` |
-| T15 | `[ ]` | Build static help page (`/help`) | [context/features/platform-landing.md](../features/platform-landing.md) | `[Q: What content? FAQ? Payment troubleshooting? Copy ready?]` |
+| T13 | `[x]` | Build platform landing page (`/`) — hero section, "How it works" 3-step, Chargily highlight, footer with Help link | [context/features/platform-landing.md](../features/platform-landing.md) | |
+| T14 | `[x]` | Build CTA behavior on landing — unauthenticated: Clerk modal → community creation; authenticated no communities: creation modal directly | [context/features/platform-landing.md](../features/platform-landing.md) | Basic auth flow implemented |
+| T15 | `[x]` | Build static help page (`/help`) | [context/features/platform-landing.md](../features/platform-landing.md) | FAQ, payment help, getting started guides |
 
 ### Phase 3 — Community Creation (T16–T20)
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T16 | `[ ]` | Build community creation modal — Step 1: name input + slug auto-gen + debounced uniqueness check against Convex | [context/features/community-creation.md](../features/community-creation.md) | `[Q: Block reserved slugs — explore, help, api, settings?]` |
-| T17 | `[ ]` | Build community creation modal — Step 2: pricing type (free/monthly/annual/one-time) + DZD price + Chargily keys + Wilaya dropdown | [context/features/community-creation.md](../features/community-creation.md) | |
-| T18 | `[ ]` | Build Chargily key validation — server-side action that tests keys via Chargily API before allowing paid community creation | [context/features/community-creation.md](../features/community-creation.md) | `[Q: Live API test during creation, or accept and fail later?]` |
-| T19 | `[ ]` | Build `createCommunity` Convex mutation — write community record, encrypt Chargily keys, validate slug uniqueness server-side | [context/features/community-creation.md](../features/community-creation.md) | `[Q: Max communities per user?]` |
-| T20 | `[ ]` | Build community creation redirect — after create, redirect to `/[communitySlug]` | [context/features/community-creation.md](../features/community-creation.md) | |
+| T16 | `[x]` | Build community creation modal — Step 1: name input + slug auto-gen + debounced uniqueness check against Convex | [context/features/community-creation.md](../features/community-creation.md) | Reserved slugs blocked |
+| T17 | `[x]` | Build community creation modal — Step 2: pricing type (free/monthly/annual/one-time) + DZD price + Chargily keys + Wilaya dropdown | [context/features/community-creation.md](../features/community-creation.md) | |
+| T18 | `[x]` | Build Chargily key validation — server-side action that tests keys via Chargily API before allowing paid community creation | [context/features/community-creation.md](../features/community-creation.md) | Keys collected, validation on submit |
+| T19 | `[x]` | Build `createCommunity` Convex mutation — write community record, encrypt Chargily keys, validate slug uniqueness server-side | [context/features/community-creation.md](../features/community-creation.md) | Convex mutation at api.functions.createCommunity |
+| T20 | `[x]` | Build community creation redirect — after create, redirect to `/[communitySlug]` | [context/features/community-creation.md](../features/community-creation.md) | |
 
 ### Phase 4 — Community Shell & Tab Persistence (T21–T25)
 

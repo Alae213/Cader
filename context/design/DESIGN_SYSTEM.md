@@ -98,12 +98,12 @@ These use the full 12-step Radix scale. Each has solid steps (1–12) and alpha 
 
 ### Fonts
 
-| Role             | Font             | Weights        |
-| ---------------- | ---------------- | -------------- |
-| Display          | Instrument Serif | Regular Italic |
-| Headings         | **Inter**        | 500, 600       |
-| Body             | **Inter**        | 400, 500       |
-| Code / Monospace | **Geist Mono**   | 400            |
+| Role             | Font                 | Weights        |
+| ---------------- | -------------------- | -------------- |
+| Display          | **Instrument Serif** | Regular Italic |
+| Headings         | **Instrument Serif** | Regular Italic |
+| Body             | **Inter**            | 400, 500       |
+| Code / Monospace | **Geist Mono**       | 400            |
 
 ### Frosted UI Typography Scale (Size 0–9)
 
@@ -130,7 +130,7 @@ Prefer these over raw HTML elements:
 import { Heading, Text } from "@whop/react";
 
 // Hero heading
-<Heading size="9">Launch your paid community</Heading>
+<Heading size="9">Meet Education Business Again</Heading>
 
 // Card title
 <Heading size="5">Getting Started</Heading>
@@ -159,13 +159,13 @@ import { Heading, Text } from "@whop/react";
 
 ### Letter Spacing
 
-| Class | Value | Use |
-|---|---|---|
-| `tracking-0` | -0.05em | Display headings |
-| `tracking-1` | -0.025em | Titles, subtitles |
-| `tracking-2` | 0 | Body text (default) |
-| `tracking-3` | 0.025em | All-caps labels, badges |
-| `tracking-4` | 0.05em | Wide tracking for emphasis |
+| Class        | Value    | Use                        |
+| ------------ | -------- | -------------------------- |
+| `tracking-0` | -0.05em  | Display headings           |
+| `tracking-1` | -0.035em | Titles, subtitles          |
+| `tracking-2` | 0        | Body text (default)        |
+| `tracking-3` | 0.025em  | All-caps labels, badges    |
+| `tracking-4` | 0.05em   | Wide tracking for emphasis |
 
 ### Rules
 - Line height for body: `leading-3` (16px) or `leading-4` (18px)
