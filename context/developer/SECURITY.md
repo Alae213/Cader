@@ -11,108 +11,100 @@
 Never hardcode any secret, key, token, or password in source code — ever.
 This includes placeholder values, test values, and "temporary" values.
 
-- All secrets live in environment variables
-- Environment variables are documented in `context/technical/ENVIRONMENT.md`
-- `.env` files are always in `.gitignore` — verify this before every commit
-- If a secret is accidentally committed, treat it as compromised immediately
+- All secrets live in environment variables (see `context/technical/ENVIRONMENT.md`)
+- `.env.local` is always in `.gitignore` — verify before every commit
+- If a secret is accidentally committed, treat it as compromised immediately and rotate it
 
 Forbidden in code:
-- API keys of any kind
-- Database connection strings with credentials
-- JWT secrets or signing keys
-- OAuth client secrets
+- Chargily Secret Keys (platform or creator)
+- Clerk secret key or webhook secret
+- Convex deploy key
+- Database connection strings
+- JWT secrets
 - Private keys or certificates
-- Passwords, even hashed ones
+
+**Creator Chargily keys:** Stored encrypted at rest in Convex `communities` table.
+Retrieved server-side only inside Convex `action` functions. Never returned to the client.
+Never logged.
 
 ---
 
 ## Authentication and Authorisation
 
-Every route, endpoint, and action that requires a logged-in user must check
-authentication before doing anything else. No exceptions.
+Every Convex query, mutation, and action that operates on community data must:
+
+1. Verify the user is authenticated (`ctx.auth.getUserIdentity()`)
+2. Check the user's membership and role in the relevant community via the `memberships` table
+
+**The authoritative access check is always:**
+```ts
+memberships.filter(m => m.userId === userId && m.communityId === communityId && m.status === "active")
+```
 
 Rules:
-- Auth checks happen server-side — never trust the client to enforce access
-- Verify the user owns the resource before returning or modifying it
-  (a user requesting `/invoices/123` should only see it if invoice 123 belongs to them)
-- Admin-only routes must verify the admin role explicitly, not just authentication
-- Session tokens must expire — never create tokens with no expiry
-- Logout must invalidate the session server-side, not just clear the cookie
-- Failed auth attempts must not reveal whether the email exists
+- Auth checks happen server-side (in Convex functions) — never trust the client to enforce access
+- Admin-only operations (delete post, pin post, add/remove admin) must verify `role === "admin"`
+- Community deletion requires `role === "admin"` AND zero active paying members (EC-7)
+- Last admin removal is blocked server-side (EC-8) — always check admin count before removing
+
+---
+
+## Payments (Chargily Pay)
+
+- Chargily Secret Key is **never returned to the client**. Read only inside Convex `action` functions.
+- Membership and classroom access are granted **only** via webhook handler, after signature verification.
+- Frontend never grants access optimistically (EC-3).
+- Webhook handler returns `401` on invalid signature — does not process the event.
+- Checkout metadata (`userId`, `communityId`, `type`) is validated on webhook receipt.
+- Do not log raw Chargily webhook payloads in production — they may contain payment details.
 
 ---
 
 ## User Input
 
-Treat all user input as untrusted. Validate and sanitise everything before
-using it in a query, rendering it to the page, or passing it to an external service.
+All user input is untrusted. Validate and sanitise before using in a query, rendering to
+the page, or passing to an external service.
 
-Rules:
-- Validate input type, length, and format on the server — client validation is UX only
-- Never interpolate user input directly into database queries — always use parameterised queries
-- Sanitise any user-generated content before rendering it as HTML
-- Reject unexpected fields in form submissions — only accept what you expect
-- File uploads: validate file type by content (not just extension), enforce size limits,
-  never serve uploaded files from the same origin as the app
+- Validate on the server (Convex mutations) — client validation is UX only
+- Sanitise rich text content (post body, lesson content, community description) server-side before storage
+- Video embed URLs: validate against an allowlist of accepted origins (youtube.com, youtu.be, vimeo.com, drive.google.com) before storing
+- Slug input: validate format (lowercase alphanumeric + hyphens) and uniqueness server-side
+- File uploads (avatar, lesson attachment): validate MIME type by content (not extension), enforce size limits server-side
 
 ---
 
 ## Sensitive Data
 
-Define what counts as sensitive for this project and handle it accordingly.
-
-Sensitive data in most web apps includes:
-- Passwords (must be hashed with bcrypt or argon2 — never md5 or sha1)
-- Email addresses
-- Payment information (never store raw card numbers — use Stripe or equivalent)
-- Personal identification details
-- Private messages or documents
+What counts as sensitive in Cader:
+- Phone numbers collected during onboarding
+- Email addresses (from Clerk)
+- Chargily API keys (creator's)
+- Payment amounts and payment status
 
 Rules:
-- Sensitive data is never logged — not in error logs, not in analytics
+- Phone numbers and emails are never included in public-facing queries
+- Payment amounts are returned only to the community admin, not to members
+- Sensitive data is never logged (not in Convex function logs, not in Vercel logs)
 - Sensitive data is never included in URLs or query parameters
-- Responses must not include sensitive fields the current user doesn't need
-  (e.g. a user list endpoint should never return password hashes)
-- Use HTTPS everywhere — never serve sensitive operations over HTTP
 
 ---
 
 ## Rate Limiting and Abuse Prevention
 
-Protect endpoints that can be abused:
-- Login and signup endpoints must be rate limited
-- Password reset must be rate limited
-- Any endpoint that sends emails or SMS must be rate limited
-- Search endpoints that are computationally expensive should be rate limited
-
----
-
-## Dependencies
-
-- Never install a package without checking it is actively maintained
-- Pin dependency versions in production — avoid `latest` or loose ranges
-- Run `npm audit` after adding dependencies — flag high severity issues immediately
-
----
-
-## What Claude Must Do
-
-When writing code that touches any of the above areas, Claude must:
-
-1. Read this file first
-2. Check the feature spec for any stated security requirements
-3. Implement the security measure — never defer it as "to do later"
-4. Flag in the code review if any area was not addressed
-
-Security is not a feature to add later. It is built in from the first line.
+Protect operations that can be abused:
+- Community creation: max 5 per user per hour
+- Post creation: max 20 posts per member per hour
+- Comment creation: max 60 comments per member per hour
+- Onboarding modal: max 3 checkout session creations per user per hour per community
+- Webhook endpoints: accept only POST, verify signature on every request
 
 ---
 
 ## Project-Specific Rules
 
-<!-- Add any rules specific to this project here during setup or as they emerge.
-     Examples:
-     - All users must verify their email before accessing paid features
-     - GDPR: users in the EU must be able to request deletion of their data
-     - PCI: no payment data is stored — all card handling goes through Stripe
--->
+- **No optimistic payment access** — access is always webhook-gated (EC-3)
+- **Community-scoped permissions** — every permission check uses `(userId, communityId)` — no global role shortcuts
+- **Creator Chargily keys** — encrypted at rest, never logged, never returned to client
+- **Slug uniqueness** — validated on the server at both input-time and submit-time (EC-5)
+- **Minimum 1 admin** — enforced server-side before any admin removal (EC-8)
+- **Deletion guard** — community deletion blocked server-side if active paying members exist (EC-7)
