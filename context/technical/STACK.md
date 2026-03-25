@@ -31,10 +31,10 @@ Utility-first styling. All design tokens (colors, spacing, typography, border ra
 defined in `tailwind.config.ts`. No inline styles. No CSS modules except where Tailwind
 cannot reach.
 
-**shadcn/ui**
-Accessible base components: dialogs, dropdowns, sheets, forms, toasts.
-We own the code — components live in `components/ui/`. Never import from the registry
-after initial install; modify in place.
+**@animate-ui**
+Accessible base components with built-in animations: dialogs, dropdowns, sheets, forms.
+Components live in `components/animate-ui/` and `components/ui/`. We wrap them with Cader
+design tokens in `components/ui/`.
 
 **Framer Motion (`motion`)**
 Complex animations and micro-interactions. Used sparingly — only for: modal open/close,

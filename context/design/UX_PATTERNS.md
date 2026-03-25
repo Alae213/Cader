@@ -157,7 +157,7 @@ import { Flex } from "@whop/react";
 ## Error Handling
 
 ### Toast Notifications
-- Library: Frosted UI `Toaster` (replaces shadcn/ui `Sonner`)
+- Library: Frosted UI `Toaster`
 - Frosted UI `Toaster` handles types automatically via `variant`: `"success"`, `"error"`, `"warning"`, `"info"`
 - Position: bottom-center on desktop, top-center on mobile
 - Duration: 3.5 seconds (auto-dismiss)

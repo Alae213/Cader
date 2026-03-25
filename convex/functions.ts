@@ -129,6 +129,50 @@ export const createCommunity = mutation({
   },
 });
 
+// Get user's membership for a community by slug (uses Clerk ID)
+export const getMembershipBySlug = query({
+  args: { 
+    slug: v.string(),
+    clerkId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Find the community by slug
+    const community = await ctx.db
+      .query("communities")
+      .withIndex("by_slug", (q) => q.eq("slug", args.slug))
+      .first();
+    
+    if (!community) return null;
+    
+    // Find the user by Clerk ID
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
+      .first();
+    
+    if (!user) return null;
+    
+    // Find membership
+    const membership = await ctx.db
+      .query("memberships")
+      .withIndex("by_community_and_user", (q) => 
+        q.eq("communityId", community._id).eq("userId", user._id)
+      )
+      .first();
+    
+    if (!membership) return null;
+    
+    // Return role for tab visibility
+    return {
+      role: membership.role,
+      status: membership.status,
+      isOwner: membership.role === "owner",
+      isAdmin: membership.role === "admin" || membership.role === "owner",
+      isMember: membership.status === "active",
+    };
+  },
+});
+
 // Get user's membership for a community
 export const getMembership = query({
   args: { 

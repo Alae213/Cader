@@ -28,11 +28,11 @@ Tasks currently being worked on or up next.
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T21 | `[ ]` | Build `/[communitySlug]` page — route segment, load community by slug, 404 if not found | [context/features/community-creation.md](../features/community-creation.md) | |
-| T22 | `[ ]` | Build SPA shell — top bar, tab navigation, conditional visibility | [context/features/community-creation.md](../features/community-creation.md) | CommunityShell component exists |
-| T23 | `[ ]` | Build tab visibility logic — unauthenticated/non-member: only About; member: all tabs; owner: all + Analysis | [context/features/community-creation.md](../features/community-creation.md) | EC-11 |
-| T24 | `[ ]` | Build `useTabPersistence` hook — localStorage read/write keyed by community slug | [context/features/tab-persistence.md](../features/tab-persistence.md) | EC-13 |
-| T25 | `[ ]` | Build tab state restoration — validate stored tab against access, fallback appropriately | [context/features/tab-persistence.md](../features/tab-persistence.md) | |
+| T21 | `[x]` | Build `/[communitySlug]` page — route segment, load community by slug, 404 if not found | [context/features/community-creation.md](../features/community-creation.md) | Integrated with Convex getBySlug, loading & 404 states handled |
+| T22 | `[x]` | Build SPA shell — top bar, tab navigation, conditional visibility | [context/features/community-creation.md](../features/community-creation.md) | CommunityShell + TabNav with membership-based visibility |
+| T23 | `[x]` | Build tab visibility logic — unauthenticated/non-member: only About; member: all tabs; owner: all + Analysis | [context/features/community-creation.md](../features/community-creation.md) | Added getMembershipBySlug query, tabs hidden for non-members |
+| T24 | `[x]` | Build `useTabPersistence` hook — localStorage read/write keyed by community slug | [context/features/tab-persistence.md](../features/tab-persistence.md) | Created useTabPersistence hook + TabNav saves preference |
+| T25 | `[x]` | Build tab state restoration — validate stored tab against access, fallback appropriately | [context/features/tab-persistence.md](../features/tab-persistence.md) | Page redirects to stored tab on load if member |
 
 ---
 
@@ -44,7 +44,7 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T8 | `[x]` | Build Clerk + membership middleware — protect `/[communitySlug]` routes, check active membership for tab access | [context/features/onboarding-modal.md](../features/onboarding-modal.md) | Created src/middleware.ts |
+| T8 | `[x]` | Build Clerk + membership middleware — protects `/create`, `/explore`, `/settings`. `/[communitySlug]` is public (About tab visible to all). Membership check in page components. | [context/features/onboarding-modal.md](../features/onboarding-modal.md) | Renamed to middleware.ts. /[communitySlug] intentionally public for About tab |
 | T9 | `[x]` | Create `.env.example` — list all env vars (Convex, Clerk, Chargily webhook secret, platform Chargily keys) | Foundation | |
 | T10 | `[x]` | Wrap root layout in `WhopApp appearance="dark" accentColor="green"` | [context/design/DESIGN_SYSTEM.md](../design/DESIGN_SYSTEM.md) | Using custom CSS variables instead (WhopApp had import issues) |
 | T11 | `[x]` | Build `app/layout.tsx` — root layout with providers (ClerkProvider, ConvexProvider, WhopApp, Toaster) | Foundation | |
@@ -62,10 +62,10 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T16 | `[x]` | Build community creation modal — Step 1: name input + slug auto-gen + debounced uniqueness check against Convex | [context/features/community-creation.md](../features/community-creation.md) | Reserved slugs blocked |
+| T16 | `[x]` | Build community creation modal — Step 1: name input + slug auto-gen + debounced uniqueness check against Convex | [context/features/community-creation.md](../features/community-creation.md) | Reserved slugs blocked, but check is client-side only |
 | T17 | `[x]` | Build community creation modal — Step 2: pricing type (free/monthly/annual/one-time) + DZD price + Chargily keys + Wilaya dropdown | [context/features/community-creation.md](../features/community-creation.md) | |
-| T18 | `[x]` | Build Chargily key validation — server-side action that tests keys via Chargily API before allowing paid community creation | [context/features/community-creation.md](../features/community-creation.md) | Keys collected, validation on submit |
-| T19 | `[x]` | Build `createCommunity` Convex mutation — write community record, encrypt Chargily keys, validate slug uniqueness server-side | [context/features/community-creation.md](../features/community-creation.md) | Convex mutation at api.functions.createCommunity |
+| T18 | `[~]` | Build Chargily key validation — server-side action that tests keys via Chargily API before allowing paid community creation | [context/features/community-creation.md](../features/community-creation.md) | NOT IMPLEMENTED: keys collected in modal but no server-side validation |
+| T19 | `[x]` | Build `createCommunity` Convex mutation — write community record, encrypt Chargily keys, validate slug uniqueness server-side | [context/features/community-creation.md](../features/community-creation.md) | Convex mutation exists but does NOT encrypt Chargily keys |
 | T20 | `[x]` | Build community creation redirect — after create, redirect to `/[communitySlug]` | [context/features/community-creation.md](../features/community-creation.md) | |
 
 ### Phase 4 — Community Shell & Tab Persistence (T21–T25)
@@ -248,20 +248,19 @@ Tasks that can't proceed until something else is resolved.
 
 | # | Task | Feature | Blocked by |
 |---|------|---------|------------|
-| T8 | Clerk + membership middleware | [context/features/onboarding-modal.md](../features/onboarding-modal.md) | T6 (Clerk auth), T7 (Clerk webhook) |
-| T16-T20 | Community creation | [context/features/community-creation.md](../features/community-creation.md) | T5 (Convex schema), T6 (Clerk auth) |
-| T21-T25 | Community shell + tab persistence | [context/features/community-creation.md](../features/community-creation.md) | T8 (middleware), T19 (createCommunity) |
-| T26-T31 | About tab | [context/features/about-tab.md](../features/about-tab.md) | T22 (SPA shell) |
-| T32-T39 | Chargily integration | [context/features/chargily-integration.md](../features/chargily-integration.md) | T19 (createCommunity — needs community keys) |
-| T40-T46 | Onboarding modal | [context/features/onboarding-modal.md](../features/onboarding-modal.md) | T8 (middleware), T32 (checkout creation) |
-| T47-T57 | Community feed | [context/features/community-feed.md](../features/community-feed.md) | T22 (SPA shell), T8 (middleware) |
+| T16-T20 | Community creation | [context/features/community-creation.md](../features/community-creation.md) | T5 (Convex schema), T6 (Clerk auth) | Completed |
+| T21-T25 | Community shell + tab persistence | [context/features/community-creation.md](../features/community-creation.md) | T8 (middleware - partial), T19 (createCommunity - partial: doesn't encrypt keys) |
+| T26-T31 | About tab | [context/features/about-tab.md](../features/about-tab.md) | T22 (SPA shell - partial) |
+| T32-T39 | Chargily integration | [context/features/chargily-integration.md](../features/chargily-integration.md) | T18 (key validation - NOT IMPLEMENTED), T19 (keys not encrypted) |
+| T40-T46 | Onboarding modal | [context/features/onboarding-modal.md](../features/onboarding-modal.md) | T8 (middleware - partial), T32 (checkout creation) |
+| T47-T57 | Community feed | [context/features/community-feed.md](../features/community-feed.md) | T22 (SPA shell - partial), T8 (middleware - partial) |
 | T58-T65 | Feed interactions (upvotes, categories, pin, delete) | [context/features/community-feed.md](../features/community-feed.md) | T53 (post card), T54 (listPosts) |
-| T66-T76 | Classrooms | [context/features/classrooms.md](../features/classrooms.md) | T22 (SPA shell), T35 (classroom access) |
-| T77-T81 | Members & Wilaya map | [context/features/members-wilaya-map.md](../features/members-wilaya-map.md) | T22 (SPA shell) |
+| T66-T76 | Classrooms | [context/features/classrooms.md](../features/classrooms.md) | T22 (SPA shell - partial), T35 (classroom access) |
+| T77-T81 | Members & Wilaya map | [context/features/members-wilaya-map.md](../features/members-wilaya-map.md) | T22 (SPA shell - partial) |
 | T82-T90 | Leaderboard & gamification | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | T58 (upvotes — pointEvents), T66 (classrooms — lesson progress) |
 | T91-T94 | @Mentions & notifications | [context/features/mentions.md](../features/mentions.md) | T56 (open post modal), T81 (listMembers) |
-| T95-T101 | Modals (profile, settings) | [context/features/settings.md](../features/settings.md) | T22 (SPA shell), T32 (Chargily) |
-| T102-T104 | Explore modal | [context/features/explore-modal.md](../features/explore-modal.md) | T22 (SPA shell) |
+| T95-T101 | Modals (profile, settings) | [context/features/settings.md](../features/settings.md) | T22 (SPA shell - partial), T32 (Chargily) |
+| T102-T104 | Explore modal | [context/features/explore-modal.md](../features/explore-modal.md) | T22 (SPA shell - partial) |
 | T106-T109 | Edge cases | All features | Relevant feature tasks |
 | T113-T122 | Polish & launch | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | All feature tasks |
 

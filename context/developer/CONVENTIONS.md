@@ -53,7 +53,7 @@
   layout.tsx              ← Root layout (Clerk provider, Convex provider)
 
 /components
-  /ui                     ← shadcn/ui components (owned, not imported)
+  /ui                     ← @animate-ui components (owned, not imported)
   /About                  ← About-scoped components
   /community              ← Community-scoped components
   /classrooms             ← Classroom-specific components
@@ -63,6 +63,7 @@
   /modals                 ← All modal components
   /layout                 ← Shell, top bar, tab navigation
   /shared                 ← Reused across features (Avatar, LevelBadge, etc.)
+  /animate-ui             ← @animate-ui primitives
 
 /convex
   /schema.ts              ← All table definitions

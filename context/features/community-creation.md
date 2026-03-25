@@ -1,6 +1,6 @@
 # Feature: Community Creation
 
-> **Status:** `draft`
+> **Status:** `partial`
 > **Phase:** v1
 > **Last updated:** March 2026
 

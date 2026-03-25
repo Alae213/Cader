@@ -22,9 +22,11 @@ interface Community {
 interface CommunityShellProps {
   community: Community;
   children: React.ReactNode;
+  showTabs?: boolean;
+  isOwner?: boolean;
 }
 
-export function CommunityShell({ community, children }: CommunityShellProps) {
+export function CommunityShell({ community, children, showTabs = false, isOwner = false }: CommunityShellProps) {
   const { user } = useUser();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -89,8 +91,8 @@ export function CommunityShell({ community, children }: CommunityShellProps) {
           </div>
         </div>
 
-        {/* Tab Navigation */}
-        <TabNav communitySlug={community.slug} />
+        {/* Tab Navigation - only show for members/owners */}
+        {showTabs && <TabNav communitySlug={community.slug} isOwner={isOwner} />}
       </div>
 
       {/* Main Content */}

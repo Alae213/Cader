@@ -1,170 +1,113 @@
 'use client';
 
-import React, { useEffect, useCallback, useMemo } from 'react';
-import { createPortal } from 'react-dom';
+import * as React from 'react';
 import { X } from 'lucide-react';
+
+import {
+  Dialog as DialogRoot,
+  DialogContent as DialogContentBase,
+  DialogDescription as DialogDescriptionBase,
+  DialogFooter as DialogFooterBase,
+  DialogHeader as DialogHeaderBase,
+  DialogTitle as DialogTitleBase,
+  DialogTrigger as DialogTriggerBase,
+  DialogClose as DialogCloseBase,
+} from '@/components/animate-ui/components/radix/dialog';
+import type {
+  DialogProps as DialogRootProps,
+  DialogContentProps as DialogContentBaseProps,
+  DialogDescriptionProps as DialogDescriptionBaseProps,
+  DialogFooterProps as DialogFooterBaseProps,
+  DialogHeaderProps as DialogHeaderBaseProps,
+  DialogTitleProps as DialogTitleBaseProps,
+  DialogTriggerProps as DialogTriggerBaseProps,
+  DialogCloseProps as DialogCloseBaseProps,
+} from '@/components/animate-ui/components/radix/dialog';
 import { cn } from '@/lib/utils';
-import { Heading, Text } from './Text';
 
-// Dialog Root
-export interface DialogProps {
-  open: boolean;
-  onClose?: () => void;
-  onOpenChange?: (open: boolean) => void;
-  children: React.ReactNode;
-  className?: string;
-}
+// Re-export types
+export type DialogProps = DialogRootProps;
+export type DialogTriggerProps = DialogTriggerBaseProps;
+export type DialogCloseProps = DialogCloseBaseProps;
+export type DialogContentProps = DialogContentBaseProps;
+export type DialogHeaderProps = DialogHeaderBaseProps;
+export type DialogFooterProps = DialogFooterBaseProps;
+export type DialogTitleProps = DialogTitleBaseProps;
+export type DialogDescriptionProps = DialogDescriptionBaseProps;
 
-export function Dialog({ open, onClose, onOpenChange, children, className }: DialogProps) {
-  const handleClose = useMemo(
-    () => onClose || (onOpenChange ? () => onOpenChange(false) : undefined),
-    [onClose, onOpenChange]
-  );
+// Dialog Root - re-export as-is
+export const Dialog = DialogRoot;
 
-  // Handle escape key
-  const handleEscape = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && open && handleClose) {
-        handleClose();
-      }
-    },
-    [open, handleClose]
-  );
+// Dialog Trigger
+export const DialogTrigger = DialogTriggerBase;
 
-  useEffect(() => {
-    if (open) {
-      document.addEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'hidden';
-    }
+// Dialog Close
+export const DialogClose = DialogCloseBase;
 
-    return () => {
-      document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = '';
-    };
-  }, [open, handleEscape]);
-
-  if (!open) return null;
-
-  return createPortal(
-    <div className={cn("fixed inset-0 z-50 flex items-center justify-center", className)}>
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-xl"
-        onClick={handleClose}
-      />
-      <div className="relative z-10" style={{ maxHeight: '90vh', overflow: 'auto' }}>
-        {children}
-      </div>
-    </div>,
-    document.body
-  );
-}
-
-// Dialog Header
-export interface DialogHeaderProps {
-  children: React.ReactNode;
-  className?: string;
-}
-
-export function DialogHeader({ children, className }: DialogHeaderProps) {
+// Dialog Content - wrap to use Cader tokens
+export function DialogContent(props: DialogContentBaseProps) {
   return (
-    <div className={cn('flex flex-col gap-1 p-6', className)}>
-      {children}
-    </div>
-  );
-}
-
-// Dialog Title
-export interface DialogTitleProps {
-  children: React.ReactNode;
-  className?: string;
-}
-
-export function DialogTitle({ children, className }: DialogTitleProps) {
-  return (
-    <Heading size="6" className={className}>
-      {children}
-    </Heading>
-  );
-}
-
-// Dialog Description
-export interface DialogDescriptionProps {
-  children: React.ReactNode;
-  className?: string;
-}
-
-export function DialogDescription({ children, className }: DialogDescriptionProps) {
-  return (
-    <Text size="2" theme="secondary" className={className}>
-      {children}
-    </Text>
-  );
-}
-
-// Dialog Close Button
-export interface DialogCloseProps {
-  onClick?: () => void;
-  className?: string;
-}
-
-export function DialogClose({ onClick, className }: DialogCloseProps) {
-  return (
-    <button
-      onClick={onClick}
+    <DialogContentBase
+      {...props}
       className={cn(
-        'p-2 hover:bg-bg-elevated rounded-lg transition-colors',
-        className
+        'bg-bg-surface border-border shadow-2xl',
+        props.className
       )}
-    >
-      <X className="w-5 h-5 text-text-muted" />
-    </button>
+    />
   );
 }
 
-// Dialog Content
-export interface DialogContentProps {
-  children: React.ReactNode;
-  className?: string;
-}
-
-export function DialogContent({ children, className }: DialogContentProps) {
+// Dialog Header - wrap to use Cader tokens
+export function DialogHeader(props: DialogHeaderBaseProps) {
   return (
-    <div
-      className={cn(
-        'relative w-full max-w-lg mx-4 bg-bg-surface rounded-2xl shadow-2xl',
-        className
-      )}
-    >
-      {children}
-    </div>
+    <DialogHeaderBase
+      {...props}
+      className={cn('flex flex-col gap-2', props.className)}
+    />
   );
 }
 
-// Dialog Footer
-export interface DialogFooterProps {
-  children: React.ReactNode;
-  className?: string;
-}
-
-export function DialogFooter({ children, className }: DialogFooterProps) {
+// Dialog Footer - wrap to use Cader tokens
+export function DialogFooter(props: DialogFooterBaseProps) {
   return (
-    <div className={cn('flex items-center justify-end gap-3 p-6', className)}>
-      {children}
-    </div>
+    <DialogFooterBase
+      {...props}
+      className={cn('flex items-center justify-end gap-3', props.className)}
+    />
   );
 }
 
-// Dialog Body
+// Dialog Title - wrap to use Cader tokens
+export function DialogTitle(props: DialogTitleBaseProps) {
+  return (
+    <DialogTitleBase
+      {...props}
+      className={cn('text-lg font-semibold leading-none', props.className)}
+    />
+  );
+}
+
+// Dialog Description - wrap to use Cader tokens
+export function DialogDescription(props: DialogDescriptionBaseProps) {
+  return (
+    <DialogDescriptionBase
+      {...props}
+      className={cn('text-text-secondary text-sm', props.className)}
+    />
+  );
+}
+
+// Dialog Body (extra component for content padding)
 export interface DialogBodyProps {
   children: React.ReactNode;
   className?: string;
 }
 
 export function DialogBody({ children, className }: DialogBodyProps) {
-  return <div className={cn('p-6 pt-0', className)}>{children}</div>;
+  return <div className={cn('p-0', className)}>{children}</div>;
 }
 
-// Progress Bar
+// Progress Bar (for multi-step dialogs)
 export interface ProgressBarProps {
   value: number;
   className?: string;
@@ -180,5 +123,3 @@ export function ProgressBar({ value, className }: ProgressBarProps) {
     </div>
   );
 }
-
-export default Dialog;

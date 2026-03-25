@@ -8,9 +8,9 @@
 ## Core Rules
 
 - **Never use raw HTML elements** (`div`, `span`, `p`, `h1`–`h6`, `button`, `input`, etc.) directly in feature components.
-- **Always check `shadcn/ui` first.** If the library offers the component, use it. If not, build a custom component.
-- **Never use `shadcn/ui` default tokens.** The only source of truth for all design tokens is `/context/design/DESIGN_SYSTEM.md`.
-- **Never add inline Tailwind classes that duplicate what a `shadcn/ui` component already handles internally.**
+- **Always check `@animate-ui` first.** If the library offers the component, use it. If not, build a custom component.
+- **Never use default token values.** The only source of truth for all design tokens is `/context/design/DESIGN_SYSTEM.md`.
+- **Never add inline Tailwind classes that duplicate what a component already handles internally.
 
 ---
 
@@ -18,7 +18,7 @@
 
 ```
 /components
-  /ui                ← shadcn/ui standard building blocks (primary layer)
+  /ui                ← @animate-ui standard building blocks (primary layer)
     /Text            ← Custom Heading and Text components (HTML + Tailwind)
   /About             ← About-scoped components
   /community         ← Community-scoped components
@@ -29,6 +29,7 @@
   /modals            ← All modal components
   /layout            ← Shell, top bar, tab navigation
   /shared            ← Reused across features (Avatar, LevelBadge, etc.)
+  /animate-ui        ← @animate-ui components (radix-dialog, etc.)
 ```
 
 ---
@@ -39,12 +40,12 @@ Cader uses a **two-layer component model**:
 
 | Layer | Source | Role |
 |---|---|---|
-| **Primitives** | `shadcn/ui` + `/components/ui/Text` | Standard UI building blocks — buttons, dialogs, inputs, tabs, cards, badges, typography |
+| **Primitives** | `@animate-ui` + `/components/ui/Text` | Standard UI building blocks — buttons, dialogs, inputs, tabs, cards, badges, typography |
 | **Custom Cader** | `components/` | Business components: PostCard, ClassroomGrid, MemberList, etc. Built on top of Layer 1 |
 
 ---
 
-## Layer 1 — shadcn/ui Primitives
+## Layer 1 — @animate-ui Primitives
 
 ### Layout
 
@@ -83,12 +84,12 @@ Cader uses a **two-layer component model**:
 
 | Component | Notes | Status |
 |---|---|---|
-| `TextInput` | Single-line text input — `shadcn/ui` Input | — |
-| `TextArea` | Multi-line text area — `shadcn/ui` Textarea | — |
+| `TextInput` | Single-line text input | — |
+| `TextArea` | Multi-line text area | — |
 | `Checkbox` | Checkbox input | — |
 | `RadioGroup` | Radio button groups | — |
-| `Select` | Dropdown select — `shadcn/ui` Select | — |
-| `Switch` | Toggle switch — `shadcn/ui` Switch | — |
+| `Select` | Dropdown select | — |
+| `Switch` | Toggle switch | — |
 | `Slider` | Range slider | — |
 | `DatePicker` | Date input | — |
 | `OTPField` | One-time password input | — |
@@ -98,7 +99,7 @@ Cader uses a **two-layer component model**:
 | Component | Notes | Status |
 |---|---|---|
 | `Button` | Primary action button — `variant` prop: `primary`, `secondary`, `tertiary`, `ghost`, `danger` | — |
-| `IconButton` | Icon-only button — replaces icon-only shadcn/ui Buttons | — |
+| `IconButton` | Icon-only button | — |
 
 > Primary `Button` uses `accent` color by default.
 > Danger variant uses `error` (red) color.
@@ -108,20 +109,20 @@ Cader uses a **two-layer component model**:
 
 | Component | Notes | Status |
 |---|---|---|
-| `Card` | Card container with surface styling — `shadcn/ui` Card | — |
+| `Card` | Card container with surface styling | — |
 | `Avatar` | User avatar with fallback initials | — |
 | `AvatarGroup` | Multiple overlapping avatars | — |
-| `Badge` | Status/category badges — `shadcn/ui` Badge | — |
+| `Badge` | Status/category badges | — |
 | `Callout` | Info/warning/error callout boxes | — |
 | `Table` | Data table | — |
 | `DataList` | Key-value data display | — |
-| `Skeleton` | Loading placeholder — replaces custom `bg-elevated animate-pulse` pattern | — |
+| `Skeleton` | Loading placeholder | — |
 
 ### Navigation
 
 | Component | Notes | Status |
 |---|---|---|
-| `Tabs` | Tab navigation — `shadcn/ui` Tabs | — |
+| `Tabs` | Tab navigation | — |
 | `Breadcrumbs` | Breadcrumb navigation | — |
 | `Link` | Styled anchor link | — |
 | `SegmentedControl` | Segmented button groups (time range filters: 7d / 30d / all) | — |
@@ -130,11 +131,11 @@ Cader uses a **two-layer component model**:
 
 | Component | Notes | Status |
 |---|---|---|
-| `Dialog` | Modal/dialog — `shadcn/ui` Dialog | — |
+| `Dialog` | Modal/dialog — `@animate-ui` radix-dialog with animations | — |
 | `Popover` | Popover menus | — |
 | `DropdownMenu` | Context menus, action menus | — |
 | `Tooltip` | Hover tooltips | — |
-| `Toaster` | Toast notifications — `shadcn/ui` Sonner | — |
+| `Toaster` | Toast notifications | — |
 
 ### Utilities
 
@@ -162,10 +163,10 @@ Cader uses a **two-layer component model**:
 
 | Component | Notes | Status |
 |---|---|---|
-| `LevelBadge` | Shared across feed, members, leaderboard — uses `shadcn/ui` Badge | — |
-| `SkeletonCard` | Uses `shadcn/ui` Skeleton | — |
+| `LevelBadge` | Shared across feed, members, leaderboard | — |
+| `SkeletonCard` | Loading placeholder | — |
 | `PriceDisplay` | DZD price display with Chargily color | — |
-| `WilayaDropdown` | Algeria Wilaya select — uses `shadcn/ui` Select | — |
+| `WilayaDropdown` | Algeria Wilaya select | — |
 | `VideoEmbed` | YouTube/Vimeo embed wrapper | — |
 | `ChargilyBadge` | "Paid via Chargily" trust badge | — |
 
@@ -173,26 +174,26 @@ Cader uses a **two-layer component model**:
 
 | Component | Feature | Status |
 |---|---|---|
-| `CommunityCreationModal` | Community creation — `shadcn/ui` Dialog + TextInput | — |
-| `OnboardingModal` | Onboarding — multi-step `shadcn/ui` Dialog | — |
-| `ProfileModal` | Profile — `shadcn/ui` Dialog + Avatar | — |
-| `SettingsModal` | Settings — `shadcn/ui` Dialog + Tabs | — |
-| `ExploreModal` | Community directory — `shadcn/ui` Dialog + Card grid | — |
-| `PostCard` | Community feed — built on `shadcn/ui` Card | — |
+| `CommunityCreationModal` | Community creation | — |
+| `OnboardingModal` | Onboarding — multi-step | — |
+| `ProfileModal` | Profile | — |
+| `SettingsModal` | Settings | — |
+| `ExploreModal` | Community directory | — |
+| `PostCard` | Community feed | — |
 | `PostComposer` | Feed post composer | — |
-| `AddPostModal` | Add post — `shadcn/ui` Dialog | — |
-| `OpenPostModal` | Full post view — `shadcn/ui` Dialog | — |
-| `ClassroomGrid` | Classrooms — grid of `shadcn/ui` Card | — |
+| `AddPostModal` | Add post | — |
+| `OpenPostModal` | Full post view | — |
+| `ClassroomGrid` | Classrooms — grid | — |
 | `ClassroomCard` | Individual classroom card | — |
 | `ClassroomViewer` | Lesson viewer shell | — |
-| `ModulePageTree` | Sidebar tree — uses `shadcn/ui` Inset | — |
+| `ModulePageTree` | Sidebar tree | — |
 | `LessonRenderer` | Rich text + embeds | — |
-| `SlashCommandEditor` | `/` command palette — `shadcn/ui` Command | — |
-| `AccessGateOverlay` | Locked content overlay — `shadcn/ui` Callout | — |
+| `SlashCommandEditor` | `/` command palette | — |
+| `AccessGateOverlay` | Locked content overlay | — |
 | `AlgeriaSVGMap` | Interactive Wilaya map — SVG + Lucide icons | — |
 | `MemberList` | Searchable member list | — |
 | `MemberProfileCard` | Member hover card | — |
-| `LeaderboardList` | Leaderboard with segmented time filter (`shadcn/ui` SegmentedControl) | — |
+| `LeaderboardList` | Leaderboard with segmented time filter | — |
 | `LevelProgressVisualization` | 5-level progress display | — |
 | `DZDPriceDisplay` | Price in DZD with Chargily green | — |
 
@@ -202,10 +203,10 @@ Cader uses a **two-layer component model**:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  shadcn/ui + /components/ui/Text — Layer 1                  │
+│  @animate-ui + /components/ui/Text — Layer 1                │
 │  Button, IconButton, Dialog, Tabs, Select, Card, Badge,     │
 │  Avatar, TextInput, TextArea, Switch, Popover,              │
-│  DropdownMenu, Tooltip, Toaster, Skeleton, Callout,         │
+│  DropdownMenu, Tooltip, Toaster, Skeleton, Callout,        │
 │  Command, ScrollArea, Separator, Heading, Text, Code        │
 └────────────────────────┬────────────────────────────────────┘
                          │ (composed into)
@@ -213,8 +214,24 @@ Cader uses a **two-layer component model**:
 │  Custom Cader Components — Layer 2                          │
 │  PostCard, ClassroomGrid, ClassroomViewer,                  │
 │  LeaderboardList, AlgeriaSVGMap, MemberList,                │
-│  LevelBadge, CommunityShell, TopBar, TabNav,                │
+│  LevelBadge, CommunityShell, TopBar, TabNav,               │
 │  All feature modals, DZDPriceDisplay                        │
+└─────────────────────────────────────────────────────────────┘
+```
+┌─────────────────────────────────────────────────────────────┐
+│  @animate-ui + /components/ui/Text — Layer 1                │
+│  Button, IconButton, Dialog, Tabs, Select, Card, Badge,     │
+│  Avatar, TextInput, TextArea, Switch, Popover,             │
+│  DropdownMenu, Tooltip, Toaster, Skeleton, Callout,        │
+│  Command, ScrollArea, Separator, Heading, Text, Code        │
+└────────────────────────┬────────────────────────────────────┘
+                         │ (composed into)
+┌────────────────────────▼────────────────────────────────────┐
+│  Custom Cader Components — Layer 2                          │
+│  PostCard, ClassroomGrid, ClassroomViewer,                  │
+│  LeaderboardList, AlgeriaSVGMap, MemberList,               │
+│  LevelBadge, CommunityShell, TopBar, TabNav,               │
+│  All feature modals, DZDPriceDisplay                       │
 └─────────────────────────────────────────────────────────────┘
 ```
 
