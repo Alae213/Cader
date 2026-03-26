@@ -60,7 +60,7 @@ export function PostComposer({
   const [pollQuestion, setPollQuestion] = useState("");
   const [pollOptions, setPollOptions] = useState(["", ""]);
 
-  const createPost = useMutation(api.functions.createPost);
+  const createPost = useMutation(api.functions.feed.createPost);
 
   const handleSubmit = async () => {
     if (!userId) return;

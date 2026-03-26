@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import { useAuth } from "@clerk/nextjs";
+import { useAuth, useUser } from "@clerk/nextjs";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/Dialog";
 import { Heading, Text } from "@/components/ui/Text";
@@ -41,7 +41,8 @@ const WILAYAS = [
 ];
 
 export function OnboardingModal({ community, open, onOpenChange, onComplete }: OnboardingModalProps) {
-  const { userId, user } = useAuth();
+  const { userId } = useAuth();
+  const { user } = useUser();
   const [step, setStep] = useState<1 | 2 | "pending">(1);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -56,14 +57,20 @@ export function OnboardingModal({ community, open, onOpenChange, onComplete }: O
   
   // Check if user already has membership (for pending state)
   const membershipQuery = useQuery(
-    api.functions.getMembershipBySlug,
-    userId ? { slug: community.slug, clerkId: userId } : null
+    api.functions.memberships.getMembershipBySlug,
+    userId ? { slug: community.slug, clerkId: userId } : "skip"
   );
 
   // Check member limit for this community
   const memberLimitCheck = useQuery(
-    api.functions.checkMemberLimit,
-    community._id ? { communityId: community._id } : null
+    api.functions.communities.checkMemberLimit,
+    community._id ? { communityId: community._id as any } : "skip"
+  );
+
+  // Get Convex user ID from Clerk ID
+  const convexUser = useQuery(
+    api.functions.users.getUserByClerkId,
+    userId ? { clerkId: userId } : "skip"
   );
 
   // Initialize display name from Clerk user
@@ -91,7 +98,7 @@ export function OnboardingModal({ community, open, onOpenChange, onComplete }: O
     try {
       // Call grantMembership directly for free communities
       await mutateFreeJoin({
-        communityId: community._id,
+        communityId: community._id as any,
         displayName: displayName.trim(),
         phone: phone.trim() || undefined,
         wilaya: wilaya || undefined,
@@ -109,7 +116,7 @@ export function OnboardingModal({ community, open, onOpenChange, onComplete }: O
 
   // Handle paid community checkout
   const handlePaidJoin = async () => {
-    if (!userId || !displayName.trim()) return;
+    if (!userId || !displayName.trim() || !convexUser?._id) return;
     
     setIsLoading(true);
     setError("");
@@ -117,8 +124,11 @@ export function OnboardingModal({ community, open, onOpenChange, onComplete }: O
     try {
       // Create Chargily checkout
       const result = await createCheckout({
-        communityId: community._id,
+        communityId: community._id as any,
+        userId: convexUser._id as any,
         type: "community",
+        successUrl: `${window.location.origin}/${community.slug}?joined=true`,
+        cancelUrl: `${window.location.origin}/${community.slug}`,
       });
       
       if (result.checkoutUrl) {
@@ -138,8 +148,8 @@ export function OnboardingModal({ community, open, onOpenChange, onComplete }: O
   };
 
   // Mutations
-  const mutateFreeJoin = useMutation(api.functions.grantMembershipWithDetails);
-  const createCheckout = useMutation(api.functions.createChargilyCheckout);
+  const mutateFreeJoin = useMutation(api.functions.memberships.grantMembershipWithDetails);
+  const createCheckout = useMutation(api.functions.payments.createChargilyCheckout);
 
   // Check member limit
   if (memberLimitCheck?.atLimit && !memberLimitCheck.isSubscribed) {

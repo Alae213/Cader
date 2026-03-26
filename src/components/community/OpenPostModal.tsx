@@ -18,13 +18,13 @@ interface Post {
   author?: {
     _id: string;
     displayName: string;
-    avatarUrl?: string;
-  };
+    avatarUrl?: string | null;
+  } | null;
   category?: {
     _id: string;
     name: string;
     color: string;
-  };
+  } | null;
   content: string;
   contentType: "text" | "image" | "video" | "gif" | "poll";
   mediaUrls?: string[];
@@ -60,12 +60,13 @@ export function OpenPostModal({ post, open, onOpenChange }: OpenPostModalProps) 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fetch comments for this post
+  const commentArgs = post ? { postId: post._id as any } : "skip";
   const comments = useQuery(
-    post ? api.functions.listComments : "skip",
-    post ? { postId: post._id } : "skip"
+    api.functions.feed.listComments,
+    commentArgs
   ) as Comment[] | null;
 
-  const createComment = useMutation(api.functions.createComment);
+  const createComment = useMutation(api.functions.feed.createComment);
 
   const formatTimeAgo = (timestamp: number) => {
     const seconds = Math.floor((Date.now() - timestamp) / 1000);
@@ -84,7 +85,7 @@ export function OpenPostModal({ post, open, onOpenChange }: OpenPostModalProps) 
     setIsSubmitting(true);
     try {
       await createComment({
-        postId: post._id,
+        postId: post._id as any,
         content: newComment.trim(),
       });
       setNewComment("");

@@ -111,12 +111,12 @@ export function CreateCommunityModal({ open, onOpenChange }: CreateCommunityModa
   const [wilaya, setWilaya] = useState("");
 
   // Convex mutations and actions
-  const createCommunity = useMutation(api.functions.createCommunity);
-  const validateChargilyKeys = useMutation(api.functions.validateChargilyKeys);
+  const createCommunity = useMutation(api.functions.communities.createCommunity);
+  const validateChargilyKeys = useMutation(api.functions.payments.validateChargilyKeys);
   
   // Check slug availability (debounced) - only check when slug is valid length
   const slugExists = useQuery(
-    api.functions.slugExists,
+    api.functions.communities.slugExists,
     slug.length >= 3 ? { slug } : { slug: "" }
   );
   

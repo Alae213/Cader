@@ -17,21 +17,22 @@ interface FeedTabProps {
   communityId: string;
 }
 
-interface Post {
+// Shared Post type that matches Convex query return
+export interface Post {
   _id: string;
   communityId: string;
   authorId: string;
   author?: {
     _id: string;
     displayName: string;
-    avatarUrl?: string;
-  };
+    avatarUrl?: string | null;
+  } | null;
   categoryId?: string;
   category?: {
     _id: string;
     name: string;
     color: string;
-  };
+  } | null;
   content: string;
   contentType: "text" | "image" | "video" | "gif" | "poll";
   mediaUrls?: string[];
@@ -50,13 +51,13 @@ export function FeedTab({ communityId }: FeedTabProps) {
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
 
   // Fetch posts
-  const posts = useQuery(api.functions.listPosts, { communityId }) || [];
+  const posts = useQuery(api.functions.feed.listPosts, { communityId: communityId as any }) || [];
   
   // Fetch categories (placeholder for now)
   const categories: { _id: string; name: string; color: string }[] = [];
 
   // Fetch community stats for sidebar
-  const communityStats = useQuery(api.functions.getCommunityStats, { communityId });
+  const communityStats = useQuery(api.functions.communities.getCommunityStats, { communityId: communityId as any });
 
   if (!posts) {
     return (

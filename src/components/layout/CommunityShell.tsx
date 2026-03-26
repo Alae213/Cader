@@ -79,7 +79,7 @@ export function CommunityShell({
       case "members":
         return <MembersTab communityId={community.id} />;
       case "classrooms":
-        return <ClassroomsTab communityId={community.id} />;
+        return <ClassroomsTab communityId={community.id} isOwner={isOwner} />;
       case "leaderboard":
         return <LeaderboardTab communityId={community.id} />;
       case "analysis":

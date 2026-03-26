@@ -8,7 +8,13 @@
  * @module
  */
 
-import type * as functions from "../functions.js";
+import type * as functions_classrooms from "../functions/classrooms.js";
+import type * as functions_communities from "../functions/communities.js";
+import type * as functions_feed from "../functions/feed.js";
+import type * as functions_index from "../functions/index.js";
+import type * as functions_memberships from "../functions/memberships.js";
+import type * as functions_payments from "../functions/payments.js";
+import type * as functions_users from "../functions/users.js";
 
 import type {
   ApiFromModules,
@@ -17,7 +23,13 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  functions: typeof functions;
+  "functions/classrooms": typeof functions_classrooms;
+  "functions/communities": typeof functions_communities;
+  "functions/feed": typeof functions_feed;
+  "functions/index": typeof functions_index;
+  "functions/memberships": typeof functions_memberships;
+  "functions/payments": typeof functions_payments;
+  "functions/users": typeof functions_users;
 }>;
 
 /**

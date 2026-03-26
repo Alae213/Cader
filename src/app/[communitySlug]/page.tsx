@@ -20,16 +20,16 @@ export default function CommunityPage() {
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   // Fetch community from Convex
-  const community = useQuery(api.functions.getBySlug, { slug: communitySlug });
+  const community = useQuery(api.functions.communities.getBySlug, { slug: communitySlug });
 
   // Fetch membership status (only if logged in)
   const membership = useQuery(
-    api.functions.getMembershipBySlug,
+    api.functions.memberships.getMembershipBySlug,
     clerkId ? { slug: communitySlug, clerkId } : "skip"
   );
 
   // Mutation to update community video URL
-  const updateCommunity = useMutation(api.functions.updateCommunity);
+  const updateCommunity = useMutation(api.functions.communities.updateCommunity);
 
   // Handle Join button click
   const handleJoinClick = () => {

@@ -26,13 +26,13 @@ interface PostCardProps {
     author?: {
       _id: string;
       displayName: string;
-      avatarUrl?: string;
-    };
+      avatarUrl?: string | null;
+    } | null;
     category?: {
       _id: string;
       name: string;
       color: string;
-    };
+    } | null;
     content: string;
     contentType: "text" | "image" | "video" | "gif" | "poll";
     mediaUrls?: string[];
@@ -57,10 +57,10 @@ export function PostCard({ post, onClick, onDeleted }: PostCardProps) {
   const [hasUpvoted, setHasUpvoted] = useState(false);
 
   // Mutations
-  const toggleUpvote = useMutation(api.functions.toggleUpvote);
-  const pinPost = useMutation(api.functions.pinPost);
-  const unpinPost = useMutation(api.functions.unpinPost);
-  const deletePost = useMutation(api.functions.deletePost);
+  const toggleUpvote = useMutation(api.functions.feed.toggleUpvote);
+  const pinPost = useMutation(api.functions.feed.pinPost);
+  const unpinPost = useMutation(api.functions.feed.unpinPost);
+  const deletePost = useMutation(api.functions.feed.deletePost);
 
   const formatTimeAgo = (timestamp: number) => {
     const seconds = Math.floor((Date.now() - timestamp) / 1000);
@@ -82,7 +82,7 @@ export function PostCard({ post, onClick, onDeleted }: PostCardProps) {
 
     setIsLoading(true);
     try {
-      const result = await toggleUpvote({ postId: post._id });
+      const result = await toggleUpvote({ postId: post._id as any });
       setLocalUpvoteCount(result.newCount);
       setHasUpvoted(result.upvoted);
     } catch (error) {
@@ -102,10 +102,10 @@ export function PostCard({ post, onClick, onDeleted }: PostCardProps) {
     setIsLoading(true);
     try {
       if (post.isPinned) {
-        await unpinPost({ postId: post._id });
+        await unpinPost({ postId: post._id as any });
         toast.success("Post unpinned");
       } else {
-        await pinPost({ postId: post._id });
+        await pinPost({ postId: post._id as any });
         toast.success("Post pinned");
       }
       setShowMenu(false);
@@ -130,7 +130,7 @@ export function PostCard({ post, onClick, onDeleted }: PostCardProps) {
 
     setIsLoading(true);
     try {
-      await deletePost({ postId: post._id });
+      await deletePost({ postId: post._id as any });
       toast.success("Post deleted");
       setShowMenu(false);
       onDeleted?.();

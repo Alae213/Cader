@@ -2,9 +2,10 @@ import * as React from "react";
 import { cn, generateRandomColor } from "@/lib/utils";
 import { User } from "lucide-react";
 
-export type AvatarSize = "sm" | "md" | "lg" | "xl";
+export type AvatarSize = "xs" | "sm" | "md" | "lg" | "xl";
 
 const sizeClasses: Record<AvatarSize, string> = {
+  xs: "h-5 w-5 text-[10px]",
   sm: "h-6 w-6 text-xs",
   md: "h-8 w-8 text-sm",
   lg: "h-10 w-10 text-base",
@@ -14,6 +15,7 @@ const sizeClasses: Record<AvatarSize, string> = {
 interface AvatarProps {
   src?: string | null;
   alt?: string;
+  name?: string; // Alias for alt/name to support both patterns
   fallback?: string;
   size?: AvatarSize;
   className?: string;
@@ -27,9 +29,10 @@ function getInitials(name: string): string {
   return name.slice(0, 2).toUpperCase();
 }
 
-export function Avatar({ src, alt = "Avatar", fallback, size = "md", className }: AvatarProps) {
+export function Avatar({ src, alt, name, fallback, size = "md", className }: AvatarProps) {
   const [error, setError] = React.useState(false);
-  const initials = fallback || getInitials(alt);
+  const displayName = name || alt || "Avatar";
+  const initials = fallback || getInitials(displayName);
   const bgColor = generateRandomColor();
 
   if (src && !error) {
@@ -43,7 +46,7 @@ export function Avatar({ src, alt = "Avatar", fallback, size = "md", className }
       >
         <img
           src={src}
-          alt={alt}
+          alt={displayName}
           className="h-full w-full object-cover"
           onError={() => setError(true)}
         />
