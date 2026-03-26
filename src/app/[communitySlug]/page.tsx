@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
 import { useAuth } from "@clerk/nextjs";
@@ -46,13 +46,13 @@ export default function CommunityPage() {
   };
 
   // Check for stored join intent on mount (after auth redirect)
-  useState(() => {
+  useEffect(() => {
     const storedSlug = sessionStorage.getItem("joinCommunitySlug");
     if (storedSlug === communitySlug && clerkId) {
       sessionStorage.removeItem("joinCommunitySlug");
       setShowOnboarding(true);
     }
-  });
+  }, [communitySlug, clerkId]);
 
   // Handle Edit Community button click
   const handleEditClick = () => {

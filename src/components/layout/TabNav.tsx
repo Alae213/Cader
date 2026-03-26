@@ -57,27 +57,25 @@ export function TabNav({
   };
 
   return (
+    <div className="mx-auto max-w-5xl px-4 py-6">
     <Tabs 
       value={activeTab} 
       onValueChange={handleTabChange}
-      className="w-full"
     >
-      <TabsList className="border-b border-[--bg-elevated] px-4 w-full">
+      <TabsList>
         {tabs.map((tab) => {
-          const Icon = tab.icon;
           return (
             <TabsTrigger
               key={tab.value}
               value={tab.value}
-              className="flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-text-muted hover:text-text-secondary data-[state=active]:text-text-primary transition-colors"
             >
-              <Icon className="h-4 w-4" />
               <span className="hidden sm:inline">{tab.label}</span>
             </TabsTrigger>
           );
         })}
       </TabsList>
     </Tabs>
+    </div>
   );
 }
 

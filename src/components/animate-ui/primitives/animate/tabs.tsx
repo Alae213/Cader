@@ -329,7 +329,7 @@ function TabsContent({
       initial={{ filter: 'blur(0px)' }}
       animate={{ filter: isActive ? 'blur(0px)' : 'blur(4px)' }}
       exit={{ filter: 'blur(0px)' }}
-      transition={{ type: 'spring', stiffness: 200, damping: 25 }}
+      transition={{ type: 'spring', stiffness: 100, damping: 25 }}
       {...props}
     />
   );

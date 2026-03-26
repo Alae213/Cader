@@ -99,7 +99,7 @@ export function CommunityShell({
 
       {/* Tab Navigation with content below */}
       {showTabs ? (
-        <div className="border-b border-bg-elevated bg-bg-base">
+        <div className=" bg-bg-canvas">
           <TabNav 
             communitySlug={community.slug} 
             isOwner={isOwner}
@@ -108,13 +108,13 @@ export function CommunityShell({
           />
           
           {/* Tab Content */}
-          <main className="mx-auto max-w-[1200px] px-4 py-6">
+          <main className="mx-auto max-w-5xl px-4 py-6">
             {renderTabContent()}
           </main>
         </div>
       ) : (
         /* No tabs - just show children */
-        <main className="mx-auto max-w-[1200px] px-4 py-6">
+        <main className="mx-auto max-w-5xl px-4 py-6">
           {children}
         </main>
       )}
