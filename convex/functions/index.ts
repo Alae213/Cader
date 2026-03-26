@@ -18,3 +18,6 @@ export * from "./classrooms";
 
 // Leaderboard & gamification functions
 export * from "./leaderboard";
+
+// Notifications & mentions functions
+export * from "./notifications";
