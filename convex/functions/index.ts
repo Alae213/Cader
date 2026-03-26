@@ -15,3 +15,6 @@ export * from "./feed";
 
 // Classroom functions
 export * from "./classrooms";
+
+// Leaderboard & gamification functions
+export * from "./leaderboard";

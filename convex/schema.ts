@@ -160,7 +160,7 @@ export default defineSchema({
     
     points: v.number(),
     sourceType: v.optional(v.union(v.literal("post"), v.literal("comment"))),
-    sourceId: v.optional(v.id("posts")),
+    sourceId: v.optional(v.string()), // Can be postId or commentId
     
     createdAt: v.number(),
   }).index("by_community_id", ["communityId"])

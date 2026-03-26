@@ -169,11 +169,11 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T77 | `[ ]` | Build Algeria SVG map — 58 Wilayas as clickable/hoverable regions, zoom controls, tooltip (name + member count) | [context/features/members-wilaya-map.md](../features/members-wilaya-map.md) | `[Q: 48 or 58 Wilayas?]` |
-| T78 | `[ ]` | Build member list — search by display name (real-time), filter by Wilaya (reactive to map click), rows with avatar + name + level + Wilaya + join date | [context/features/members-wilaya-map.md](../features/members-wilaya-map.md) | |
-| T79 | `[ ]` | Build member profile popover — click member row → avatar, name, level, Wilaya, communities in common | [context/features/members-wilaya-map.md](../features/members-wilaya-map.md) | |
-| T80 | `[ ]` | Build block member — owner action in popover, confirmation, `memberships.status = blocked`, immediate access revoke | [context/features/members-wilaya-map.md](../features/members-wilaya-map.md) | |
-| T81 | `[ ]` | Build `listMembers` and `getMemberCountByWilaya` Convex queries — active members with Wilaya data, live counts | [context/features/members-wilaya-map.md](../features/members-wilaya-map.md) | |
+| T77 | `[x]` | Build Algeria SVG map — 58 Wilayas as clickable/hoverable regions, zoom controls, tooltip (name + member count) | [context/features/members-wilaya-map.md](../features/members-wilaya-map.md) | Using grid layout (simplified from full SVG) |
+| T78 | `[x]` | Build member list — search by display name (real-time), filter by Wilaya (reactive to map click), rows with avatar + name + level + Wilaya + join date | [context/features/members-wilaya-map.md](../features/members-wilaya-map.md) | |
+| T79 | `[x]` | Build member profile popover — click member row → avatar, name, level, Wilaya, communities in common | [context/features/members-wilaya-map.md](../features/members-wilaya-map.md) | Shows basic info + block action for admins |
+| T80 | `[x]` | Build block member — owner action in popover, confirmation, `memberships.status = blocked`, immediate access revoke | [context/features/members-wilaya-map.md](../features/members-wilaya-map.md) | |
+| T81 | `[x]` | Build `listMembers` and `getMemberCountByWilaya` Convex queries — active members with Wilaya data, live counts | [context/features/members-wilaya-map.md](../features/members-wilaya-map.md) | |
 
 ### Phase 12 — Leaderboard & Gamification (T82–T90)
 
