@@ -12,6 +12,7 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { Text, Heading } from "@/components/ui/Text";
 import { Avatar } from "@/components/shared/Avatar";
 import { Search, Users, Lock, ArrowRight } from "lucide-react";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 interface ExploreModalProps {
   open: boolean;
@@ -71,7 +72,23 @@ export function ExploreModal({ open, onOpenChange }: ExploreModalProps) {
 
         {/* Community Grid */}
         <div className="flex-1 overflow-y-auto">
-          {allCommunities.length === 0 ? (
+          {/* Loading skeleton */}
+          {allCommunities === undefined ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {[1, 2, 3, 4].map((i) => (
+                <Card key={i}>
+                  <CardContent className="p-4 flex items-start gap-3">
+                    <Skeleton className="h-12 w-12 rounded-full" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-3 w-24" />
+                      <Skeleton className="h-3 w-20" />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : allCommunities.length === 0 ? (
             <div className="text-center py-12">
               <Users className="h-12 w-12 text-text-muted mx-auto mb-4" />
               <Heading size="h4" className="mb-2">No communities found</Heading>
