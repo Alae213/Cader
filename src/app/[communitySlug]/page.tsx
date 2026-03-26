@@ -7,6 +7,7 @@ import { useAuth } from "@clerk/nextjs";
 import { api } from "@/../convex/_generated/api";
 import { CommunityShell } from "@/components/layout/CommunityShell";
 import { CreateCommunityModal } from "@/components/community/CreateCommunityModal";
+import { OnboardingModal } from "@/components/community/OnboardingModal";
 import { Heading, Text } from "@/components/ui/Text";
 
 export default function CommunityPage() {
@@ -16,6 +17,7 @@ export default function CommunityPage() {
 
   // Modal state
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   // Fetch community from Convex
   const community = useQuery(api.functions.getBySlug, { slug: communitySlug });
@@ -32,13 +34,25 @@ export default function CommunityPage() {
   // Handle Join button click
   const handleJoinClick = () => {
     if (!clerkId) {
-      // Store intent and trigger sign in
-      // The sign-in modal will appear (handled by Clerk)
+      // Store intent in session storage for after auth
+      sessionStorage.setItem("joinCommunitySlug", communitySlug);
+      // Trigger Clerk sign in - the user will be redirected back
+      // After sign in, we'll check for the stored slug and show onboarding
+      window.location.href = "/sign-in";
       return;
     }
-    // User is logged in - show onboarding modal (to be implemented)
-    console.log("Join clicked for community:", communitySlug);
+    // User is logged in - show onboarding modal
+    setShowOnboarding(true);
   };
+
+  // Check for stored join intent on mount (after auth redirect)
+  useState(() => {
+    const storedSlug = sessionStorage.getItem("joinCommunitySlug");
+    if (storedSlug === communitySlug && clerkId) {
+      sessionStorage.removeItem("joinCommunitySlug");
+      setShowOnboarding(true);
+    }
+  });
 
   // Handle Edit Community button click
   const handleEditClick = () => {
@@ -138,6 +152,21 @@ export default function CommunityPage() {
         open={showCreateModal}
         onOpenChange={setShowCreateModal}
       />
+
+      {/* Onboarding Modal for joining */}
+      {community && (
+        <OnboardingModal
+          community={{
+            _id: community._id,
+            name: community.name,
+            slug: community.slug,
+            pricingType: community.pricingType,
+            priceDzd: community.priceDzd,
+          }}
+          open={showOnboarding}
+          onOpenChange={setShowOnboarding}
+        />
+      )}
     </>
   );
 }

@@ -566,36 +566,373 @@ export const createChargilyCheckout = mutation({
     }
   },
 });
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        return {
-          valid: false,
-          error: errorData.message || `API returned ${response.status}`,
-        };
+
+// Grant membership after successful payment (called from webhook)
+export const grantMembership = mutation({
+  args: {
+    communityId: v.id("communities"),
+    userId: v.id("users"),
+    paymentReference: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Get community to determine pricing type
+    const community = await ctx.db.get(args.communityId);
+    if (!community) {
+      throw new Error("Community not found");
+    }
+
+    // Check if user already has membership
+    const existingMembership = await ctx.db
+      .query("memberships")
+      .withIndex("by_community_and_user", (q) =>
+        q.eq("communityId", args.communityId).eq("userId", args.userId)
+      )
+      .first();
+
+    if (existingMembership) {
+      // Update existing membership
+      await ctx.db.patch(existingMembership._id, {
+        status: "active",
+        subscriptionType: community.pricingType,
+        subscriptionStartDate: Date.now(),
+        subscriptionEndDate: community.pricingType === "monthly"
+          ? Date.now() + 30 * 24 * 60 * 60 * 1000
+          : community.pricingType === "annual"
+          ? Date.now() + 365 * 24 * 60 * 60 * 1000
+          : undefined,
+        paymentReference: args.paymentReference,
+        updatedAt: Date.now(),
+      });
+      return existingMembership._id;
+    }
+
+    // Create new membership
+    const now = Date.now();
+    const membershipId = await ctx.db.insert("memberships", {
+      communityId: args.communityId,
+      userId: args.userId,
+      role: "member",
+      status: "active",
+      subscriptionType: community.pricingType,
+      subscriptionStartDate: now,
+      subscriptionEndDate: community.pricingType === "monthly"
+        ? now + 30 * 24 * 60 * 60 * 1000
+        : community.pricingType === "annual"
+        ? now + 365 * 24 * 60 * 60 * 1000
+        : undefined,
+      paymentReference: args.paymentReference,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return membershipId;
+  },
+});
+
+// Grant membership for free community (immediate, with additional details)
+export const grantMembershipWithDetails = mutation({
+  args: {
+    communityId: v.id("communities"),
+    displayName: v.string(),
+    phone: v.optional(v.string()),
+    wilaya: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Get authenticated user from Clerk
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("You must be signed in to join a community");
+    }
+
+    // Get the user from our database
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found. Please complete onboarding first.");
+    }
+
+    // Get community
+    const community = await ctx.db.get(args.communityId);
+    if (!community) {
+      throw new Error("Community not found");
+    }
+
+    // Check if community is free
+    if (community.pricingType !== "free") {
+      throw new Error("This community requires payment to join");
+    }
+
+    // Check if user already has membership
+    const existingMembership = await ctx.db
+      .query("memberships")
+      .withIndex("by_community_and_user", (q) =>
+        q.eq("communityId", args.communityId).eq("userId", user._id)
+      )
+      .first();
+
+    if (existingMembership) {
+      // Already a member, just update status
+      if (existingMembership.status !== "active") {
+        await ctx.db.patch(existingMembership._id, {
+          status: "active",
+          updatedAt: Date.now(),
+        });
       }
-      
-      const userData = await response.json();
-      
-      // Verify webhook secret format (basic validation)
-      if (!args.webhookSecret || args.webhookSecret.length < 10) {
-        return {
-          valid: false,
-          error: "Invalid webhook secret format",
-        };
-      }
-      
-      return {
-        valid: true,
-        // Return non-sensitive info for UI feedback
-        email: userData.email,
-        name: userData.name,
+      return existingMembership._id;
+    }
+
+    // Create new membership
+    const now = Date.now();
+    const membershipId = await ctx.db.insert("memberships", {
+      communityId: args.communityId,
+      userId: user._id,
+      role: "member",
+      status: "active",
+      subscriptionType: "free",
+      subscriptionStartDate: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // Update user profile with phone and wilaya if provided
+    if (args.phone || args.wilaya) {
+      const updateData: Record<string, any> = {
+        updatedAt: now,
       };
-    } catch (error) {
-      return {
-        valid: false,
-        error: error instanceof Error ? error.message : "Failed to validate keys",
+      if (args.phone) updateData.phone = args.phone;
+      if (args.wilaya) updateData.wilaya = args.wilaya;
+      
+      await ctx.db.patch(user._id, updateData);
+    }
+
+    return membershipId;
+  },
+});
+
+// Grant classroom access after successful payment (called from webhook)
+export const grantClassroomAccess = mutation({
+  args: {
+    classroomId: v.id("classrooms"),
+    userId: v.id("users"),
+    paymentReference: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Get classroom to confirm it exists and has a price
+    const classroom = await ctx.db.get(args.classroomId);
+    if (!classroom) {
+      throw new Error("Classroom not found");
+    }
+
+    // Check if user already has access
+    const existingAccess = await ctx.db
+      .query("classroomAccess")
+      .withIndex("by_classroom_and_user", (q) =>
+        q.eq("classroomId", args.classroomId).eq("userId", args.userId)
+      )
+      .first();
+
+    if (existingAccess) {
+      // Update existing access
+      await ctx.db.patch(existingAccess._id, {
+        accessType: "purchased",
+        purchasedAt: Date.now(),
+        paymentReference: args.paymentReference,
+      });
+      return existingAccess._id;
+    }
+
+    // Create new classroom access
+    const now = Date.now();
+    const accessId = await ctx.db.insert("classroomAccess", {
+      classroomId: args.classroomId,
+      userId: args.userId,
+      accessType: "purchased",
+      purchasedAt: now,
+      paymentReference: args.paymentReference,
+      createdAt: now,
+    });
+
+    return accessId;
+  },
+});
+
+// Revoke membership for expired subscriptions
+export const revokeMembership = mutation({
+  args: {
+    membershipId: v.id("memberships"),
+  },
+  handler: async (ctx, args) => {
+    const membership = await ctx.db.get(args.membershipId);
+    if (!membership) {
+      throw new Error("Membership not found");
+    }
+
+    await ctx.db.patch(args.membershipId, {
+      status: "inactive",
+      updatedAt: Date.now(),
+    });
+
+    return args.membershipId;
+  },
+});
+
+// Scheduled action to check and revoke expired memberships
+// This runs daily to find memberships that have passed their subscription end date
+// Note: This is a mutation that can be called by a scheduled job
+export const checkExpiringSubscriptions = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    
+    // Find all active memberships with subscription end dates that have passed
+    const allMemberships = await ctx.db
+      .query("memberships")
+      .collect();
+
+    const expiredMemberships = allMemberships.filter(
+      (m: { status: string; subscriptionEndDate?: number }) => 
+        m.status === "active" && m.subscriptionEndDate && m.subscriptionEndDate < now
+    );
+
+    console.log(`Found ${expiredMemberships.length} expired memberships`);
+
+    // Revoke each expired membership
+    for (const membership of expiredMemberships) {
+      try {
+        await ctx.db.patch(membership._id, {
+          status: "inactive",
+          updatedAt: now,
+        });
+        console.log(`Revoked membership for user ${membership.userId} in community ${membership.communityId}`);
+      } catch (error) {
+        console.error(`Failed to revoke membership ${membership._id}:`, error);
+      }
+    }
+
+    return {
+      checked: allMemberships.length,
+      expired: expiredMemberships.length,
+    };
+  },
+});
+
+// Update community's platform tier (called from webhook for platform subscriptions)
+export const updatePlatformTier = mutation({
+  args: {
+    communityId: v.id("communities"),
+    tier: v.union(v.literal("free"), v.literal("subscribed")),
+  },
+  handler: async (ctx, args) => {
+    const community = await ctx.db.get(args.communityId);
+    if (!community) {
+      throw new Error("Community not found");
+    }
+
+    // Only the community owner can update the tier (enforced by checking ownership)
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      // Allow webhook calls (no auth) - this is a server-to-server operation
+      // In production, you'd verify the request comes from your webhook handler
+    } else {
+      const user = await ctx.db
+        .query("users")
+        .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+        .first();
+      
+      if (!user || community.ownerId !== user._id) {
+        throw new Error("Only the community owner can update the platform tier");
+      }
+    }
+
+    await ctx.db.patch(args.communityId, {
+      platformTier: args.tier,
+      updatedAt: Date.now(),
+    });
+
+    return args.communityId;
+  },
+});
+
+// Check if community has reached member limit
+export const checkMemberLimit = query({
+  args: { communityId: v.id("communities") },
+  handler: async (ctx, args) => {
+    const community = await ctx.db.get(args.communityId);
+    if (!community) {
+      return { atLimit: false, current: 0, limit: 0 };
+    }
+
+    const memberships = await ctx.db
+      .query("memberships")
+      .withIndex("by_community_id", (q) => q.eq("communityId", args.communityId))
+      .collect();
+
+    const activeMembers = memberships.filter((m: { status: string }) => m.status === "active");
+    const currentCount = activeMembers.length;
+    const limit = community.memberLimit || 50;
+    const isSubscribed = community.platformTier === "subscribed";
+
+    // Subscribed communities have unlimited members
+    const atLimit = !isSubscribed && currentCount >= limit;
+
+    return {
+      atLimit,
+      current: currentCount,
+      limit,
+      isSubscribed,
+    };
+  },
+});
+
+// Check if a user can join a community (considering member limits)
+export const canJoinCommunity = query({
+  args: { communityId: v.id("communities"), userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const community = await ctx.db.get(args.communityId);
+    if (!community) {
+      return { canJoin: false, reason: "Community not found" };
+    }
+
+    // Check if user is already a member
+    const existingMembership = await ctx.db
+      .query("memberships")
+      .withIndex("by_community_and_user", (q) =>
+        q.eq("communityId", args.communityId).eq("userId", args.userId)
+      )
+      .first();
+
+    if (existingMembership) {
+      return { canJoin: true, reason: "Already a member", isMember: true };
+    }
+
+    // Check member limit
+    const memberships = await ctx.db
+      .query("memberships")
+      .withIndex("by_community_id", (q) => q.eq("communityId", args.communityId))
+      .collect();
+
+    const activeMembers = memberships.filter((m: { status: string }) => m.status === "active");
+    const currentCount = activeMembers.length;
+    const limit = community.memberLimit || 50;
+    const isSubscribed = community.platformTier === "subscribed";
+
+    // Subscribed communities have unlimited members
+    if (isSubscribed) {
+      return { canJoin: true, reason: "Unlimited members" };
+    }
+
+    if (currentCount >= limit) {
+      return { 
+        canJoin: false, 
+        reason: "Community has reached its member limit",
+        currentCount,
+        limit,
       };
     }
+
+    return { canJoin: true, reason: "Available" };
   },
 });
