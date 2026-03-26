@@ -122,19 +122,19 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 
 ### Phase 8 — Community Feed (T47–T57)
 
-| # | Status | Task | Feature | Notes |
-|---|--------|------|---------|-------|
-| T47 | `[x]` | Build feed layout — left/main column: post composer trigger + feed; right column: community info sidebar (reuse About stats) | [context/features/community-feed.md](../features/community-feed.md) | Built FeedTab with sidebar |
-| T48 | `[x]` | Build post composer modal — text input + category selector (optional) + submit | [context/features/community-feed.md](../features/community-feed.md) | Created PostComposer component |
-| T49 | `[x]` | Build post type: image upload — file picker, Convex file storage, 10MB limit server-side | [context/features/community-feed.md](../features/community-feed.md) | Image post type in composer |
-| T50 | `[x]` | Build post type: video embed — YouTube/Vimeo/GDrive URL input + validation (reuse from About tab) | [context/features/community-feed.md](../features/community-feed.md) | Video post type with validation |
-| T51 | `[x]` | Build post type: GIF — URL input or GIPHY picker | [context/features/community-feed.md](../features/community-feed.md) | GIF post type (URL input) |
-| T52 | `[x]` | Build post type: poll — question + 2-4 options + optional end date | [context/features/community-feed.md](../features/community-feed.md) | Poll post type with options |
-| T53 | `[x]` | Build post card component — author avatar + name + level badge + timestamp + content + category tag + upvote count + comment count + three-dot menu | [context/features/community-feed.md](../features/community-feed.md) | Created PostCard component |
-| T54 | `[x]` | Build `listPosts` Convex query — paginated, filtered by communityId + categoryId, pinned-first then chronological | [context/features/community-feed.md](../features/community-feed.md) | Added to functions.ts |
-| T55 | `[x]` | Build `createPost` Convex mutation — write post, validate content, sanitize rich text server-side | [context/features/community-feed.md](../features/community-feed.md) | Added to functions.ts |
-| T56 | `[x]` | Build "Open post" modal — full post content + threaded comment thread + comment composer | [context/features/community-feed.md](../features/community-feed.md) | Created OpenPostModal component |
-| T57 | `[x]` | Build threaded comments — top-level + one level deep replies, real-time submission | [context/features/community-feed.md](../features/community-feed.md) | createComment + listComments in functions.ts |
+| #   | Status | Task                                                                                                                                                | Feature                                                             | Notes                                        |
+| --- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | -------------------------------------------- |
+| T47 | `[x]`  | Build feed layout — left/main column: post composer trigger + feed; right column: community info sidebar (reuse About stats)                        | [context/features/community-feed.md](../features/community-feed.md) | Built FeedTab with sidebar                   |
+| T48 | `[x]`  | Build post composer modal — text input + category selector (optional) + submit                                                                      | [context/features/community-feed.md](../features/community-feed.md) | Created PostComposer component               |
+| T49 | `[x]`  | Build post type: image upload — file picker, Convex file storage, 10MB limit server-side                                                            | [context/features/community-feed.md](../features/community-feed.md) | Image post type in composer                  |
+| T50 | `[x]`  | Build post type: video embed — YouTube/Vimeo/GDrive URL input + validation (reuse from About tab)                                                   | [context/features/community-feed.md](../features/community-feed.md) | Video post type with validation              |
+| T51 | `[x]`  | Build post type: GIF — URL input or GIPHY picker                                                                                                    | [context/features/community-feed.md](../features/community-feed.md) | GIF post type (URL input)                    |
+| T52 | `[x]`  | Build post type: poll — question + 2-4 options + optional end date                                                                                  | [context/features/community-feed.md](../features/community-feed.md) | Poll post type with options                  |
+| T53 | `[x]`  | Build post card component — author avatar + name + level badge + timestamp + content + category tag + upvote count + comment count + three-dot menu | [context/features/community-feed.md](../features/community-feed.md) | Created PostCard component                   |
+| T54 | `[x]`  | Build `listPosts` Convex query — paginated, filtered by communityId + categoryId, pinned-first then chronological                                   | [context/features/community-feed.md](../features/community-feed.md) | Added to functions.ts                        |
+| T55 | `[x]`  | Build `createPost` Convex mutation — write post, validate content, sanitize rich text server-side                                                   | [context/features/community-feed.md](../features/community-feed.md) | Added to functions.ts                        |
+| T56 | `[x]`  | Build "Open post" modal — full post content + threaded comment thread + comment composer                                                            | [context/features/community-feed.md](../features/community-feed.md) | Created OpenPostModal component              |
+| T57 | `[x]`  | Build threaded comments — top-level + one level deep replies, real-time submission                                                                  | [context/features/community-feed.md](../features/community-feed.md) | createComment + listComments in functions.ts |
 
 ### Phase 9 — Feed Interactions (T58–T65)
 
