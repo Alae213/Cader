@@ -245,13 +245,13 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 | T113 | `[x]` | Build loading skeleton states — all list pages (feed, classrooms, members, leaderboard) | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | |
 | T114 | `[x]` | Build empty states — no posts, no classrooms, no members, no search results — with clear CTAs | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | |
 | T115 | `[x]` | Build error boundaries — catch React errors, user-friendly messages, no stack traces exposed | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | |
-| T116 | `[ ]`  | Mobile responsiveness audit — test 375px (mobile), 768px (tablet), 1280px (desktop)                                  | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) |                                                                            |
-| T117 | `[ ]`  | Convex index audit — verify all high-traffic queries use indexes (communityId, userId, lessonId, membershipStatus)   | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) |                                                                            |
-| T118 | `[ ]`  | Webhook security review — signature verification on all endpoints, no sensitive data in logs, keys encrypted at rest | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) |                                                                            |
-| T119 | `[ ]`  | Seed data — create example community with sample posts, classrooms, members for `/explore`                           | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | `[Seed data: basic info only (titles, placeholder content, no real data)]` |
-| T120 | `[ ]`  | Vercel production deployment — env vars configured, build passes, domain ready                                       | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) |                                                                            |
-| T121 | `[ ]`  | Custom domain setup                                                                                                  | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | `[Custom domain: Not required for v1, use Vercel subdomain]`               |
-| T122 | `[ ]`  | README update — setup instructions, env vars, local dev, deployment steps                                            | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) |                                                                            |
+| T116 | `[x]` | Mobile responsiveness audit — test 375px (mobile), 768px (tablet), 1280px (desktop) | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | |
+| T117 | `[x]` | Convex index audit — verify all high-traffic queries use indexes | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | `[37 indexes across tables]` |
+| T118 | `[x]` | Webhook security review — signature verification on Chargily endpoint | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | |
+| T119 | `[ ]` | Seed data — create example community with sample posts, classrooms, members for `/explore` | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | |
+| T120 | `[ ]` | Vercel production deployment — env vars configured, build passes, domain ready | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | |
+| T121 | `[ ]` | Custom domain setup | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | |
+| T122 | `[ ]` | README update — setup instructions, env vars, local dev, deployment steps | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | |
 
 ---
 

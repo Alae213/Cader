@@ -56,7 +56,7 @@ export function ExploreModal({ open, onOpenChange }: ExploreModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-3xl w-[95vw] md:w-full max-h-[80vh] overflow-hidden flex flex-col">
         <DialogTitle>Explore Communities</DialogTitle>
         
         {/* Search Input */}

@@ -621,8 +621,8 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
         <DialogTitle>Settings</DialogTitle>
         
         <div className="flex flex-1 overflow-hidden mt-4">
-          {/* Sidebar */}
-          <div className="w-48 flex-shrink-0 border-r border-border pr-4 space-y-1">
+          {/* Sidebar - hidden on mobile, show as column on larger screens */}
+          <div className="hidden md:flex w-48 flex-shrink-0 border-r border-border pr-4 space-y-1 flex-col">
             {sections.map((section) => (
               <button
                 key={section.id}
@@ -631,6 +631,24 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
                   activeSection === section.id
                     ? "bg-primary text-white"
                     : "text-text-secondary hover:bg-bg-elevated"
+                }`}
+              >
+                {section.icon}
+                {section.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Mobile: section tabs */}
+          <div className="md:hidden flex overflow-x-auto gap-2 mb-4 pb-2">
+            {sections.map((section) => (
+              <button
+                key={section.id}
+                onClick={() => setActiveSection(section.id)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-colors ${
+                  activeSection === section.id
+                    ? "bg-primary text-white"
+                    : "text-text-secondary bg-bg-elevated"
                 }`}
               >
                 {section.icon}

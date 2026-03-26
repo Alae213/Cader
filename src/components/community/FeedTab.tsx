@@ -157,7 +157,7 @@ export function FeedTab({ communityId }: FeedTabProps) {
       </div>
 
       {/* Sidebar Column */}
-      <div className="w-80 shrink-0">
+      <div className="w-80 shrink-0 hidden lg:block">
         <Card>
           <CardContent className="p-4 space-y-4">
             <Heading size="h4">Community Info</Heading>
