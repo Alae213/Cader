@@ -132,3 +132,32 @@
 - Keeps the route structure trivially simple to reason about.
 - Modals (classroom viewer, settings, profile) are overlays — they never need their own URLs.
 **Consequences:** Tab state is localStorage-only. Deep linking to a specific tab is not possible in v1 (deferred). All modal and classroom navigation is client-side state only.
+
+---
+
+## ADR-010 — Client-side tabs vs routing-based tabs
+
+**Decision:** Use client-side (state-based) tabs instead of routing-based tabs for the community SPA.
+
+**Date:** March 2026
+
+**Context:** Refactoring TabNav to use the reusable Tabs.tsx component. This is a deliberate architectural choice to align with the component library while meeting the same UX goals as ADR-009.
+
+**Options Considered:** Routing-based tabs (separate URL per tab), hash-based navigation
+
+**Rationale:**
+- The Tabs.tsx component provides a consistent, reusable UI pattern that can be used across the application.
+- Client-side tabs offer instant switching without page reloads — better perceived performance.
+- localStorage persistence (ADR-009) is preserved and works identically with client-side tabs.
+- Removes the need for multiple route files per tab — simpler file structure.
+- SEO impact is minimal since the community page is behind auth anyway (Clerk middleware protects it).
+
+**Short-term Consequences:**
+- All tab content must be loaded or render conditionally within the same page component.
+- Placeholder tab components needed for tabs without full implementations yet.
+- Tab content bundle size increases (all tabs load on page init) — mitigated with lazy loading if needed.
+
+**Long-term Consequences:**
+- Deep linking to specific tabs requires adding optional route params (e.g., `?tab=classrooms`) — deferred to v1.1.
+- If tab content grows significantly, may need to revisit lazy loading strategy.
+- The pattern is consistent across the app — easy to extend to other multi-tab interfaces.

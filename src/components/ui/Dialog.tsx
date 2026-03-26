@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import { X } from 'lucide-react';
 
 import {
   Dialog as DialogRoot,
@@ -13,6 +12,10 @@ import {
   DialogTrigger as DialogTriggerBase,
   DialogClose as DialogCloseBase,
 } from '@/components/animate-ui/components/radix/dialog';
+import {
+  DialogOverlay as DialogOverlayBase,
+  type DialogOverlayProps as DialogOverlayBaseProps,
+} from '@/components/animate-ui/primitives/radix/dialog';
 import type {
   DialogProps as DialogRootProps,
   DialogContentProps as DialogContentBaseProps,
@@ -34,6 +37,7 @@ export type DialogHeaderProps = DialogHeaderBaseProps;
 export type DialogFooterProps = DialogFooterBaseProps;
 export type DialogTitleProps = DialogTitleBaseProps;
 export type DialogDescriptionProps = DialogDescriptionBaseProps;
+export type DialogOverlayProps = DialogOverlayBaseProps;
 
 // Dialog Root - re-export as-is
 export const Dialog = DialogRoot;
@@ -44,13 +48,23 @@ export const DialogTrigger = DialogTriggerBase;
 // Dialog Close
 export const DialogClose = DialogCloseBase;
 
+// Dialog Overlay (Backdrop)
+export function DialogOverlay(props: DialogOverlayBaseProps) {
+  return (
+    <DialogOverlayBase
+      {...props}
+      className={cn('fixed inset-0 z-[60] bg-black/30', props.className)}
+    />
+  );
+}
+
 // Dialog Content - wrap to use Cader tokens
 export function DialogContent(props: DialogContentBaseProps) {
   return (
     <DialogContentBase
       {...props}
       className={cn(
-        'bg-bg-surface border-border shadow-2xl',
+        'bg-bg-canvas',
         props.className
       )}
     />
@@ -72,7 +86,7 @@ export function DialogFooter(props: DialogFooterBaseProps) {
   return (
     <DialogFooterBase
       {...props}
-      className={cn('flex items-center justify-end gap-3', props.className)}
+      className={cn('flex flex-row gap-3 w-full', props.className)}
     />
   );
 }

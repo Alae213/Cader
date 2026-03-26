@@ -21,7 +21,9 @@ export function TopBar({ user, onMenuClick, onCreateClick }: TopBarProps) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-bg-elevated bg-bg-base px-4">
+    <header className="w-full sticky top-0 z-40 flex h-14 items-center justify-center border-b border-bg-elevated bg-bg-base px-4">
+
+      <div className="w-full max-w-5xl flex items-center justify-between">
       {/* Left section */}
       <div className="flex items-center gap-3">
         <button
@@ -36,34 +38,6 @@ export function TopBar({ user, onMenuClick, onCreateClick }: TopBarProps) {
           </div>
           <Heading size="5" className="hidden sm:block">Cader</Heading>
         </Link>
-      </div>
-
-      {/* Center - Search */}
-      <div className={cn(
-        "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-300",
-        isSearchOpen ? "w-full max-w-xl px-4" : "w-auto"
-      )}>
-        {isSearchOpen ? (
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
-            <input
-              type="text"
-              placeholder="Search communities, members..."
-              className="h-10 w-full rounded-[14px] bg-bg-surface pl-10 pr-4 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent"
-              autoFocus
-              onBlur={() => setIsSearchOpen(false)}
-            />
-          </div>
-        ) : (
-          <button
-            onClick={() => setIsSearchOpen(true)}
-            className="hidden items-center gap-2 rounded-full bg-bg-surface px-4 py-2 text-sm text-text-muted hover:bg-bg-elevated transition-colors sm:flex"
-          >
-            <Search className="h-4 w-4" />
-            <span>Search...</span>
-            <kbd className="ml-2 rounded bg-bg-elevated px-1.5 py-0.5 text-xs">⌘K</kbd>
-          </button>
-        )}
       </div>
 
       {/* Right section */}
@@ -96,6 +70,7 @@ export function TopBar({ user, onMenuClick, onCreateClick }: TopBarProps) {
             <Button variant="ghost" size="sm">Sign in</Button>
           </Link>
         )}
+      </div>
       </div>
     </header>
   );

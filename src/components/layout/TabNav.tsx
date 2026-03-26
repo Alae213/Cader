@@ -1,14 +1,12 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Home, Users, FileText, Trophy, BarChart3, Settings } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Home, Users, FileText, Trophy, BarChart3 } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/animate-ui/components/animate/tabs";
 
 const STORAGE_KEY_PREFIX = "cader_tab_";
 
 interface Tab {
-  href: string;
+  value: string;
   label: string;
   icon: React.ElementType;
 }
@@ -16,18 +14,21 @@ interface Tab {
 interface TabNavProps {
   communitySlug: string;
   isOwner?: boolean;
+  activeTab: string;
+  onTabChange: (tab: string) => void;
 }
 
 const memberTabs: Tab[] = [
-  { href: "feed", label: "Feed", icon: Home },
-  { href: "members", label: "Members", icon: Users },
-  { href: "classrooms", label: "Classrooms", icon: FileText },
-  { href: "leaderboard", label: "Leaderboard", icon: Trophy },
+  { value: "about", label: "About", icon: Home },
+  { value: "feed", label: "Feed", icon: Home },
+  { value: "members", label: "Members", icon: Users },
+  { value: "classrooms", label: "Classrooms", icon: FileText },
+  { value: "leaderboard", label: "Leaderboard", icon: Trophy },
 ];
 
 const ownerTabs: Tab[] = [
   ...memberTabs,
-  { href: "analysis", label: "Analysis", icon: BarChart3 },
+  { value: "analysis", label: "Analysis", icon: BarChart3 },
 ];
 
 // Save tab preference to localStorage
@@ -40,64 +41,61 @@ function saveTabPreference(communitySlug: string, tab: string) {
   }
 }
 
-export function TabNav({ communitySlug, isOwner = false }: TabNavProps) {
-  const pathname = usePathname();
-  
+export function TabNav({ 
+  communitySlug, 
+  isOwner = false, 
+  activeTab, 
+  onTabChange
+}: TabNavProps) {
   // Use different tabs based on ownership
   const tabs = isOwner ? ownerTabs : memberTabs;
-  
-  // Check if we're on a nested route
-  const currentTab = pathname.split("/").pop() || "feed";
 
-  // Handle tab click - save preference
-  const handleTabClick = (tab: string) => {
-    saveTabPreference(communitySlug, tab);
+  // Handle tab change - save to localStorage and notify parent
+  const handleTabChange = (newTab: string) => {
+    onTabChange(newTab);
+    saveTabPreference(communitySlug, newTab);
   };
 
   return (
-    <nav className="flex items-center gap-1 border-b border-bg-elevated px-4">
-      {tabs.map((tab) => {
-        const isActive = currentTab === tab.href || 
-          (tab.href === "feed" && currentTab === communitySlug);
-        const Icon = tab.icon;
-
-        return (
-          <Link
-            key={tab.href}
-            href={`/${communitySlug}/${tab.href}`}
-            onClick={() => handleTabClick(tab.href)}
-            className={cn(
-              "relative flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors",
-              isActive
-                ? "text-text-primary"
-                : "text-text-muted hover:text-text-secondary"
-            )}
-          >
-            <Icon className="h-4 w-4" />
-            <span className="hidden sm:inline">{tab.label}</span>
-            {isActive && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent" />
-            )}
-          </Link>
-        );
-      })}
-      
-      {/* Settings tab - always at the end */}
-      <Link
-        href={`/${communitySlug}/settings`}
-        className={cn(
-          "relative ml-auto flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors",
-          currentTab === "settings"
-            ? "text-text-primary"
-            : "text-text-muted hover:text-text-secondary"
-        )}
-      >
-        <Settings className="h-4 w-4" />
-        <span className="hidden sm:inline">Settings</span>
-        {currentTab === "settings" && (
-          <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent" />
-        )}
-      </Link>
-    </nav>
+    <Tabs 
+      value={activeTab} 
+      onValueChange={handleTabChange}
+      className="w-full"
+    >
+      <TabsList className="border-b border-[--bg-elevated] px-4 w-full">
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          return (
+            <TabsTrigger
+              key={tab.value}
+              value={tab.value}
+              className="flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-text-muted hover:text-text-secondary data-[state=active]:text-text-primary transition-colors"
+            >
+              <Icon className="h-4 w-4" />
+              <span className="hidden sm:inline">{tab.label}</span>
+            </TabsTrigger>
+          );
+        })}
+      </TabsList>
+    </Tabs>
   );
+}
+
+// Helper function to get initial tab from localStorage
+export function getInitialTab(communitySlug: string, isOwner: boolean): string {
+  const memberTabsList = ["about", "feed", "members", "classrooms", "leaderboard"];
+  const ownerTabsList = [...memberTabsList, "analysis"];
+  const validTabs = isOwner ? ownerTabsList : memberTabsList;
+  
+  try {
+    const key = `${STORAGE_KEY_PREFIX}${communitySlug}`;
+    const stored = localStorage.getItem(key);
+    if (stored && validTabs.includes(stored)) {
+      return stored;
+    }
+  } catch {
+    // localStorage not available
+  }
+  
+  return "about";
 }

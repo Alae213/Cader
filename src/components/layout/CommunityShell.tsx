@@ -3,11 +3,15 @@
 import { useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { TopBar } from "./TopBar";
-import { TabNav } from "./TabNav";
-import { Avatar } from "@/components/shared/Avatar";
-import { Button } from "@/components/ui/Button";
-import { Heading, Text } from "@/components/ui/Text";
-import { Badge } from "@/components/ui/Badge";
+import { TabNav, getInitialTab } from "./TabNav";
+
+// Tab content components
+import { AboutTab } from "@/components/community/AboutTab";
+import { FeedTab } from "@/components/community/FeedTab";
+import { MembersTab } from "@/components/community/MembersTab";
+import { ClassroomsTab } from "@/components/community/ClassroomsTab";
+import { LeaderboardTab } from "@/components/community/LeaderboardTab";
+import { AnalysisTab } from "@/components/community/AnalysisTab";
 
 interface Community {
   id: string;
@@ -21,14 +25,69 @@ interface Community {
 
 interface CommunityShellProps {
   community: Community;
-  children: React.ReactNode;
+  children?: React.ReactNode;
   showTabs?: boolean;
   isOwner?: boolean;
+  // Legacy props for About tab - will be refactored
+  aboutTabProps?: {
+    isMember: boolean;
+    onJoinClick: () => void;
+    onEditClick: () => void;
+    onVideoChange?: (url: string) => void;
+    communityData?: any;
+  };
 }
 
-export function CommunityShell({ community, children, showTabs = false, isOwner = false }: CommunityShellProps) {
+export function CommunityShell({ 
+  community, 
+  children, 
+  showTabs = false, 
+  isOwner = false,
+  aboutTabProps 
+}: CommunityShellProps) {
   const { user } = useUser();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
+  // Client-side tab state
+  const [activeTab, setActiveTab] = useState<string>(() => 
+    getInitialTab(community.slug, isOwner)
+  );
+
+  // Handle tab change
+  const handleTabChange = (newTab: string) => {
+    setActiveTab(newTab);
+  };
+
+  // Render tab content based on active tab
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case "about":
+        return aboutTabProps ? (
+          <AboutTab 
+            community={aboutTabProps.communityData}
+            isOwner={isOwner}
+            isMember={aboutTabProps.isMember}
+            onJoinClick={aboutTabProps.onJoinClick}
+            onEditClick={aboutTabProps.onEditClick}
+            onVideoChange={aboutTabProps.onVideoChange}
+          />
+        ) : (
+          children
+        );
+      case "feed":
+        return <FeedTab communityId={community.id} />;
+      case "members":
+        return <MembersTab communityId={community.id} />;
+      case "classrooms":
+        return <ClassroomsTab communityId={community.id} />;
+      case "leaderboard":
+        return <LeaderboardTab communityId={community.id} />;
+      case "analysis":
+        return isOwner ? <AnalysisTab communityId={community.id} /> : null;
+      default:
+        return null;
+    }
+  };
 
   return (
     <div className="min-h-screen bg-bg-canvas">
@@ -38,67 +97,27 @@ export function CommunityShell({ community, children, showTabs = false, isOwner 
         onMenuClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
       />
 
-      {/* Community Header */}
-      <div className="border-b border-bg-elevated bg-bg-base">
-        <div className="mx-auto max-w-[1200px] px-4 py-6">
-          <div className="flex items-start gap-4">
-            {/* Community Avatar */}
-            <div className="relative">
-              {community.imageUrl ? (
-                <img
-                  src={community.imageUrl}
-                  alt={community.name}
-                  className="h-16 w-16 rounded-[22px] object-cover sm:h-20 sm:w-20"
-                />
-              ) : (
-                <div className="flex h-16 w-16 items-center justify-center rounded-[22px] bg-accent sm:h-20 sm:w-20">
-                  <span className="font-display text-2xl italic text-white sm:text-3xl">
-                    {community.name[0]}
-                  </span>
-                </div>
-              )}
-              {community.isVerified && (
-                <Badge variant="accent" className="absolute -bottom-1 -right-1">
-                  ✓
-                </Badge>
-              )}
-            </div>
-
-            {/* Community Info */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <Heading size="7">{community.name}</Heading>
-              </div>
-              {community.description && (
-                <Text size="2" theme="secondary" className="mt-1 line-clamp-2">
-                  {community.description}
-                </Text>
-              )}
-              <Text size="1" theme="muted" className="mt-2">
-                {community.memberCount.toLocaleString()} members
-              </Text>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="hidden sm:flex gap-2">
-              <Button variant="secondary" size="md">
-                Join
-              </Button>
-              <Button variant="primary" size="md">
-                Subscribe
-              </Button>
-            </div>
-          </div>
+      {/* Tab Navigation with content below */}
+      {showTabs ? (
+        <div className="border-b border-bg-elevated bg-bg-base">
+          <TabNav 
+            communitySlug={community.slug} 
+            isOwner={isOwner}
+            activeTab={activeTab}
+            onTabChange={handleTabChange}
+          />
+          
+          {/* Tab Content */}
+          <main className="mx-auto max-w-[1200px] px-4 py-6">
+            {renderTabContent()}
+          </main>
         </div>
-
-        {/* Tab Navigation - only show for members/owners */}
-        {showTabs && <TabNav communitySlug={community.slug} isOwner={isOwner} />}
-      </div>
-
-      {/* Main Content */}
-      <main className="mx-auto max-w-[1200px] px-4 py-6">
-        {children}
-      </main>
+      ) : (
+        /* No tabs - just show children */
+        <main className="mx-auto max-w-[1200px] px-4 py-6">
+          {children}
+        </main>
+      )}
     </div>
   );
 }

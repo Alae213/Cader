@@ -197,6 +197,17 @@ Cader uses a **two-layer component model**:
 | `LevelProgressVisualization` | 5-level progress display | — |
 | `DZDPriceDisplay` | Price in DZD with Chargily green | — |
 
+### Community Tabs (in `components/community/`)
+
+| Component | Tab | Status |
+|---|---|---|
+| `AboutTab` | About | — |
+| `FeedTab` | Feed | placeholder |
+| `MembersTab` | Members | placeholder |
+| `ClassroomsTab` | Classrooms | placeholder |
+| `LeaderboardTab` | Leaderboard | placeholder |
+| `AnalysisTab` | Analysis (owner only) | placeholder |
+
 ---
 
 ## Component Ownership Map

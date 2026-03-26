@@ -259,6 +259,14 @@ export function CreateCommunityModal({ open, onOpenChange }: CreateCommunityModa
           </DialogDescription>
         </DialogHeader>
 
+        <hr
+                      className="h-px w-full border-0"
+                      style={{
+                        background: "rgba(242, 242, 242, 0.25)",
+                        boxShadow: "0 1px 0 0 rgba(0, 0, 0, 0.50)",
+                      }}
+                    />
+
         <DialogBody>
           {step === 1 && (
             <div className="space-y-4">
@@ -270,7 +278,7 @@ export function CreateCommunityModal({ open, onOpenChange }: CreateCommunityModa
                 <Input
                   value={name}
                   onChange={(e) => handleNameChange(e.target.value)}
-                  placeholder="e.g., Python Masters Algeria"
+                  placeholder="type name..."
                 />
               </div>
 
@@ -284,7 +292,7 @@ export function CreateCommunityModal({ open, onOpenChange }: CreateCommunityModa
                   <Input
                     value={slug}
                     onChange={(e) => handleSlugChange(e.target.value)}
-                    placeholder="your-community"
+                    placeholder="type url..."
                     className="flex-1"
                   />
                 </div>
@@ -332,7 +340,7 @@ export function CreateCommunityModal({ open, onOpenChange }: CreateCommunityModa
                     type="number"
                     value={price}
                     onChange={(e) => setPrice(e.target.value)}
-                    placeholder="e.g., 500"
+                    placeholder="type price..."
                   />
                   <Text size="2" theme="secondary" className="mt-1">
                     {pricingType === "monthly" && "Members pay this amount monthly"}
@@ -353,7 +361,7 @@ export function CreateCommunityModal({ open, onOpenChange }: CreateCommunityModa
                       type="password"
                       value={chargilyApiKey}
                       onChange={(e) => setChargilyApiKey(e.target.value)}
-                      placeholder="Your Chargily API key"
+                      placeholder="type api key..."
                     />
                   </div>
                   <div>
@@ -364,7 +372,7 @@ export function CreateCommunityModal({ open, onOpenChange }: CreateCommunityModa
                       type="password"
                       value={chargilyWebhookSecret}
                       onChange={(e) => setChargilyWebhookSecret(e.target.value)}
-                      placeholder="Your Chargily webhook secret"
+                      placeholder="type webhook secret..."
                     />
                   </div>
                 </>
@@ -372,9 +380,6 @@ export function CreateCommunityModal({ open, onOpenChange }: CreateCommunityModa
 
               {/* Wilaya */}
               <div>
-                <label className="block text-sm font-medium text-text-primary mb-1">
-                  Your Wilaya (Optional)
-                </label>
                 <Select
                   value={wilaya}
                   onChange={(value) => setWilaya(value)}
@@ -397,26 +402,30 @@ export function CreateCommunityModal({ open, onOpenChange }: CreateCommunityModa
         <DialogFooter>
           {step === 1 ? (
             <>
-              <Button variant="ghost" onClick={handleClose}>
+              <Button variant="ghost" size="md" onClick={handleClose} className="w-full">
                 Cancel
               </Button>
               <Button 
                 onClick={handleNext} 
                 disabled={!isStep1Valid}
+                className="w-full"
+                size="md"
               >
                 Next
               </Button>
             </>
           ) : (
             <>
-              <Button variant="ghost" onClick={() => setStep(1)}>
+              <Button variant="ghost" size="md" onClick={() => setStep(1)} className="w-full">
                 Back
               </Button>
               <Button 
                 onClick={handleSubmit} 
                 disabled={!isStep2Valid() || loading || validatingKeys}
-              >
-                {validatingKeys ? "Validating keys..." : loading ? "Creating..." : pricingType === "free" ? "Create Community" : "Create & Set Up Payments"}
+                className="w-full"
+                size="md"
+                >
+                {validatingKeys ? "Validating keys..." : loading ? "Creating..." : pricingType === "free" ? "Create" : "Create"}
               </Button>
             </>
           )}

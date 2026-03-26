@@ -1,26 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useState } from "react";
+import { useParams } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
 import { useAuth } from "@clerk/nextjs";
 import { api } from "@/../convex/_generated/api";
 import { CommunityShell } from "@/components/layout/CommunityShell";
-import { AboutTab } from "@/components/community/AboutTab";
 import { CreateCommunityModal } from "@/components/community/CreateCommunityModal";
 import { Heading, Text } from "@/components/ui/Text";
 
-const STORAGE_KEY_PREFIX = "cader_tab_";
-
 export default function CommunityPage() {
   const params = useParams();
-  const router = useRouter();
   const { userId: clerkId } = useAuth();
   const communitySlug = params.communitySlug as string;
 
   // Modal state
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [joinIntent, setJoinIntent] = useState<string | null>(null);
 
   // Fetch community from Convex
   const community = useQuery(api.functions.getBySlug, { slug: communitySlug });
@@ -38,7 +33,6 @@ export default function CommunityPage() {
   const handleJoinClick = () => {
     if (!clerkId) {
       // Store intent and trigger sign in
-      setJoinIntent(communitySlug);
       // The sign-in modal will appear (handled by Clerk)
       return;
     }
@@ -64,31 +58,6 @@ export default function CommunityPage() {
       console.error("Failed to update video URL:", error);
     }
   };
-
-  // Check if user has a stored tab preference
-  useEffect(() => {
-    if (!communitySlug || !clerkId || !membership) return;
-    
-    // Only redirect if user is a member (not for About page visitors)
-    if (!membership.isMember && !membership.isOwner) return;
-
-    try {
-      const storageKey = `${STORAGE_KEY_PREFIX}${communitySlug}`;
-      const storedTab = localStorage.getItem(storageKey);
-      
-      // Valid tabs for redirect
-      const validTabs = membership.isOwner 
-        ? ["feed", "members", "classrooms", "leaderboard", "analysis"]
-        : ["feed", "members", "classrooms", "leaderboard"];
-
-      // If stored tab is valid and different from default, redirect
-      if (storedTab && validTabs.includes(storedTab)) {
-        router.replace(`/${communitySlug}/${storedTab}`);
-      }
-    } catch {
-      // localStorage not available, stay on About
-    }
-  }, [communitySlug, clerkId, membership, router]);
 
   // Loading state (while community loads)
   if (community === undefined) {
@@ -155,17 +124,14 @@ export default function CommunityPage() {
         community={communityData}
         showTabs={showAllTabs}
         isOwner={isOwner}
-      >
-        {/* About Tab Content - shown on /[communitySlug] route */}
-        <AboutTab 
-          community={community}
-          isOwner={isOwner}
-          isMember={isMember}
-          onJoinClick={handleJoinClick}
-          onEditClick={handleEditClick}
-          onVideoChange={handleVideoChange}
-        />
-      </CommunityShell>
+        aboutTabProps={{
+          isMember,
+          onJoinClick: handleJoinClick,
+          onEditClick: handleEditClick,
+          onVideoChange: handleVideoChange,
+          communityData: community,
+        }}
+      />
 
       {/* Edit Community Modal */}
       <CreateCommunityModal 

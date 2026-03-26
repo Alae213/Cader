@@ -26,6 +26,14 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Cader — Paid Communities for Algerian Creators",
   description: "Launch paid or free communities, build courses, and accept payments in DZD via Chargily.",
+  icons: {
+    icon: [
+      { url: "/favicon.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon.png", sizes: "16x16", type: "image/png" },
+    ],
+    shortcut: "/favicon.png",
+    apple: "/favicon.png",
+  },
 };
 
 export default function RootLayout({
@@ -34,25 +42,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider
-      appearance={{
-        variables: {
-          colorPrimary: "#1754d8",
-          colorTextOnPrimaryBackground: "#ffffff",
-          colorBackground: "#222222",
-          colorInputBackground: "#2A2A2A",
-          colorInputText: "#FAFAFA",
-          colorTextSecondary: "#A1A1AA",
-          borderRadius: "14px",
-        },
-        elements: {
-          formButtonPrimary: "bg-accent hover:bg-accent-hover text-white",
-          card: "bg-bg-surface",
-          headerTitle: "font-display",
-          headerSubtitle: "text-text-secondary",
-        },
-      }}
-    >
+    <ClerkProvider>
       <ConvexClientProvider>
         <html
           lang="en"
