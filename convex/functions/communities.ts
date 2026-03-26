@@ -216,6 +216,7 @@ export const createCommunity = mutation({
 export const updateCommunity = mutation({
   args: {
     communityId: v.id("communities"),
+    slug: v.optional(v.string()),
     name: v.optional(v.string()),
     tagline: v.optional(v.string()),
     description: v.optional(v.string()),
@@ -270,6 +271,21 @@ export const updateCommunity = mutation({
     if (args.wilaya !== undefined) updateData.wilaya = args.wilaya;
     if (args.pricingType !== undefined) updateData.pricingType = args.pricingType;
     if (args.priceDzd !== undefined) updateData.priceDzd = args.priceDzd;
+    
+    // EC-14: Prevent slug change if community has active members
+    if (args.slug !== undefined) {
+      const memberships = await ctx.db
+        .query("memberships")
+        .withIndex("by_community_id", (q) => q.eq("communityId", args.communityId))
+        .collect();
+      
+      const activeMembers = memberships.filter((m: { status: string }) => m.status === "active");
+      if (activeMembers.length > 0) {
+        throw new Error("Cannot change URL while community has members");
+      }
+      updateData.slug = args.slug;
+    }
+    
     if (args.chargilyApiKey !== undefined) updateData.chargilyApiKey = args.chargilyApiKey;
     if (args.chargilyWebhookSecret !== undefined) updateData.chargilyWebhookSecret = args.chargilyWebhookSecret;
     

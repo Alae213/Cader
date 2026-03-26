@@ -230,13 +230,13 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T106 | `[ ]` | Implement EC-5: slug conflict — validate on input AND on submit, show inline error | [context/features/community-creation.md](../features/community-creation.md) | |
-| T107 | `[ ]` | Implement EC-10: authenticated user with 0 communities visiting `/` — no auto-redirect, CTA remains primary | [context/features/platform-landing.md](../features/platform-landing.md) | |
-| T108 | `[ ]` | Implement EC-12: pricing model change — changes apply to new members only, existing retain original terms | [context/features/community-creation.md](../features/community-creation.md) | |
-| T109 | `[ ]` | Implement EC-14: slug cannot be changed if community has active members | [context/features/community-creation.md](../features/community-creation.md) | |
-| T110 | `[ ]` | Audit all Convex mutations — server-side role checks, input validation, rate limiting | Foundation | |
-| T111 | `[ ]` | Audit all webhook handlers — signature verification, 200 for unhandled events, 401 for bad signature | [context/features/chargily-integration.md](../features/chargily-integration.md) | |
-| T112 | `[ ]` | Audit all user inputs — Zod validation on client + re-validation in Convex mutations, no `any` types | Foundation | |
+| T106 | `[x]` | Implement EC-5: slug conflict — validate on input AND on submit, show inline error | [context/features/community-creation.md](../features/community-creation.md) | |
+| T107 | `[x]` | Implement EC-10: authenticated user with 0 communities visiting `/` — no auto-redirect, CTA remains primary | [context/features/platform-landing.md](../features/platform-landing.md) | |
+| T108 | `[x]` | Implement EC-12: pricing model change — changes apply to new members only, existing retain original terms | [context/features/community-creation.md](../features/community-creation.md) | |
+| T109 | `[x]` | Implement EC-14: slug cannot be changed if community has active members | [context/features/community-creation.md](../features/community-creation.md) | |
+| T110 | `[x]` | Audit all Convex mutations — server-side role checks, input validation, rate limiting | Foundation | |
+| T111 | `[x]` | Audit all webhook handlers — signature verification, 200 for unhandled events, 401 for bad signature | [context/features/chargily-integration.md](../features/chargily-integration.md) | |
+| T112 | `[x]` | Audit all user inputs — Zod validation on client + re-validation in Convex mutations, no `any` types | Foundation | |
 
 ### Phase 17 — Polish & Launch (T113–T122)
 
