@@ -76,6 +76,74 @@ export const getUserMemberships = query({
   },
 });
 
+// Get all memberships for a user by Clerk ID
+export const listByClerkId = query({
+  args: { clerkId: v.string() },
+  handler: async (ctx, args) => {
+    // Find the user by Clerk ID
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
+      .first();
+    
+    if (!user) return [];
+    
+    const memberships = await ctx.db
+      .query("memberships")
+      .withIndex("by_user_id", (q) => q.eq("userId", user._id))
+      .collect();
+
+    // Get community info for each membership
+    const membershipsWithCommunity = await Promise.all(
+      memberships.map(async (m) => {
+        const community = await ctx.db.get(m.communityId);
+        return {
+          ...m,
+          communityId: m.communityId,
+          communityName: community?.name,
+          communitySlug: community?.slug,
+        };
+      })
+    );
+    
+    return membershipsWithCommunity;
+  },
+});
+
+// List memberships by user (wrapper that uses clerkId)
+export const listByUser = query({
+  args: { userId: v.string() },
+  handler: async (ctx, args) => {
+    // Find the user by Clerk ID (treating userId as clerkId)
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.userId))
+      .first();
+    
+    if (!user) return [];
+    
+    const memberships = await ctx.db
+      .query("memberships")
+      .withIndex("by_user_id", (q) => q.eq("userId", user._id))
+      .collect();
+
+    // Get community info for each membership
+    const membershipsWithCommunity = await Promise.all(
+      memberships.map(async (m) => {
+        const community = await ctx.db.get(m.communityId);
+        return {
+          ...m,
+          communityId: m.communityId,
+          communityName: community?.name,
+          communitySlug: community?.slug,
+        };
+      })
+    );
+    
+    return membershipsWithCommunity;
+  },
+});
+
 // Grant membership for free community (immediate, with additional details)
 export const grantMembershipWithDetails = mutation({
   args: {

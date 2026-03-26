@@ -16,6 +16,9 @@ export * from "./feed";
 // Categories functions
 export * from "./categories";
 
+// Explore functions
+export * from "./explore";
+
 // Classroom functions
 export * from "./classrooms";
 

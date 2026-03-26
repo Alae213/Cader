@@ -11,6 +11,7 @@
 import type * as functions_categories from "../functions/categories.js";
 import type * as functions_classrooms from "../functions/classrooms.js";
 import type * as functions_communities from "../functions/communities.js";
+import type * as functions_explore from "../functions/explore.js";
 import type * as functions_feed from "../functions/feed.js";
 import type * as functions_index from "../functions/index.js";
 import type * as functions_leaderboard from "../functions/leaderboard.js";
@@ -29,6 +30,7 @@ declare const fullApi: ApiFromModules<{
   "functions/categories": typeof functions_categories;
   "functions/classrooms": typeof functions_classrooms;
   "functions/communities": typeof functions_communities;
+  "functions/explore": typeof functions_explore;
   "functions/feed": typeof functions_feed;
   "functions/index": typeof functions_index;
   "functions/leaderboard": typeof functions_leaderboard;

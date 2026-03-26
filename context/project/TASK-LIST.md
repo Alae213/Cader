@@ -142,7 +142,14 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 |---|--------|------|---------|-------|
 | T58 | `[x]` | Build upvote toggle — one per member per post, real-time count, writes `pointEvents` (+1/-1) | [context/features/community-feed.md](../features/community-feed.md) | toggleUpvote mutation + PostCard UI |
 | T59 | `[x]` | Build `toggleUpvote` Convex mutation — idempotent per (userId, postId), awards/reverses points to post author | [context/features/community-feed.md](../features/community-feed.md) | Added to functions.ts |
-| T60 | `[ ]` | Build category system — owner defines categories in settings, members filter feed by category | [context/features/community-feed.md](../features/community-feed.md) | `[Max: 5-10 categories per community]` |
+| T60 | `[x]` | Build category system — owner defines categories in settings, members filter feed by category | [context/features/community-feed.md](../features/community-feed.md) | `[Max: 5-10 categories per community]` |
+| T60a | `[x]` | Update Convex schema: add `order`, `updatedAt`, unique index | [context/features/community-feed.md](../features/community-feed.md) | `convex/schema.ts` |
+| T60b | `[x]` | Build `categories.ts` Convex functions (list, create, update, delete, reorder) | [context/features/community-feed.md](../features/community-feed.md) | `convex/functions/categories.ts` |
+| T60c | `[x]` | Add "Categories" section to SettingsModal with CRUD UI | [context/features/community-feed.md](../features/community-feed.md) | `src/components/community/SettingsModal.tsx` |
+| T60d | `[x]` | Build category filter pills in FeedTab | [context/features/community-feed.md](../features/community-feed.md) | `src/components/community/FeedTab.tsx` |
+| T60e | `[x]` | Connect PostComposer to real categories (fetch & pass prop) | [context/features/community-feed.md](../features/community-feed.md) | In FeedTab |
+| T60f | `[x]` | Add validation schemas for category update/reorder | [context/features/community-feed.md](../features/community-feed.md) | `src/lib/validations.ts` |
+| T60g | `[x]` | Test edge cases: delete category, duplicate name, max limit | [context/features/community-feed.md](../features/community-feed.md) | Manual + unit tests |
 | T61 | `[x]` | Build pin post — max 3 pinned per community, owner/admin only, pinned section at top of feed | [context/features/pin-post.md](../features/pin-post.md) | pinPost mutation |
 | T62 | `[x]` | Build unpin post — three-dot menu on pinned post, returns to chronological position | [context/features/pin-post.md](../features/pin-post.md) | unpinPost mutation |
 | T63 | `[x]` | Build delete post — three-dot menu, confirmation dialog, cascade-delete comments, server-side permission check | [context/features/delete-content.md](../features/delete-content.md) | deletePost mutation |
@@ -214,10 +221,10 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T102 | `[ ]` | Build explore modal — search input (debounced) + community grid (thumbnail, name, tagline, member count, pricing badge, "View" button) | [context/features/explore-modal.md](../features/explore-modal.md) | |
-| T103 | `[ ]` | Build `listDiscoverableCommunities` Convex query — search filter, only public communities, sort by member count or recent activity | [context/features/explore-modal.md](../features/explore-modal.md) | `[Discoverable by default, owner can hide]` |
-| T104 | `[ ]` | Build explore modal — "Joined" badge for communities user is already in, "Locked" badge for tier-locked communities | [context/features/explore-modal.md](../features/explore-modal.md) | |
-| T105 | `[ ]` | Build Analysis tab placeholder — owner-only, centered "Coming Soon" content, chart icon, list of v1.1 features | [context/features/analysis-tab.md](../features/analysis-tab.md) | |
+| T102 | `[x]` | Build explore modal — search input + community grid (thumbnail, name, tagline, member count, pricing badge, "View" button) | [context/features/explore-modal.md](../features/explore-modal.md) | |
+| T103 | `[x]` | Build `listDiscoverableCommunities` Convex query — search filter, only public communities, sort by member count or recent activity | [context/features/explore-modal.md](../features/explore-modal.md) | `[Discoverable by default, owner can hide]` |
+| T104 | `[x]` | Build explore modal — "Joined" badge for communities user is already in, "Locked" badge for tier-locked communities | [context/features/explore-modal.md](../features/explore-modal.md) | |
+| T105 | `[x]` | Build Analysis tab placeholder — owner-only, centered "Coming Soon" content, chart icon, list of v1.1 features | [context/features/analysis-tab.md](../features/analysis-tab.md) | |
 
 ### Phase 16 — Edge Cases & Security (T106–T112)
 
@@ -233,18 +240,18 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 
 ### Phase 17 — Polish & Launch (T113–T122)
 
-| # | Status | Task | Feature | Notes |
-|---|--------|------|---------|-------|
-| T113 | `[ ]` | Build loading skeleton states — all list pages (feed, classrooms, members, leaderboard) | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | |
-| T114 | `[ ]` | Build empty states — no posts, no classrooms, no members, no search results — with clear CTAs | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | |
-| T115 | `[ ]` | Build error boundaries — catch React errors, user-friendly messages, no stack traces exposed | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | |
-| T116 | `[ ]` | Mobile responsiveness audit — test 375px (mobile), 768px (tablet), 1280px (desktop) | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | |
-| T117 | `[ ]` | Convex index audit — verify all high-traffic queries use indexes (communityId, userId, lessonId, membershipStatus) | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | |
-| T118 | `[ ]` | Webhook security review — signature verification on all endpoints, no sensitive data in logs, keys encrypted at rest | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | |
-| T119 | `[ ]` | Seed data — create example community with sample posts, classrooms, members for `/explore` | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | `[Seed data: basic info only (titles, placeholder content, no real data)]` |
-| T120 | `[ ]` | Vercel production deployment — env vars configured, build passes, domain ready | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | |
-| T121 | `[ ]` | Custom domain setup | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | `[Custom domain: Not required for v1, use Vercel subdomain]` |
-| T122 | `[ ]` | README update — setup instructions, env vars, local dev, deployment steps | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | |
+| #    | Status | Task                                                                                                                 | Feature                                                                           | Notes                                                                      |
+| ---- | ------ | -------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| T113 | `[ ]`  | Build loading skeleton states — all list pages (feed, classrooms, members, leaderboard)                              | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) |                                                                            |
+| T114 | `[ ]`  | Build empty states — no posts, no classrooms, no members, no search results — with clear CTAs                        | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) |                                                                            |
+| T115 | `[ ]`  | Build error boundaries — catch React errors, user-friendly messages, no stack traces exposed                         | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) |                                                                            |
+| T116 | `[ ]`  | Mobile responsiveness audit — test 375px (mobile), 768px (tablet), 1280px (desktop)                                  | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) |                                                                            |
+| T117 | `[ ]`  | Convex index audit — verify all high-traffic queries use indexes (communityId, userId, lessonId, membershipStatus)   | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) |                                                                            |
+| T118 | `[ ]`  | Webhook security review — signature verification on all endpoints, no sensitive data in logs, keys encrypted at rest | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) |                                                                            |
+| T119 | `[ ]`  | Seed data — create example community with sample posts, classrooms, members for `/explore`                           | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | `[Seed data: basic info only (titles, placeholder content, no real data)]` |
+| T120 | `[ ]`  | Vercel production deployment — env vars configured, build passes, domain ready                                       | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) |                                                                            |
+| T121 | `[ ]`  | Custom domain setup                                                                                                  | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | `[Custom domain: Not required for v1, use Vercel subdomain]`               |
+| T122 | `[ ]`  | README update — setup instructions, env vars, local dev, deployment steps                                            | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) |                                                                            |
 
 ---
 

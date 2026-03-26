@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Menu, X, Bell, Search, Plus, Settings } from "lucide-react";
+import { Menu, X, Bell, Search, Plus, Settings, Compass } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Heading, Text } from "@/components/ui/Text";
@@ -17,9 +17,10 @@ interface TopBarProps {
   onCreateClick?: () => void;
   onProfileClick?: () => void;
   onSettingsClick?: () => void;
+  onExploreClick?: () => void;
 }
 
-export function TopBar({ user, onMenuClick, onCreateClick, onProfileClick, onSettingsClick }: TopBarProps) {
+export function TopBar({ user, onMenuClick, onCreateClick, onProfileClick, onSettingsClick, onExploreClick }: TopBarProps) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   return (
@@ -56,6 +57,16 @@ export function TopBar({ user, onMenuClick, onCreateClick, onProfileClick, onSet
             <Plus className="mr-1 h-4 w-4" />
             Create
           </Button>
+        )}
+
+        {onExploreClick && user && (
+          <button
+            onClick={onExploreClick}
+            className="rounded-full p-2 text-text-muted hover:bg-bg-elevated hover:text-text-primary transition-colors"
+            title="Explore Communities"
+          >
+            <Compass className="h-5 w-5" />
+          </button>
         )}
 
         <button className="relative rounded-full p-2 text-text-muted hover:bg-bg-elevated hover:text-text-primary transition-colors">

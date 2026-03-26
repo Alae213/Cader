@@ -14,6 +14,7 @@ import { LeaderboardTab } from "@/components/community/LeaderboardTab";
 import { AnalysisTab } from "@/components/community/AnalysisTab";
 import { ProfileModal } from "@/components/community/ProfileModal";
 import { SettingsModal } from "@/components/community/SettingsModal";
+import { ExploreModal } from "@/components/community/ExploreModal";
 
 interface Community {
   id: string;
@@ -53,6 +54,7 @@ export function CommunityShell({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showExploreModal, setShowExploreModal] = useState(false);
   const [profileUserId, setProfileUserId] = useState<string>("");
   
   // Client-side tab state
@@ -115,6 +117,7 @@ export function CommunityShell({
         onMenuClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         onProfileClick={handleProfileClick}
         onSettingsClick={handleSettingsClick}
+        onExploreClick={() => setShowExploreModal(true)}
       />
 
       {/* Tab Navigation with content below */}
@@ -144,6 +147,12 @@ export function CommunityShell({
         open={showSettingsModal}
         onOpenChange={setShowSettingsModal}
         communitySlug={community.slug}
+      />
+
+      {/* Explore Modal */}
+      <ExploreModal
+        open={showExploreModal}
+        onOpenChange={setShowExploreModal}
       />
     </div>
   );
