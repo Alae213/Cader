@@ -73,9 +73,13 @@ export default defineSchema({
   categories: defineTable({
     communityId: v.id("communities"),
     name: v.string(),
-    color: v.string(),
+    color: v.string(), // hex color #RRGGBB
+    order: v.number(), // drag‑and‑drop order
     createdAt: v.number(),
-  }).index("by_community_id", ["communityId"]),
+    updatedAt: v.number(),
+  }).index("by_community_id", ["communityId"])
+    .index("by_community_and_name", ["communityId", "name"])
+    .index("by_community_and_order", ["communityId", "order"]),
 
   // Posts in community feed
   posts: defineTable({

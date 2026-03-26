@@ -13,6 +13,9 @@ export * from "./payments";
 // Feed functions (posts, comments, upvotes)
 export * from "./feed";
 
+// Categories functions
+export * from "./categories";
+
 // Classroom functions
 export * from "./classrooms";
 

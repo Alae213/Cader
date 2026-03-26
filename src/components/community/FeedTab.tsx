@@ -49,12 +49,22 @@ export function FeedTab({ communityId }: FeedTabProps) {
   const { userId } = useAuth();
   const [showComposer, setShowComposer] = useState(false);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
 
   // Fetch posts
-  const posts = useQuery(api.functions.feed.listPosts, { communityId: communityId as any }) || [];
+  const posts = useQuery(
+    api.functions.feed.listPosts, 
+    { 
+      communityId: communityId as any,
+      categoryId: selectedCategoryId ? selectedCategoryId as any : undefined
+    }
+  ) || [];
   
-  // Fetch categories (placeholder for now)
-  const categories: { _id: string; name: string; color: string }[] = [];
+  // Fetch categories
+  const categories = useQuery(
+    api.functions.categories.listCategories,
+    { communityId: communityId as any }
+  ) || [];
 
   // Fetch community stats for sidebar
   const communityStats = useQuery(api.functions.communities.getCommunityStats, { communityId: communityId as any });
@@ -80,6 +90,39 @@ export function FeedTab({ communityId }: FeedTabProps) {
     <div className="flex gap-6">
       {/* Main Feed Column */}
       <div className="flex-1">
+        {/* Category Filter Pills */}
+        {categories.length > 0 && (
+          <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
+            <button
+              onClick={() => setSelectedCategoryId(null)}
+              className={`px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors ${
+                selectedCategoryId === null
+                  ? "bg-primary text-white"
+                  : "bg-bg-elevated text-text-secondary hover:bg-bg-muted"
+              }`}
+            >
+              All
+            </button>
+            {categories.map((cat) => (
+              <button
+                key={cat._id}
+                onClick={() => setSelectedCategoryId(cat._id)}
+                className={`px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors flex items-center gap-2 ${
+                  selectedCategoryId === cat._id
+                    ? "bg-primary text-white"
+                    : "bg-bg-elevated text-text-secondary hover:bg-bg-muted"
+                }`}
+              >
+                <span 
+                  className="w-2 h-2 rounded-full" 
+                  style={{ backgroundColor: cat.color }}
+                />
+                {cat.name}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Post Composer Trigger */}
         <Card className="mb-4">
           <CardContent className="p-4">

@@ -97,8 +97,19 @@ export const commentCreateSchema = z.object({
 // Category validation schemas
 export const categoryCreateSchema = z.object({
   communityId: z.string(),
-  name: z.string().min(1).max(50),
+  name: z.string().min(1).max(30),
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Invalid color hex"),
+});
+
+export const categoryUpdateSchema = z.object({
+  categoryId: z.string(),
+  name: z.string().min(1).max(30).optional(),
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Invalid color hex").optional(),
+});
+
+export const categoryReorderSchema = z.object({
+  communityId: z.string(),
+  categoryIds: z.array(z.string()).min(1).max(10),
 });
 
 // Classroom validation schemas
