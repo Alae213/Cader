@@ -40,6 +40,16 @@ interface CommunityShellProps {
     onVideoChange?: (url: string) => void;
     communityData?: any;
   };
+  // New props for TopBar
+  communities?: Array<{
+    id: string;
+    name: string;
+    thumbnailUrl?: string;
+  }>;
+  onCommunitySelect?: (communityId: string) => void;
+  onCreateCommunity?: () => void;
+  onExploreCommunities?: () => void;
+  onLogout?: () => void;
 }
 
 export function CommunityShell({ 
@@ -48,7 +58,13 @@ export function CommunityShell({
   showTabs = false, 
   isOwner = false,
   isAdmin = false,
-  aboutTabProps 
+  aboutTabProps,
+  // New props for TopBar
+  communities = [],
+  onCommunitySelect,
+  onCreateCommunity,
+  onExploreCommunities,
+  onLogout
 }: CommunityShellProps) {
   const { user } = useUser();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -111,14 +127,21 @@ export function CommunityShell({
 
   return (
     <div className="min-h-screen bg-bg-canvas">
-      {/* Top Bar */}
-      <TopBar
-        user={user ? { name: user.fullName, image: user.imageUrl } : null}
-        onMenuClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-        onProfileClick={handleProfileClick}
-        onSettingsClick={handleSettingsClick}
-        onExploreClick={() => setShowExploreModal(true)}
-      />
+       {/* Top Bar */}
+       <TopBar
+         user={user ? { name: user.fullName, image: user.imageUrl } : null}
+         communities={communities}
+         onCommunitySelect={onCommunitySelect}
+         onCreateCommunity={onCreateCommunity}
+         onExploreCommunities={onExploreCommunities}
+         onProfileClick={handleProfileClick}
+         onSettingsClick={handleSettingsClick}
+         onLogout={() => {
+           // Implement logout logic here
+           // For now, we'll just redirect to home
+           window.location.href = "/";
+         }}
+       />
 
       {/* Tab Navigation with content below */}
       {showTabs ? (

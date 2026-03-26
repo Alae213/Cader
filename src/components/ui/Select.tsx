@@ -3,10 +3,12 @@
 import * as React from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
 
 export interface SelectOption {
   value: string;
   label: string;
+  thumbnail?: string; // For community thumbnail
 }
 
 export interface SelectProps {
@@ -15,9 +17,11 @@ export interface SelectProps {
   onChange?: (value: string) => void;
   placeholder?: string;
   className?: string;
+  // Special prop for community select
+  isCommunitySelect?: boolean;
 }
 
-export function Select({ options, value, onChange, placeholder = "Select...", className }: SelectProps) {
+export function Select({ options, value, onChange, placeholder = "Select...", className, isCommunitySelect = false }: SelectProps) {
   const [isOpen, setIsOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
 
@@ -34,6 +38,12 @@ export function Select({ options, value, onChange, placeholder = "Select...", cl
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Variants for framer motion animation
+  const variants = {
+    hidden: { opacity: 0, y: -10 },
+    visible: { opacity: 1, y: 0 },
+  };
+
   return (
     <div ref={ref} className={cn("relative", className)}>
       <button
@@ -46,31 +56,61 @@ export function Select({ options, value, onChange, placeholder = "Select...", cl
           selectedOption ? "" : "text-text-muted"
         )}
       >
-        <span>{selectedOption?.label || placeholder}</span>
+        {isCommunitySelect && selectedOption && selectedOption.thumbnail ? (
+          <>
+            <img 
+              src={selectedOption.thumbnail} 
+              alt={`${selectedOption.label} thumbnail`} 
+              className="h-8 w-8 rounded-full object-cover mr-2"
+            />
+            <span>{selectedOption.label}</span>
+          </>
+        ) : (
+          <span>{selectedOption?.label || placeholder}</span>
+        )}
         <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 mt-1 w-full rounded-[14px] bg-bg-elevated py-1 shadow-lg">
-          {options.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => {
-                onChange?.(option.value);
-                setIsOpen(false);
-              }}
-              className={cn(
-                "flex w-full px-4 py-2 text-left text-sm transition-colors",
-                option.value === value
-                  ? "bg-accent-subtle text-accent"
-                  : "text-text-primary hover:bg-bg-surface"
-              )}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
+        <AnimatePresence>
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            exit="hidden"
+            variants={variants}
+            className="absolute z-50 mt-1 w-full rounded-[14px] bg-bg-elevated py-1 shadow-lg"
+          >
+            {options.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => {
+                  onChange?.(option.value);
+                  setIsOpen(false);
+                }}
+                className={cn(
+                  "flex w-full px-4 py-2 text-left text-sm transition-colors",
+                  option.value === value
+                    ? "bg-accent-subtle text-accent"
+                    : "text-text-primary hover:bg-bg-surface"
+                )}
+              >
+                {isCommunitySelect && option.thumbnail ? (
+                  <>
+                    <img 
+                      src={option.thumbnail} 
+                      alt={`${option.label} thumbnail`} 
+                      className="h-6 w-6 rounded-full object-cover mr-2"
+                    />
+                    <span>{option.label}</span>
+                  </>
+                ) : (
+                  <span>{option.label}</span>
+                )}
+              </button>
+            ))}
+          </motion.div>
+        </AnimatePresence>
       )}
     </div>
   );
