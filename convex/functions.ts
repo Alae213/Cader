@@ -936,3 +936,342 @@ export const canJoinCommunity = query({
     return { canJoin: true, reason: "Available" };
   },
 });
+
+// ============ COMMUNITY FEED (Phase 8) ============
+
+// List posts for a community (paginated, pinned-first then chronological)
+export const listPosts = query({
+  args: {
+    communityId: v.id("communities"),
+    categoryId: v.optional(v.id("categories")),
+    limit: v.optional(v.number()),
+    cursor: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = args.limit || 20;
+    const communityId = args.communityId;
+
+    // Get all posts for this community
+    let postsQuery = ctx.db
+      .query("posts")
+      .withIndex("by_community_id", (q) => q.eq("communityId", communityId));
+
+    // Filter by category if provided
+    let posts = await postsQuery.collect();
+
+    if (args.categoryId) {
+      posts = posts.filter((p: { categoryId?: string }) => 
+        p.categoryId === args.categoryId
+      );
+    }
+
+    // Sort: pinned first, then by createdAt descending
+    posts.sort((a: { isPinned: boolean; createdAt: number }, b: { isPinned: boolean; createdAt: number }) => {
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      return b.createdAt - a.createdAt;
+    });
+
+    // Get author details for each post
+    const postsWithAuthors = await Promise.all(
+      posts.map(async (post: { 
+        _id: string; 
+        authorId: string; 
+        categoryId?: string;
+        content: string;
+        contentType: string;
+        mediaUrls?: string[];
+        videoUrl?: string;
+        pollOptions?: { text: string; votes: number }[];
+        pollEndDate?: number;
+        isPinned: boolean;
+        mentions?: string[];
+        upvoteCount: number;
+        commentCount: number;
+        createdAt: number;
+        updatedAt: number;
+      }) => {
+        const author = await ctx.db.get(post.authorId);
+        let category = null;
+        if (post.categoryId) {
+          category = await ctx.db.get(post.categoryId);
+        }
+        return {
+          ...post,
+          author: author ? {
+            _id: author._id,
+            displayName: author.displayName,
+            avatarUrl: author.avatarUrl,
+          } : null,
+          category: category ? {
+            _id: category._id,
+            name: category.name,
+            color: category.color,
+          } : null,
+        };
+      })
+    );
+
+    return postsWithAuthors;
+  },
+});
+
+// Create a new post
+export const createPost = mutation({
+  args: {
+    communityId: v.id("communities"),
+    content: v.string(),
+    contentType: v.union(v.literal("text"), v.literal("image"), v.literal("video"), v.literal("gif"), v.literal("poll")),
+    categoryId: v.optional(v.id("categories")),
+    mediaUrls: v.optional(v.array(v.string())),
+    videoUrl: v.optional(v.string()),
+    pollOptions: v.optional(v.array(v.object({
+      text: v.string(),
+      votes: v.number(),
+    }))),
+    pollEndDate: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    // Get authenticated user from Clerk
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("You must be signed in to post");
+    }
+
+    // Get the user from our database
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found. Please complete onboarding first.");
+    }
+
+    // Check if user is a member of this community
+    const membership = await ctx.db
+      .query("memberships")
+      .withIndex("by_community_and_user", (q) =>
+        q.eq("communityId", args.communityId).eq("userId", user._id)
+      )
+      .first();
+
+    if (!membership || membership.status !== "active") {
+      throw new Error("You must be a member to post in this community");
+    }
+
+    // Validate content
+    if (!args.content && !args.mediaUrls?.length && !args.videoUrl && !args.pollOptions) {
+      throw new Error("Post must have some content");
+    }
+
+    // For polls, validate options
+    if (args.contentType === "poll") {
+      if (!args.pollOptions || args.pollOptions.length < 2) {
+        throw new Error("Poll must have at least 2 options");
+      }
+      if (args.pollOptions.length > 4) {
+        throw new Error("Poll can have at most 4 options");
+      }
+    }
+
+    // Validate video URL if provided
+    if (args.videoUrl) {
+      const validVideo = isValidVideoUrl(args.videoUrl);
+      if (!validVideo) {
+        throw new Error("Invalid video URL. Use YouTube, Vimeo, or Google Drive links.");
+      }
+    }
+
+    // Sanitize content (basic XSS prevention)
+    const sanitizedContent = args.content
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+
+    // Extract mentions from content
+    const mentionMatches = sanitizedContent.match(/@(\w+)/g) || [];
+    const mentionedUserIds: string[] = [];
+    
+    // For now, we'll skip mention lookup - would need a searchMembers query
+    // In full implementation, look up each mentioned username
+
+    const now = Date.now();
+    const postId = await ctx.db.insert("posts", {
+      communityId: args.communityId,
+      authorId: user._id,
+      categoryId: args.categoryId,
+      content: sanitizedContent,
+      contentType: args.contentType,
+      mediaUrls: args.mediaUrls,
+      videoUrl: args.videoUrl,
+      pollOptions: args.contentType === "poll" 
+        ? args.pollOptions?.map(opt => ({ ...opt, votes: 0 }))
+        : undefined,
+      pollEndDate: args.pollEndDate,
+      isPinned: false,
+      mentions: mentionedUserIds,
+      upvoteCount: 0,
+      commentCount: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return postId;
+  },
+});
+
+// Helper to validate video URLs
+function isValidVideoUrl(url: string): boolean {
+  if (!url) return true; // Empty is allowed (optional)
+  
+  const youtubeMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
+  const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
+  const driveMatch = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+  
+  return !!(youtubeMatch || vimeoMatch || driveMatch);
+}
+
+// Create a comment on a post
+export const createComment = mutation({
+  args: {
+    postId: v.id("posts"),
+    content: v.string(),
+    parentCommentId: v.optional(v.id("comments")),
+  },
+  handler: async (ctx, args) => {
+    // Get authenticated user
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("You must be signed in to comment");
+    }
+
+    // Get the user from our database
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Get the post to find the community
+    const post = await ctx.db.get(args.postId);
+    if (!post) {
+      throw new Error("Post not found");
+    }
+
+    // Check if user is a member of this community
+    const membership = await ctx.db
+      .query("memberships")
+      .withIndex("by_community_and_user", (q) =>
+        q.eq("communityId", post.communityId).eq("userId", user._id)
+      )
+      .first();
+
+    if (!membership || membership.status !== "active") {
+      throw new Error("You must be a member to comment");
+    }
+
+    // If replying to a comment, verify it exists and belongs to the same post
+    if (args.parentCommentId) {
+      const parentComment = await ctx.db.get(args.parentCommentId);
+      if (!parentComment || parentComment.postId !== args.postId) {
+        throw new Error("Invalid parent comment");
+      }
+    }
+
+    // Sanitize content
+    const sanitizedContent = args.content
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+
+    // Extract mentions
+    const mentionMatches = sanitizedContent.match(/@(\w+)/g) || [];
+
+    const now = Date.now();
+    const commentId = await ctx.db.insert("comments", {
+      postId: args.postId,
+      authorId: user._id,
+      parentCommentId: args.parentCommentId,
+      content: sanitizedContent,
+      mentions: mentionMatches.map((m: string) => m.slice(1)), // Remove @
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // Update post comment count
+    await ctx.db.patch(args.postId, {
+      commentCount: post.commentCount + 1,
+      updatedAt: now,
+    });
+
+    return commentId;
+  },
+});
+
+// Get comments for a post (threaded)
+export const listComments = query({
+  args: { postId: v.id("posts") },
+  handler: async (ctx, args) => {
+    const comments = await ctx.db
+      .query("comments")
+      .withIndex("by_post_id", (q) => q.eq("postId", args.postId))
+      .collect();
+
+    // Get author details for each comment
+    const commentsWithAuthors = await Promise.all(
+      comments.map(async (comment: {
+        _id: string;
+        postId: string;
+        authorId: string;
+        parentCommentId?: string;
+        content: string;
+        mentions?: string[];
+        createdAt: number;
+        updatedAt: number;
+      }) => {
+        const author = await ctx.db.get(comment.authorId);
+        return {
+          ...comment,
+          author: author ? {
+            _id: author._id,
+            displayName: author.displayName,
+            avatarUrl: author.avatarUrl,
+          } : null,
+        };
+      })
+    );
+
+    // Organize into threads: top-level + replies
+    const topLevel = commentsWithAuthors.filter((c: { parentCommentId?: string }) => !c.parentCommentId);
+    const replies = commentsWithAuthors.filter((c: { parentCommentId?: string }) => c.parentCommentId);
+
+    // Attach replies to their parents
+    const threadedComments = topLevel.map((comment: {
+      _id: string;
+      postId: string;
+      authorId: string;
+      parentCommentId?: string;
+      content: string;
+      mentions?: string[];
+      createdAt: number;
+      updatedAt: number;
+      author: { _id: string; displayName: string; avatarUrl?: string } | null;
+    }) => ({
+      ...comment,
+      replies: replies.filter((r: { parentCommentId?: string }) => r.parentCommentId === comment._id),
+    }));
+
+    // Sort by createdAt (newest first)
+    threadedComments.sort((a: { createdAt: number }, b: { createdAt: number }) => 
+      b.createdAt - a.createdAt
+    );
+
+    return threadedComments;
+  },
+});

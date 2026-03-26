@@ -78,11 +78,11 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T21 | `[ ]` | Build `/[communitySlug]` page — route segment, load community by slug, 404 if not found | [context/features/community-creation.md](../features/community-creation.md) | |
-| T22 | `[ ]` | Build SPA shell — top bar (logo, community name, user avatar dropdown, "Explore" link), tab navigation (About, Community, Classrooms, Members, Leaderboard, Analysis) | [context/features/community-creation.md](../features/community-creation.md) | |
-| T23 | `[ ]` | Build tab visibility logic — unauthenticated/non-member: only About tab visible; member: all tabs; owner/admin: all tabs + Analysis | [context/features/community-creation.md](../features/community-creation.md) | EC-11 |
-| T24 | `[ ]` | Build `useTabPersistence` hook — localStorage read/write keyed by community slug, access-aware fallback (About for non-members, Community for members) | [context/features/tab-persistence.md](../features/tab-persistence.md) | EC-13 |
-| T25 | `[ ]` | Build tab state restoration — on load, validate stored tab against access; fallback to About (unauthenticated) or Community (member) | [context/features/tab-persistence.md](../features/tab-persistence.md) | `[Q: Clear stored tab on logout?]` |
+| T21 | `[x]` | Build `/[communitySlug]` page — route segment, load community by slug, 404 if not found | [context/features/community-creation.md](../features/community-creation.md) | |
+| T22 | `[x]` | Build SPA shell — top bar (logo, community name, user avatar dropdown, "Explore" link), tab navigation (About, Community, Classrooms, Members, Leaderboard, Analysis) | [context/features/community-creation.md](../features/community-creation.md) | |
+| T23 | `[x]` | Build tab visibility logic — unauthenticated/non-member: only About tab visible; member: all tabs; owner/admin: all tabs + Analysis | [context/features/community-creation.md](../features/community-creation.md) | EC-11 |
+| T24 | `[x]` | Build `useTabPersistence` hook — localStorage read/write keyed by community slug, access-aware fallback (About for non-members, Community for members) | [context/features/tab-persistence.md](../features/tab-persistence.md) | EC-13 |
+| T25 | `[x]` | Build tab state restoration — on load, validate stored tab against access; fallback to About (unauthenticated) or Community (member) | [context/features/tab-persistence.md](../features/tab-persistence.md) | `[Q: Clear stored tab on logout?]` |
 
 ### Phase 5 — About Tab (T26–T31)
 
@@ -124,17 +124,17 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T47 | `[ ]` | Build feed layout — left/main column: post composer trigger + feed; right column: community info sidebar (reuse About stats) | [context/features/community-feed.md](../features/community-feed.md) | |
-| T48 | `[ ]` | Build post composer modal — text input + category selector (optional) + submit | [context/features/community-feed.md](../features/community-feed.md) | |
-| T49 | `[ ]` | Build post type: image upload — file picker, Convex file storage, 10MB limit server-side | [context/features/community-feed.md](../features/community-feed.md) | `[Q: Single image or multi-image gallery?]` |
-| T50 | `[ ]` | Build post type: video embed — YouTube/Vimeo/GDrive URL input + validation (reuse from About tab) | [context/features/community-feed.md](../features/community-feed.md) | |
-| T51 | `[ ]` | Build post type: GIF — URL input or GIPHY picker | [context/features/community-feed.md](../features/community-feed.md) | `[Q: GIPHY API or URL input only?]` |
-| T52 | `[ ]` | Build post type: poll — question + 2-4 options + optional end date | [context/features/community-feed.md](../features/community-feed.md) | `[Q: Max options? Expiry? See results before vote? Edit after posting?]` |
-| T53 | `[ ]` | Build post card component — author avatar + name + level badge + timestamp + content + category tag + upvote count + comment count + three-dot menu | [context/features/community-feed.md](../features/community-feed.md) | |
-| T54 | `[ ]` | Build `listPosts` Convex query — paginated, filtered by communityId + categoryId, pinned-first then chronological | [context/features/community-feed.md](../features/community-feed.md) | |
-| T55 | `[ ]` | Build `createPost` Convex mutation — write post, validate content, sanitize rich text server-side | [context/features/community-feed.md](../features/community-feed.md) | `[Q: Character limit for post text?]` |
-| T56 | `[ ]` | Build "Open post" modal — full post content + threaded comment thread + comment composer | [context/features/community-feed.md](../features/community-feed.md) | |
-| T57 | `[ ]` | Build threaded comments — top-level + one level deep replies, real-time submission | [context/features/community-feed.md](../features/community-feed.md) | |
+| T47 | `[x]` | Build feed layout — left/main column: post composer trigger + feed; right column: community info sidebar (reuse About stats) | [context/features/community-feed.md](../features/community-feed.md) | Built FeedTab with sidebar |
+| T48 | `[x]` | Build post composer modal — text input + category selector (optional) + submit | [context/features/community-feed.md](../features/community-feed.md) | Created PostComposer component |
+| T49 | `[x]` | Build post type: image upload — file picker, Convex file storage, 10MB limit server-side | [context/features/community-feed.md](../features/community-feed.md) | Image post type in composer |
+| T50 | `[x]` | Build post type: video embed — YouTube/Vimeo/GDrive URL input + validation (reuse from About tab) | [context/features/community-feed.md](../features/community-feed.md) | Video post type with validation |
+| T51 | `[x]` | Build post type: GIF — URL input or GIPHY picker | [context/features/community-feed.md](../features/community-feed.md) | GIF post type (URL input) |
+| T52 | `[x]` | Build post type: poll — question + 2-4 options + optional end date | [context/features/community-feed.md](../features/community-feed.md) | Poll post type with options |
+| T53 | `[x]` | Build post card component — author avatar + name + level badge + timestamp + content + category tag + upvote count + comment count + three-dot menu | [context/features/community-feed.md](../features/community-feed.md) | Created PostCard component |
+| T54 | `[x]` | Build `listPosts` Convex query — paginated, filtered by communityId + categoryId, pinned-first then chronological | [context/features/community-feed.md](../features/community-feed.md) | Added to functions.ts |
+| T55 | `[x]` | Build `createPost` Convex mutation — write post, validate content, sanitize rich text server-side | [context/features/community-feed.md](../features/community-feed.md) | Added to functions.ts |
+| T56 | `[x]` | Build "Open post" modal — full post content + threaded comment thread + comment composer | [context/features/community-feed.md](../features/community-feed.md) | Created OpenPostModal component |
+| T57 | `[x]` | Build threaded comments — top-level + one level deep replies, real-time submission | [context/features/community-feed.md](../features/community-feed.md) | createComment + listComments in functions.ts |
 
 ### Phase 9 — Feed Interactions (T58–T65)
 
