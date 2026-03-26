@@ -28,6 +28,7 @@ interface CommunityShellProps {
   children?: React.ReactNode;
   showTabs?: boolean;
   isOwner?: boolean;
+  isAdmin?: boolean;
   // Legacy props for About tab - will be refactored
   aboutTabProps?: {
     isMember: boolean;
@@ -43,6 +44,7 @@ export function CommunityShell({
   children, 
   showTabs = false, 
   isOwner = false,
+  isAdmin = false,
   aboutTabProps 
 }: CommunityShellProps) {
   const { user } = useUser();
@@ -77,7 +79,7 @@ export function CommunityShell({
       case "feed":
         return <FeedTab communityId={community.id} />;
       case "members":
-        return <MembersTab communityId={community.id} />;
+        return <MembersTab communityId={community.id} isOwner={isOwner} isAdmin={isAdmin} />;
       case "classrooms":
         return <ClassroomsTab communityId={community.id} isOwner={isOwner} />;
       case "leaderboard":

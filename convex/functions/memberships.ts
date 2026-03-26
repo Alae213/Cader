@@ -240,3 +240,151 @@ export const revokeMembership = mutation({
     return args.membershipId;
   },
 });
+
+// List members for a community (with user data including wilaya)
+export const listMembers = query({
+  args: {
+    communityId: v.id("communities"),
+  },
+  handler: async (ctx, args) => {
+    // Get all active memberships for the community
+    const memberships = await ctx.db
+      .query("memberships")
+      .withIndex("by_community_id", (q) => q.eq("communityId", args.communityId))
+      .filter((q) => q.eq(q.field("status"), "active"))
+      .collect();
+
+    // Get user data for each membership
+    const members = await Promise.all(
+      memberships.map(async (membership) => {
+        const user = await ctx.db.get(membership.userId);
+        if (!user) return null;
+
+        // Get total points for level calculation
+        const pointEvents = await ctx.db
+          .query("pointEvents")
+          .withIndex("by_user_id", (q) => q.eq("userId", membership.userId))
+          .filter((q) => q.eq(q.field("communityId"), args.communityId))
+          .collect();
+
+        const totalPoints = pointEvents.reduce((sum, e) => sum + e.points, 0);
+        const level = getLevelFromPoints(totalPoints);
+
+        return {
+          membershipId: membership._id,
+          userId: user._id,
+          clerkId: user.clerkId,
+          displayName: user.displayName,
+          avatarUrl: user.avatarUrl,
+          wilaya: user.wilaya,
+          role: membership.role,
+          subscriptionType: membership.subscriptionType,
+          createdAt: membership.createdAt,
+          totalPoints,
+          level,
+        };
+      })
+    );
+
+    // Filter out nulls and sort by join date (newest first)
+    return members.filter(Boolean).sort((a, b) => b!.createdAt - a!.createdAt);
+  },
+});
+
+// Get member count by wilaya for a community
+export const getMemberCountByWilaya = query({
+  args: {
+    communityId: v.id("communities"),
+  },
+  handler: async (ctx, args) => {
+    // Get all active memberships for the community
+    const memberships = await ctx.db
+      .query("memberships")
+      .withIndex("by_community_id", (q) => q.eq("communityId", args.communityId))
+      .filter((q) => q.eq(q.field("status"), "active"))
+      .collect();
+
+    // Count members by wilaya
+    const wilayaCounts: Record<string, number> = {};
+    
+    for (const membership of memberships) {
+      const user = await ctx.db.get(membership.userId);
+      if (!user) continue;
+      
+      const wilaya = user.wilaya || "Unspecified";
+      wilayaCounts[wilaya] = (wilayaCounts[wilaya] || 0) + 1;
+    }
+
+    return wilayaCounts;
+  },
+});
+
+// Block a member (admin only)
+export const blockMember = mutation({
+  args: {
+    membershipId: v.id("memberships"),
+  },
+  handler: async (ctx, args) => {
+    // Get authenticated user
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("You must be signed in");
+    }
+
+    // Get the current user's record
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Get the membership to block
+    const membership = await ctx.db.get(args.membershipId);
+    if (!membership) {
+      throw new Error("Membership not found");
+    }
+
+    // Get the community
+    const community = await ctx.db.get(membership.communityId);
+    if (!community) {
+      throw new Error("Community not found");
+    }
+
+    // Check if current user is admin or owner of this community
+    const currentMembership = await ctx.db
+      .query("memberships")
+      .withIndex("by_community_and_user", (q) =>
+        q.eq("communityId", community._id).eq("userId", user._id)
+      )
+      .first();
+
+    if (!currentMembership || !["admin", "owner"].includes(currentMembership.role)) {
+      throw new Error("Only admins can block members");
+    }
+
+    // Cannot block the owner
+    if (membership.role === "owner") {
+      throw new Error("Cannot block the community owner");
+    }
+
+    // Update membership status to blocked
+    await ctx.db.patch(args.membershipId, {
+      status: "blocked",
+      updatedAt: Date.now(),
+    });
+
+    return args.membershipId;
+  },
+});
+
+// Helper function to derive level from points
+function getLevelFromPoints(points: number): number {
+  if (points >= 280) return 5;
+  if (points >= 140) return 4;
+  if (points >= 60) return 3;
+  if (points >= 20) return 2;
+  return 1;
+}

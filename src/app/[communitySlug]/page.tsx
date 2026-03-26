@@ -119,6 +119,7 @@ export default function CommunityPage() {
   // Determine membership status
   const isMember = membership?.isMember ?? false;
   const isOwner = membership?.isOwner ?? false;
+  const isAdmin = membership?.isAdmin ?? false;
   const showAllTabs = isMember || isOwner;
 
   // Transform Convex data to match CommunityShell interface
@@ -138,6 +139,7 @@ export default function CommunityPage() {
         community={communityData}
         showTabs={showAllTabs}
         isOwner={isOwner}
+        isAdmin={isAdmin}
         aboutTabProps={{
           isMember,
           onJoinClick: handleJoinClick,
