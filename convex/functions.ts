@@ -1275,3 +1275,367 @@ export const listComments = query({
     return threadedComments;
   },
 });
+
+// ============ FEED INTERACTIONS (Phase 9) ============
+
+// Toggle upvote on a post (idempotent)
+export const toggleUpvote = mutation({
+  args: {
+    postId: v.id("posts"),
+  },
+  handler: async (ctx, args) => {
+    // Get authenticated user
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("You must be signed in to upvote");
+    }
+
+    // Get the user from our database
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Get the post to find the community
+    const post = await ctx.db.get(args.postId);
+    if (!post) {
+      throw new Error("Post not found");
+    }
+
+    // Check if user is a member of this community
+    const membership = await ctx.db
+      .query("memberships")
+      .withIndex("by_community_and_user", (q) =>
+        q.eq("communityId", post.communityId).eq("userId", user._id)
+      )
+      .first();
+
+    if (!membership || membership.status !== "active") {
+      throw new Error("You must be a member to upvote");
+    }
+
+    // Check if user already upvoted
+    const existingUpvote = await ctx.db
+      .query("upvotes")
+      .withIndex("by_post_and_user", (q) =>
+        q.eq("postId", args.postId).eq("userId", user._id)
+      )
+      .first();
+
+    const now = Date.now();
+
+    if (existingUpvote) {
+      // Remove upvote (toggle off)
+      await ctx.db.delete(existingUpvote._id);
+      
+      // Update post upvote count
+      await ctx.db.patch(args.postId, {
+        upvoteCount: Math.max(0, post.upvoteCount - 1),
+        updatedAt: now,
+      });
+
+      // Write a -1 point event (reverse the upvote)
+      await ctx.db.insert("pointEvents", {
+        communityId: post.communityId,
+        userId: post.authorId,
+        eventType: "upvote_reversal",
+        points: -1,
+        sourceType: "post",
+        sourceId: args.postId,
+        createdAt: now,
+      });
+
+      return { upvoted: false, newCount: Math.max(0, post.upvoteCount - 1) };
+    } else {
+      // Add upvote (toggle on)
+      await ctx.db.insert("upvotes", {
+        postId: args.postId,
+        userId: user._id,
+        createdAt: now,
+      });
+
+      // Update post upvote count
+      await ctx.db.patch(args.postId, {
+        upvoteCount: post.upvoteCount + 1,
+        updatedAt: now,
+      });
+
+      // Write a +1 point event to post author
+      await ctx.db.insert("pointEvents", {
+        communityId: post.communityId,
+        userId: post.authorId,
+        eventType: "upvote_received",
+        points: 1,
+        sourceType: "post",
+        sourceId: args.postId,
+        createdAt: now,
+      });
+
+      return { upvoted: true, newCount: post.upvoteCount + 1 };
+    }
+  },
+});
+
+// Check if user has upvoted a post
+export const getUserUpvoteStatus = query({
+  args: { postId: v.id("posts") },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return { upvoted: false };
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) {
+      return { upvoted: false };
+    }
+
+    const existingUpvote = await ctx.db
+      .query("upvotes")
+      .withIndex("by_post_and_user", (q) =>
+        q.eq("postId", args.postId).eq("userId", user._id)
+      )
+      .first();
+
+    return { upvoted: !!existingUpvote };
+  },
+});
+
+// Pin a post (owner/admin only)
+export const pinPost = mutation({
+  args: {
+    postId: v.id("posts"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("You must be signed in");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const post = await ctx.db.get(args.postId);
+    if (!post) {
+      throw new Error("Post not found");
+    }
+
+    // Check if user is owner or admin
+    const membership = await ctx.db
+      .query("memberships")
+      .withIndex("by_community_and_user", (q) =>
+        q.eq("communityId", post.communityId).eq("userId", user._id)
+      )
+      .first();
+
+    if (!membership || (membership.role !== "owner" && membership.role !== "admin")) {
+      throw new Error("Only the owner or admin can pin posts");
+    }
+
+    // Check pinned count (max 3)
+    const allPosts = await ctx.db
+      .query("posts")
+      .withIndex("by_community_id", (q) => q.eq("communityId", post.communityId))
+      .collect();
+
+    const pinnedCount = allPosts.filter((p: { isPinned: boolean }) => p.isPinned).length;
+    
+    if (pinnedCount >= 3) {
+      throw new Error("Maximum 3 posts can be pinned. Unpin another post first.");
+    }
+
+    await ctx.db.patch(args.postId, {
+      isPinned: true,
+      updatedAt: Date.now(),
+    });
+
+    return args.postId;
+  },
+});
+
+// Unpin a post (owner/admin only)
+export const unpinPost = mutation({
+  args: {
+    postId: v.id("posts"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("You must be signed in");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const post = await ctx.db.get(args.postId);
+    if (!post) {
+      throw new Error("Post not found");
+    }
+
+    // Check if user is owner or admin
+    const membership = await ctx.db
+      .query("memberships")
+      .withIndex("by_community_and_user", (q) =>
+        q.eq("communityId", post.communityId).eq("userId", user._id)
+      )
+      .first();
+
+    if (!membership || (membership.role !== "owner" && membership.role !== "admin")) {
+      throw new Error("Only the owner or admin can unpin posts");
+    }
+
+    await ctx.db.patch(args.postId, {
+      isPinned: false,
+      updatedAt: Date.now(),
+    });
+
+    return args.postId;
+  },
+});
+
+// Delete a post (author or owner/admin)
+export const deletePost = mutation({
+  args: {
+    postId: v.id("posts"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("You must be signed in");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const post = await ctx.db.get(args.postId);
+    if (!post) {
+      throw new Error("Post not found");
+    }
+
+    // Check permission: author or owner/admin
+    const isAuthor = post.authorId === user._id;
+    
+    const membership = await ctx.db
+      .query("memberships")
+      .withIndex("by_community_and_user", (q) =>
+        q.eq("communityId", post.communityId).eq("userId", user._id)
+      )
+      .first();
+
+    const isAdmin = membership && (membership.role === "owner" || membership.role === "admin");
+
+    if (!isAuthor && !isAdmin) {
+      throw new Error("You can only delete your own posts or posts from this community");
+    }
+
+    // Delete all upvotes for this post
+    const upvotes = await ctx.db
+      .query("upvotes")
+      .withIndex("by_post_id", (q) => q.eq("postId", args.postId))
+      .collect();
+
+    for (const upvote of upvotes) {
+      await ctx.db.delete(upvote._id);
+    }
+
+    // Delete all comments for this post
+    const comments = await ctx.db
+      .query("comments")
+      .withIndex("by_post_id", (q) => q.eq("postId", args.postId))
+      .collect();
+
+    for (const comment of comments) {
+      await ctx.db.delete(comment._id);
+    }
+
+    // Delete the post
+    await ctx.db.delete(args.postId);
+
+    return args.postId;
+  },
+});
+
+// Delete a comment (author or owner/admin)
+export const deleteComment = mutation({
+  args: {
+    commentId: v.id("comments"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("You must be signed in");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const comment = await ctx.db.get(args.commentId);
+    if (!comment) {
+      throw new Error("Comment not found");
+    }
+
+    const post = await ctx.db.get(comment.postId);
+    if (!post) {
+      throw new Error("Post not found");
+    }
+
+    // Check permission: author or owner/admin
+    const isAuthor = comment.authorId === user._id;
+    
+    const membership = await ctx.db
+      .query("memberships")
+      .withIndex("by_community_and_user", (q) =>
+        q.eq("communityId", post.communityId).eq("userId", user._id)
+      )
+      .first();
+
+    const isAdmin = membership && (membership.role === "owner" || membership.role === "admin");
+
+    if (!isAuthor && !isAdmin) {
+      throw new Error("You can only delete your own comments or comments from this community");
+    }
+
+    // Update post comment count
+    await ctx.db.patch(post._id, {
+      commentCount: Math.max(0, post.commentCount - 1),
+      updatedAt: Date.now(),
+    });
+
+    // Delete the comment
+    await ctx.db.delete(args.commentId);
+
+    return args.commentId;
+  },
+});

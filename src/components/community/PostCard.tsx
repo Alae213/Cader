@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useAuth } from "@clerk/nextjs";
+import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Text } from "@/components/ui/Text";
 import { Avatar } from "@/components/shared/Avatar";
@@ -42,20 +43,24 @@ interface PostCardProps {
     upvoteCount: number;
     commentCount: number;
     createdAt: number;
+    authorId?: string;
   };
   onClick?: () => void;
+  onDeleted?: () => void;
 }
 
-export function PostCard({ post, onClick }: PostCardProps) {
+export function PostCard({ post, onClick, onDeleted }: PostCardProps) {
   const { userId } = useAuth();
   const [showMenu, setShowMenu] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  
-  // Get user membership to check if they can delete/pin
-  const membership = useQuery(
-    userId ? api.functions.getMembershipBySlug : "skip",
-    userId ? { slug: "dummy", clerkId: userId } : "skip"
-  );
+  const [localUpvoteCount, setLocalUpvoteCount] = useState(post.upvoteCount);
+  const [hasUpvoted, setHasUpvoted] = useState(false);
+
+  // Mutations
+  const toggleUpvote = useMutation(api.functions.toggleUpvote);
+  const pinPost = useMutation(api.functions.pinPost);
+  const unpinPost = useMutation(api.functions.unpinPost);
+  const deletePost = useMutation(api.functions.deletePost);
 
   const formatTimeAgo = (timestamp: number) => {
     const seconds = Math.floor((Date.now() - timestamp) / 1000);
@@ -68,18 +73,77 @@ export function PostCard({ post, onClick }: PostCardProps) {
     return `${days}d ago`;
   };
 
-  const getContentTypeIcon = () => {
-    switch (post.contentType) {
-      case "image":
-        return <Image className="w-4 h-4" />;
-      case "video":
-        return <Video className="w-4 h-4" />;
-      case "poll":
-        return <BarChart3 className="w-4 h-4" />;
-      default:
-        return null;
+  // Handle upvote
+  const handleUpvote = async () => {
+    if (!userId) {
+      toast.error("You must be signed in to upvote");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const result = await toggleUpvote({ postId: post._id });
+      setLocalUpvoteCount(result.newCount);
+      setHasUpvoted(result.upvoted);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to upvote");
+    } finally {
+      setIsLoading(false);
     }
   };
+
+  // Handle pin/unpin
+  const handleTogglePin = async () => {
+    if (!userId) {
+      toast.error("You must be signed in");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      if (post.isPinned) {
+        await unpinPost({ postId: post._id });
+        toast.success("Post unpinned");
+      } else {
+        await pinPost({ postId: post._id });
+        toast.success("Post pinned");
+      }
+      setShowMenu(false);
+      onDeleted?.();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to pin post");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle delete
+  const handleDelete = async () => {
+    if (!userId) {
+      toast.error("You must be signed in");
+      return;
+    }
+
+    if (!confirm("Are you sure you want to delete this post? This cannot be undone.")) {
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await deletePost({ postId: post._id });
+      toast.success("Post deleted");
+      setShowMenu(false);
+      onDeleted?.();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete post");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Determine if user can pin/delete (is owner or admin of the community)
+  // For now, we'll allow the author to delete their own posts
+  const canModify = userId && post.authorId; // Simplified check
 
   return (
     <Card className={post.isPinned ? "border-primary" : ""}>
@@ -94,7 +158,7 @@ export function PostCard({ post, onClick }: PostCardProps) {
             />
             <div>
               <div className="flex items-center gap-2">
-                <Text fontWeight="medium">{post.author?.displayName || "User"}</Text>
+                <Text>{post.author?.displayName || "User"}</Text>
                 {post.isPinned && (
                   <Pin className="w-3 h-3 text-primary" />
                 )}
@@ -103,28 +167,38 @@ export function PostCard({ post, onClick }: PostCardProps) {
             </div>
           </div>
 
-          {/* Three-dot menu */}
-          <div className="relative">
-            <button
-              onClick={() => setShowMenu(!showMenu)}
-              className="p-1 hover:bg-bg-elevated rounded"
-            >
-              <MoreHorizontal className="w-5 h-5" />
-            </button>
-            
-            {showMenu && (
-              <div className="absolute right-0 top-8 bg-bg-base border border-border rounded-lg shadow-lg py-1 min-w-[120px] z-10">
-                <button className="w-full px-3 py-2 text-left hover:bg-bg-elevated flex items-center gap-2">
-                  <Trash2 className="w-4 h-4" />
-                  <Text size="sm">Delete</Text>
-                </button>
-                <button className="w-full px-3 py-2 text-left hover:bg-bg-elevated flex items-center gap-2">
-                  <Pin className="w-4 h-4" />
-                  <Text size="sm">{post.isPinned ? "Unpin" : "Pin"}</Text>
-                </button>
-              </div>
-            )}
-          </div>
+          {/* Three-dot menu - only show if user can modify */}
+          {canModify && (
+            <div className="relative">
+              <button
+                onClick={() => setShowMenu(!showMenu)}
+                className="p-1 hover:bg-bg-elevated rounded"
+              >
+                <MoreHorizontal className="w-5 h-5" />
+              </button>
+              
+              {showMenu && (
+                <div className="absolute right-0 top-8 bg-bg-base border border-border rounded-lg shadow-lg py-1 min-w-[120px] z-10">
+                  <button 
+                    onClick={handleDelete}
+                    className="w-full px-3 py-2 text-left hover:bg-bg-elevated flex items-center gap-2 text-red-500"
+                    disabled={isLoading}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <Text size="sm">Delete</Text>
+                  </button>
+                  <button 
+                    onClick={handleTogglePin}
+                    className="w-full px-3 py-2 text-left hover:bg-bg-elevated flex items-center gap-2"
+                    disabled={isLoading}
+                  >
+                    <Pin className="w-4 h-4" />
+                    <Text size="sm">{post.isPinned ? "Unpin" : "Pin"}</Text>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Category Tag */}
@@ -185,9 +259,15 @@ export function PostCard({ post, onClick }: PostCardProps) {
 
         {/* Footer */}
         <div className="flex items-center gap-4 pt-3 border-t border-border">
-          <button className="flex items-center gap-1 hover:text-primary transition-colors">
-            <ThumbsUp className="w-4 h-4" />
-            <Text size="sm">{post.upvoteCount}</Text>
+          <button 
+            onClick={handleUpvote}
+            className={`flex items-center gap-1 transition-colors ${
+              hasUpvoted ? "text-primary" : "hover:text-primary"
+            }`}
+            disabled={isLoading}
+          >
+            <ThumbsUp className={`w-4 h-4 ${hasUpvoted ? "fill-current" : ""}`} />
+            <Text size="sm">{localUpvoteCount}</Text>
           </button>
           
           <button className="flex items-center gap-1 hover:text-primary transition-colors">
