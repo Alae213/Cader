@@ -26,7 +26,7 @@ export const listPosts = query({
     const communityId = args.communityId;
 
     // Get all posts for this community
-    let postsQuery = ctx.db
+    const postsQuery = ctx.db
       .query("posts")
       .withIndex("by_community_id", (q) => q.eq("communityId", communityId));
 

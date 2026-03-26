@@ -82,7 +82,7 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 | T22 | `[x]` | Build SPA shell — top bar (logo, community name, user avatar dropdown, "Explore" link), tab navigation (About, Community, Classrooms, Members, Leaderboard, Analysis) | [context/features/community-creation.md](../features/community-creation.md) | |
 | T23 | `[x]` | Build tab visibility logic — unauthenticated/non-member: only About tab visible; member: all tabs; owner/admin: all tabs + Analysis | [context/features/community-creation.md](../features/community-creation.md) | EC-11 |
 | T24 | `[x]` | Build `useTabPersistence` hook — localStorage read/write keyed by community slug, access-aware fallback (About for non-members, Community for members) | [context/features/tab-persistence.md](../features/tab-persistence.md) | EC-13 |
-| T25 | `[x]` | Build tab state restoration — on load, validate stored tab against access; fallback to About (unauthenticated) or Community (member) | [context/features/tab-persistence.md](../features/tab-persistence.md) | `[Q: Clear stored tab on logout?]` |
+| T25 | `[x]` | Build tab state restoration — on load, validate stored tab against access; fallback to About (unauthenticated) or Community (member) | [context/features/tab-persistence.md](../features/tab-persistence.md) | `[Clear stored tab on logout: Yes, clear localStorage entry on logout]` |
 
 ### Phase 5 — About Tab (T26–T31)
 
@@ -142,7 +142,7 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 |---|--------|------|---------|-------|
 | T58 | `[x]` | Build upvote toggle — one per member per post, real-time count, writes `pointEvents` (+1/-1) | [context/features/community-feed.md](../features/community-feed.md) | toggleUpvote mutation + PostCard UI |
 | T59 | `[x]` | Build `toggleUpvote` Convex mutation — idempotent per (userId, postId), awards/reverses points to post author | [context/features/community-feed.md](../features/community-feed.md) | Added to functions.ts |
-| T60 | `[ ]` | Build category system — owner defines categories in settings, members filter feed by category | [context/features/community-feed.md](../features/community-feed.md) | `[Q: Max categories per community?]` |
+| T60 | `[ ]` | Build category system — owner defines categories in settings, members filter feed by category | [context/features/community-feed.md](../features/community-feed.md) | `[Max: 5-10 categories per community]` |
 | T61 | `[x]` | Build pin post — max 3 pinned per community, owner/admin only, pinned section at top of feed | [context/features/pin-post.md](../features/pin-post.md) | pinPost mutation |
 | T62 | `[x]` | Build unpin post — three-dot menu on pinned post, returns to chronological position | [context/features/pin-post.md](../features/pin-post.md) | unpinPost mutation |
 | T63 | `[x]` | Build delete post — three-dot menu, confirmation dialog, cascade-delete comments, server-side permission check | [context/features/delete-content.md](../features/delete-content.md) | deletePost mutation |
@@ -202,20 +202,20 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T95 | `[ ]` | Build profile modal — avatar (large), display name, level badge, Wilaya, contribution activity map (GitHub-style grid), communities joined/created | [context/features/profile-modal.md](../features/profile-modal.md) | `[Q: Activity = posts only, or posts + comments + upvotes + lessons?]` |
-| T96 | `[ ]` | Build `getUserProfile` and `getUserActivity` Convex queries — profile data + communities + daily activity past year | [context/features/profile-modal.md](../features/profile-modal.md) | |
-| T97 | `[ ]` | Build settings modal — Profile section: display name, avatar upload, bio (160 chars), Wilaya dropdown, save | [context/features/settings.md](../features/settings.md) | |
-| T98 | `[ ]` | Build settings modal — Admins section: list current admins, add/remove member as admin, EC-8 last-admin guard | [context/features/settings.md](../features/settings.md) | |
-| T99 | `[ ]` | Build settings modal — Billing section: platform subscription status, member count, subscribe/cancel CTA | [context/features/settings.md](../features/settings.md) | |
-| T100 | `[ ]` | Build settings modal — Danger Zone: delete community (type name to confirm), EC-7 block if active paying members | [context/features/settings.md](../features/settings.md) | `[Q: Soft delete (30-day retention) or hard delete?]` |
-| T101 | `[ ]` | Build settings modal — Account section: sign out, delete account (anonymize posts, remove from all communities) | [context/features/settings.md](../features/settings.md) | `[Q: Account delete = posts removed or anonymized?]` |
+| T95 | `[x]` | Build profile modal — avatar (large), display name, level badge, Wilaya, contribution activity map (GitHub-style grid), communities joined/created | [context/features/profile-modal.md](../features/profile-modal.md) | `[Activity: open app + posts + comments + upvotes + lessons]` |
+| T96 | `[x]` | Build `getUserProfile` and `getUserActivity` Convex queries — profile data + communities + daily activity past year | [context/features/profile-modal.md](../features/profile-modal.md) | |
+| T97 | `[x]` | Build settings modal — Profile section: display name, avatar upload, bio (160 chars), Wilaya dropdown, save | [context/features/settings.md](../features/settings.md) | |
+| T98 | `[x]` | Build settings modal — Admins section: list current admins, add/remove member as admin, EC-8 last-admin guard | [context/features/settings.md](../features/settings.md) | |
+| T99 | `[x]` | Build settings modal — Billing section: platform subscription status, member count, subscribe/cancel CTA | [context/features/settings.md](../features/settings.md) | |
+| T100 | `[x]` | Build settings modal — Danger Zone: delete community (type name to confirm), EC-7 block if active paying members | [context/features/settings.md](../features/settings.md) | `[Hard delete with confirmation: type community name + hold button 5 seconds]` |
+| T101 | `[x]` | Build settings modal — Account section: sign out, delete account (anonymize posts, remove from all communities) | [context/features/settings.md](../features/settings.md) | `[Account delete = posts anonymized, preserve community content]` |
 
 ### Phase 15 — Explore & Analysis (T102–T105)
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
 | T102 | `[ ]` | Build explore modal — search input (debounced) + community grid (thumbnail, name, tagline, member count, pricing badge, "View" button) | [context/features/explore-modal.md](../features/explore-modal.md) | |
-| T103 | `[ ]` | Build `listDiscoverableCommunities` Convex query — search filter, only public communities, sort by member count or recent activity | [context/features/explore-modal.md](../features/explore-modal.md) | `[Q: All communities discoverable by default or opt-in?]` |
+| T103 | `[ ]` | Build `listDiscoverableCommunities` Convex query — search filter, only public communities, sort by member count or recent activity | [context/features/explore-modal.md](../features/explore-modal.md) | `[Discoverable by default, owner can hide]` |
 | T104 | `[ ]` | Build explore modal — "Joined" badge for communities user is already in, "Locked" badge for tier-locked communities | [context/features/explore-modal.md](../features/explore-modal.md) | |
 | T105 | `[ ]` | Build Analysis tab placeholder — owner-only, centered "Coming Soon" content, chart icon, list of v1.1 features | [context/features/analysis-tab.md](../features/analysis-tab.md) | |
 
@@ -241,9 +241,9 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 | T116 | `[ ]` | Mobile responsiveness audit — test 375px (mobile), 768px (tablet), 1280px (desktop) | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | |
 | T117 | `[ ]` | Convex index audit — verify all high-traffic queries use indexes (communityId, userId, lessonId, membershipStatus) | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | |
 | T118 | `[ ]` | Webhook security review — signature verification on all endpoints, no sensitive data in logs, keys encrypted at rest | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | |
-| T119 | `[ ]` | Seed data — create example community with sample posts, classrooms, members for `/explore` | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | `[Q: Full sample courses/posts/members or basic info only?]` |
+| T119 | `[ ]` | Seed data — create example community with sample posts, classrooms, members for `/explore` | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | `[Seed data: basic info only (titles, placeholder content, no real data)]` |
 | T120 | `[ ]` | Vercel production deployment — env vars configured, build passes, domain ready | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | |
-| T121 | `[ ]` | Custom domain setup | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | `[Q: Custom domain for production?]` |
+| T121 | `[ ]` | Custom domain setup | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | `[Custom domain: Not required for v1, use Vercel subdomain]` |
 | T122 | `[ ]` | README update — setup instructions, env vars, local dev, deployment steps | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | |
 
 ---

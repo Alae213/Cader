@@ -380,6 +380,115 @@ export const blockMember = mutation({
   },
 });
 
+// Add admin - promoted from member
+export const addAdmin = mutation({
+  args: { membershipId: v.id("memberships") },
+  handler: async (ctx, args) => {
+    // Get current user
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Unauthorized");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Get the membership to promote
+    const membership = await ctx.db.get(args.membershipId);
+    if (!membership) {
+      throw new Error("Membership not found");
+    }
+
+    // Get the community
+    const community = await ctx.db.get(membership.communityId);
+    if (!community) {
+      throw new Error("Community not found");
+    }
+
+    // Check if current user is owner of this community
+    if (community.ownerId !== user._id) {
+      throw new Error("Only the owner can add admins");
+    }
+
+    // Cannot add owner as admin
+    if (membership.role === "owner") {
+      throw new Error("Cannot add owner as admin");
+    }
+
+    // Update role to admin
+    await ctx.db.patch(args.membershipId, {
+      role: "admin",
+      updatedAt: Date.now(),
+    });
+
+    return args.membershipId;
+  },
+});
+
+// Remove admin - demoted to member
+export const removeAdmin = mutation({
+  args: { membershipId: v.id("memberships") },
+  handler: async (ctx, args) => {
+    // Get current user
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Unauthorized");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Get the membership to demote
+    const membership = await ctx.db.get(args.membershipId);
+    if (!membership) {
+      throw new Error("Membership not found");
+    }
+
+    // Get the community
+    const community = await ctx.db.get(membership.communityId);
+    if (!community) {
+      throw new Error("Community not found");
+    }
+
+    // Check if current user is owner of this community
+    if (community.ownerId !== user._id) {
+      throw new Error("Only the owner can remove admins");
+    }
+
+    // Get all admins to check if this is the last admin
+    const allMemberships = await ctx.db
+      .query("memberships")
+      .withIndex("by_community_id", (q) => q.eq("communityId", community._id))
+      .filter((q) => q.eq(q.field("role"), "admin"))
+      .collect();
+
+    // If this is the last admin, prevent removal (EC-8)
+    if (allMemberships.length === 1) {
+      throw new Error("Cannot remove the last admin. Add another admin first.");
+    }
+
+    // Update role to member
+    await ctx.db.patch(args.membershipId, {
+      role: "member",
+      updatedAt: Date.now(),
+    });
+
+    return args.membershipId;
+  },
+});
+
 // Helper function to derive level from points
 function getLevelFromPoints(points: number): number {
   if (points >= 280) return 5;

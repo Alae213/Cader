@@ -1,9 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { useMutation } from "convex/react";
-import { api } from "../../../convex/_generated/api";
-import { useAuth } from "@clerk/nextjs";
+import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { Heading, Text } from "@/components/ui/Text";
 import { Button } from "@/components/ui/Button";

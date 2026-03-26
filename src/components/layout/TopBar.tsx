@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Menu, X, Bell, Search, Plus } from "lucide-react";
+import { Menu, X, Bell, Search, Plus, Settings } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Heading, Text } from "@/components/ui/Text";
@@ -15,9 +15,11 @@ interface TopBarProps {
   } | null;
   onMenuClick?: () => void;
   onCreateClick?: () => void;
+  onProfileClick?: () => void;
+  onSettingsClick?: () => void;
 }
 
-export function TopBar({ user, onMenuClick, onCreateClick }: TopBarProps) {
+export function TopBar({ user, onMenuClick, onCreateClick, onProfileClick, onSettingsClick }: TopBarProps) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   return (
@@ -61,10 +63,25 @@ export function TopBar({ user, onMenuClick, onCreateClick }: TopBarProps) {
           <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-accent" />
         </button>
 
+        {onSettingsClick && (
+          <button 
+            onClick={onSettingsClick}
+            className="rounded-full p-2 text-text-muted hover:bg-bg-elevated hover:text-text-primary transition-colors"
+            title="Settings"
+          >
+            <Settings className="h-5 w-5" />
+          </button>
+        )}
+
         {user ? (
-          <Link href="/profile" className="ml-2">
-            <Avatar src={user.image} alt={user.name || "User"} size="md" />
-          </Link>
+          <div className="relative ml-2">
+            <button 
+              onClick={onProfileClick}
+              className="flex items-center gap-2 rounded-full p-1 hover:bg-bg-elevated transition-colors"
+            >
+              <Avatar src={user.image} alt={user.name || "User"} size="md" />
+            </button>
+          </div>
         ) : (
           <Link href="/sign-in">
             <Button variant="ghost" size="sm">Sign in</Button>

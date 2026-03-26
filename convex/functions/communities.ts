@@ -434,3 +434,59 @@ export const checkExpiringSubscriptions = mutation({
     };
   },
 });
+
+// Delete community - owner only
+export const deleteCommunity = mutation({
+  args: { communityId: v.id("communities") },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Unauthorized");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Get the community
+    const community = await ctx.db.get(args.communityId);
+    if (!community) {
+      throw new Error("Community not found");
+    }
+
+    // Check if user is the owner
+    if (community.ownerId !== user._id) {
+      throw new Error("Only the owner can delete this community");
+    }
+
+    // Check for active paying members (EC-7)
+    const memberships = await ctx.db
+      .query("memberships")
+      .withIndex("by_community_id", (q) => q.eq("communityId", args.communityId))
+      .filter((q) => q.eq(q.field("status"), "active"))
+      .collect();
+
+    const activePayingMembers = memberships.filter(
+      (m) => m.subscriptionType && m.subscriptionType !== "free"
+    );
+
+    if (activePayingMembers.length > 0) {
+      throw new Error(`You have ${activePayingMembers.length} active paying members. Please remove or refund them before deleting.`);
+    }
+
+    // Delete all memberships
+    for (const membership of memberships) {
+      await ctx.db.delete(membership._id);
+    }
+
+    // Delete the community
+    await ctx.db.delete(args.communityId);
+
+    return args.communityId;
+  },
+});

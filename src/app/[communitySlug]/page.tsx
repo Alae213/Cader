@@ -46,6 +46,7 @@ export default function CommunityPage() {
   };
 
   // Check for stored join intent on mount (after auth redirect)
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     const storedSlug = sessionStorage.getItem("joinCommunitySlug");
     if (storedSlug === communitySlug && clerkId) {
@@ -109,7 +110,7 @@ export default function CommunityPage() {
         <div className="text-center">
           <Heading size="8" className="text-text-primary">404</Heading>
           <Text size="4" theme="secondary" className="mt-2">
-            This community doesn't exist or has been removed.
+            This community doesn&apos;t exist or has been removed.
           </Text>
         </div>
       </div>

@@ -55,7 +55,7 @@ export const getLeaderboard = query({
         if (!user) return null;
 
         // Get point events for this user in this community
-        let pointEventsQuery = ctx.db
+        const pointEventsQuery = ctx.db
           .query("pointEvents")
           .withIndex("by_user_id", (q) => q.eq("userId", membership.userId))
           .filter((q) => q.eq(q.field("communityId"), communityId));

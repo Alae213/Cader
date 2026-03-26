@@ -1,0 +1,437 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../../convex/_generated/api";
+import { useAuth, useUser } from "@clerk/nextjs";
+import { toast } from "sonner";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/Dialog";
+import { Heading, Text } from "@/components/ui/Text";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Avatar } from "@/components/shared/Avatar";
+import { WILAYAS } from "@/lib/constants";
+import { 
+  User, Shield, CreditCard, AlertTriangle, LogOut, Trash2, 
+  Loader2 
+} from "lucide-react";
+
+interface SettingsModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  communitySlug?: string;
+  initialSection?: "profile" | "admins" | "billing" | "danger" | "account";
+}
+
+type Section = "profile" | "admins" | "billing" | "danger" | "account";
+
+export function SettingsModal({ open, onOpenChange, communitySlug, initialSection = "profile" }: SettingsModalProps) {
+  const [activeSection, setActiveSection] = useState<Section>(initialSection);
+  const { userId: clerkId, signOut } = useAuth();
+  const { user } = useUser();
+
+  // Fetch current user
+  const currentUser = useQuery(api.functions.users.getUserByClerkId, clerkId ? { clerkId } : "skip");
+
+  // Fetch community if in community context
+  const community = useQuery(
+    api.functions.communities.getBySlug, 
+    communitySlug ? { slug: communitySlug } : "skip"
+  );
+
+  // Fetch memberships for admin list
+  const memberships = useQuery(
+    api.functions.memberships.listMembers,
+    community?._id ? { communityId: community._id } : "skip"
+  );
+
+  // Mutations
+  const updateProfile = useMutation(api.functions.users.updateUserProfile);
+  const addAdmin = useMutation(api.functions.memberships.addAdmin);
+  const removeAdmin = useMutation(api.functions.memberships.removeAdmin);
+  const deleteCommunity = useMutation(api.functions.communities.deleteCommunity);
+
+  // Local state for forms
+  const [displayName, setDisplayName] = useState("");
+  const [selectedWilaya, setSelectedWilaya] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  
+  const [searchQuery, setSearchQuery] = useState("");
+  const [adminToRemove, setAdminToRemove] = useState<string | null>(null);
+  
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Set initial values when user loads
+  useEffect(() => {
+    if (currentUser) {
+      setDisplayName(currentUser.displayName || "");
+      setSelectedWilaya(currentUser.wilaya || "");
+    }
+  }, [currentUser]);
+
+  // Check if user is owner/admin of current community
+  const isOwner = community?.ownerId === currentUser?._id;
+  const isAdmin = memberships?.some((m) => m && m.userId === currentUser?._id && m.role === "admin") ?? false;
+
+  const handleSaveProfile = async () => {
+    if (!currentUser?._id) return;
+    setIsSaving(true);
+    try {
+      await updateProfile({
+        userId: currentUser._id,
+        displayName,
+        wilaya: selectedWilaya || undefined,
+      });
+      toast.success("Profile updated successfully");
+    } catch (error) {
+      toast.error("Failed to update profile");
+    }
+    setIsSaving(false);
+  };
+
+  const handleAddAdmin = async (membershipId: string) => {
+    try {
+      await addAdmin({ membershipId: membershipId as never });
+      toast.success("Admin added successfully");
+    } catch (error) {
+      toast.error("Failed to add admin");
+    }
+  };
+
+  const handleRemoveAdmin = async (membershipId: string) => {
+    try {
+      await removeAdmin({ membershipId: membershipId as never });
+      toast.success("Admin removed successfully");
+    } catch (error) {
+      toast.error("Failed to remove admin");
+    }
+    setAdminToRemove(null);
+  };
+
+  const handleDeleteCommunity = async () => {
+    if (!community?._id || deleteConfirm !== community.name) return;
+    setIsDeleting(true);
+    try {
+      await deleteCommunity({ communityId: community._id });
+      toast.success("Community deleted");
+      window.location.href = "/";
+    } catch (error) {
+      toast.error("Failed to delete community");
+    }
+    setIsDeleting(false);
+  };
+
+  const handleSignOut = () => {
+    signOut(() => {
+      window.location.href = "/";
+    });
+  };
+
+  // Type-safe membership handling
+  const adminMembers = (memberships || []).filter((m) => m && (m.role === "admin" || m.role === "owner"));
+  const regularMembers = (memberships || []).filter((m) => m && m.role === "member");
+  const filteredMembers = regularMembers.filter((m) => 
+    m && m.displayName?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const renderSection = () => {
+    switch (activeSection) {
+      case "profile":
+        return (
+          <div className="space-y-4">
+            <div>
+              <Text size="sm" theme="secondary" className="mb-2">Display Name</Text>
+              <Input
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="Your display name"
+              />
+            </div>
+            <div>
+              <Text size="sm" theme="secondary" className="mb-2">Avatar</Text>
+              <div className="flex items-center gap-4">
+                <Avatar src={user?.imageUrl} name={displayName} size="lg" />
+                <Text size="sm" theme="muted">Avatar is managed by Clerk</Text>
+              </div>
+            </div>
+            <div>
+              <Text size="sm" theme="secondary" className="mb-2">Wilaya</Text>
+              <select
+                value={selectedWilaya}
+                onChange={(e) => setSelectedWilaya(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg bg-bg-elevated border border-border text-text-primary"
+              >
+                <option value="">Select your wilaya</option>
+                {WILAYAS.map((wilaya, index) => (
+                  <option key={wilaya} value={index + 1}>{wilaya}</option>
+                ))}
+              </select>
+            </div>
+            <Button onClick={handleSaveProfile} disabled={isSaving} className="w-full">
+              {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Save Changes
+            </Button>
+          </div>
+        );
+
+      case "admins":
+        if (!isOwner && !isAdmin) {
+          return (
+            <div className="text-center py-8">
+              <Shield className="h-12 w-12 text-text-muted mx-auto mb-4" />
+              <Text theme="secondary">You need to be an admin to manage this section</Text>
+            </div>
+          );
+        }
+        return (
+          <div className="space-y-4">
+            <Text size="sm" theme="secondary" className="mb-4">
+              Current Admins
+            </Text>
+            {adminMembers.map((member) => member && (
+              <div key={member.membershipId} className="flex items-center justify-between p-3 rounded-lg bg-bg-elevated">
+                <div className="flex items-center gap-3">
+                  <Avatar src={member.avatarUrl} name={member.displayName} size="sm" />
+                  <div>
+                    <Text size="sm">{member.displayName}</Text>
+                    <Text size="sm" theme="muted">{member.role}</Text>
+                  </div>
+                </div>
+                {member.role === "admin" && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setAdminToRemove(member.membershipId)}
+                  >
+                    Remove
+                  </Button>
+                )}
+              </div>
+            ))}
+            
+            {/* Admin removal confirmation */}
+            {adminToRemove && (
+              <div className="p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
+                <Text size="sm" className="mb-2">Are you sure you want to remove this admin?</Text>
+                <div className="flex gap-2">
+                  <Button variant="secondary" size="sm" onClick={() => setAdminToRemove(null)}>
+                    Cancel
+                  </Button>
+                  <Button variant="danger" size="sm" onClick={() => handleRemoveAdmin(adminToRemove)}>
+                    Confirm
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Add admin search */}
+            <div className="mt-6">
+              <Text size="sm" theme="secondary" className="mb-2">Add New Admin</Text>
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search members..."
+                className="mb-2"
+              />
+              <div className="max-h-48 overflow-y-auto space-y-2">
+                {filteredMembers.slice(0, 5).map((member) => member && (
+                  <div key={member.membershipId} className="flex items-center justify-between p-2 rounded-lg bg-bg-elevated">
+                    <div className="flex items-center gap-2">
+                      <Avatar src={member.avatarUrl} name={member.displayName} size="sm" />
+                      <Text size="sm">{member.displayName}</Text>
+                    </div>
+                    <Button variant="secondary" size="sm" onClick={() => handleAddAdmin(member.membershipId)}>
+                      Add
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+
+      case "billing":
+        if (!community) {
+          return (
+            <div className="text-center py-8">
+              <Text theme="secondary">Select a community to view billing</Text>
+            </div>
+          );
+        }
+        if (!isOwner) {
+          return (
+            <div className="text-center py-8">
+              <CreditCard className="h-12 w-12 text-text-muted mx-auto mb-4" />
+              <Text theme="secondary">You need to be the owner to manage billing</Text>
+            </div>
+          );
+        }
+        const memberCount = community.memberCount || 0;
+        const isAtLimit = memberCount >= 50;
+        
+        return (
+          <div className="space-y-4">
+            <div className="p-4 rounded-lg bg-bg-elevated">
+              <Text size="sm" theme="secondary">Platform Tier</Text>
+              <Heading size="h4" className="mt-1">
+                {community.platformTier === "subscribed" ? "Subscribed" : "Free"}
+              </Heading>
+            </div>
+            
+            <div className="p-4 rounded-lg bg-bg-elevated">
+              <Text size="sm" theme="secondary">Members Used</Text>
+              <Heading size="h4" className="mt-1">
+                {memberCount} / {community.platformTier === "subscribed" ? "Unlimited" : "50"}
+              </Heading>
+            </div>
+
+            {isAtLimit && (
+              <div className="p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
+                <Text size="sm">You&apos;ve reached the 50 member limit. Subscribe to add more members.</Text>
+                <Button className="w-full mt-2">Subscribe Now</Button>
+              </div>
+            )}
+
+            {community.platformTier === "subscribed" && (
+              <Button variant="secondary" className="w-full">Cancel Subscription</Button>
+            )}
+          </div>
+        );
+
+      case "danger":
+        if (!community) {
+          return (
+            <div className="text-center py-8">
+              <Text theme="secondary">Select a community to manage</Text>
+            </div>
+          );
+        }
+        if (!isOwner) {
+          return (
+            <div className="text-center py-8">
+              <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+              <Text theme="secondary">Only the owner can delete this community</Text>
+            </div>
+          );
+        }
+        
+        // Check for active paying members
+        const activePayingMembers = (memberships || []).filter((m) => 
+          m && m.subscriptionType && m.subscriptionType !== "free"
+        ).length;
+        
+        return (
+          <div className="space-y-4">
+            <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle className="h-5 w-5 text-red-500" />
+                <Heading size="h4" className="text-red-400">Danger Zone</Heading>
+              </div>
+              <Text size="sm" theme="secondary" className="mb-4">
+                Once you delete a community, there is no going back. All members will lose access.
+              </Text>
+              
+              {activePayingMembers > 0 ? (
+                <div className="p-3 rounded-lg bg-red-500/20">
+                  <Text size="sm">
+                    You have {activePayingMembers} active paying members. Please remove or refund them before deleting.
+                  </Text>
+                </div>
+              ) : (
+                <>
+                  <Text size="sm" className="mb-2">Type the community name to confirm:</Text>
+                  <Input
+                    value={deleteConfirm}
+                    onChange={(e) => setDeleteConfirm(e.target.value)}
+                    placeholder={community.name}
+                    className="mb-2"
+                  />
+                  <Button
+                    variant="danger"
+                    className="w-full"
+                    disabled={deleteConfirm !== community.name || isDeleting}
+                    onClick={handleDeleteCommunity}
+                  >
+                    {isDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                    Delete Community
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        );
+
+      case "account":
+        return (
+          <div className="space-y-4">
+            <Button variant="secondary" className="w-full" onClick={handleSignOut}>
+              <LogOut className="h-4 w-4 mr-2" />
+              Sign Out
+            </Button>
+            
+            <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle className="h-5 w-5 text-red-500" />
+                <Heading size="h4" className="text-red-400">Delete Account</Heading>
+              </div>
+              <Text size="sm" theme="secondary" className="mb-4">
+                This will permanently delete your account and remove you from all communities.
+              </Text>
+              <Button variant="danger" className="w-full">
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete My Account
+              </Button>
+            </div>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  const sections: { id: Section; label: string; icon: React.ReactNode; requiresCommunity?: boolean }[] = [
+    { id: "profile", label: "Profile", icon: <User className="h-4 w-4" /> },
+    { id: "admins", label: "Admins", icon: <Shield className="h-4 w-4" />, requiresCommunity: true },
+    { id: "billing", label: "Billing", icon: <CreditCard className="h-4 w-4" />, requiresCommunity: true },
+    { id: "danger", label: "Danger Zone", icon: <AlertTriangle className="h-4 w-4" />, requiresCommunity: true },
+    { id: "account", label: "Account", icon: <LogOut className="h-4 w-4" /> },
+  ];
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogTitle>Settings</DialogTitle>
+        
+        <div className="flex flex-1 overflow-hidden mt-4">
+          {/* Sidebar */}
+          <div className="w-48 flex-shrink-0 border-r border-border pr-4 space-y-1">
+            {sections.map((section) => (
+              <button
+                key={section.id}
+                onClick={() => setActiveSection(section.id)}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                  activeSection === section.id
+                    ? "bg-primary text-white"
+                    : "text-text-secondary hover:bg-bg-elevated"
+                }`}
+              >
+                {section.icon}
+                {section.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto pl-4">
+            <Heading size="h4" className="mb-4">
+              {sections.find(s => s.id === activeSection)?.label}
+            </Heading>
+            {renderSection()}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

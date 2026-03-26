@@ -12,6 +12,8 @@ import { MembersTab } from "@/components/community/MembersTab";
 import { ClassroomsTab } from "@/components/community/ClassroomsTab";
 import { LeaderboardTab } from "@/components/community/LeaderboardTab";
 import { AnalysisTab } from "@/components/community/AnalysisTab";
+import { ProfileModal } from "@/components/community/ProfileModal";
+import { SettingsModal } from "@/components/community/SettingsModal";
 
 interface Community {
   id: string;
@@ -49,6 +51,9 @@ export function CommunityShell({
 }: CommunityShellProps) {
   const { user } = useUser();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [profileUserId, setProfileUserId] = useState<string>("");
   
   // Client-side tab state
   const [activeTab, setActiveTab] = useState<string>(() => 
@@ -58,6 +63,17 @@ export function CommunityShell({
   // Handle tab change
   const handleTabChange = (newTab: string) => {
     setActiveTab(newTab);
+  };
+
+  // Handle profile click - show own profile
+  const handleProfileClick = () => {
+    // For now, show settings - could be expanded to show profile
+    setShowSettingsModal(true);
+  };
+
+  // Handle settings click
+  const handleSettingsClick = () => {
+    setShowSettingsModal(true);
   };
 
   // Render tab content based on active tab
@@ -97,6 +113,8 @@ export function CommunityShell({
       <TopBar
         user={user ? { name: user.fullName, image: user.imageUrl } : null}
         onMenuClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        onProfileClick={handleProfileClick}
+        onSettingsClick={handleSettingsClick}
       />
 
       {/* Tab Navigation with content below */}
@@ -120,6 +138,13 @@ export function CommunityShell({
           {children}
         </main>
       )}
+
+      {/* Settings Modal */}
+      <SettingsModal 
+        open={showSettingsModal}
+        onOpenChange={setShowSettingsModal}
+        communitySlug={community.slug}
+      />
     </div>
   );
 }
