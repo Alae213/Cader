@@ -248,7 +248,7 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 | T116 | `[x]` | Mobile responsiveness audit — test 375px (mobile), 768px (tablet), 1280px (desktop) | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | |
 | T117 | `[x]` | Convex index audit — verify all high-traffic queries use indexes | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | `[37 indexes across tables]` |
 | T118 | `[x]` | Webhook security review — signature verification on Chargily endpoint | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | |
-| T119 | `[ ]` | Seed data — create example community with sample posts, classrooms, members for `/explore` | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | |
+| T119 | `[x]` | Seed data — create example community with sample posts, classrooms, members for `/explore` | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | `[Run with: npx convex run seed runSeed]` |
 | T120 | `[ ]` | Vercel production deployment — env vars configured, build passes, domain ready | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | |
 | T121 | `[ ]` | Custom domain setup | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | |
 | T122 | `[ ]` | README update — setup instructions, env vars, local dev, deployment steps | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | |
