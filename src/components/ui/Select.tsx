@@ -89,7 +89,7 @@ export function Select({ options, value, onChange, placeholder = "Select...", cl
                   setIsOpen(false);
                 }}
                 className={cn(
-                  "flex w-full px-4 py-2 text-left text-sm transition-colors",
+                  "flex w-full px-4 py-2 text-left text-sm transition-colors rounded-[16px]",
                   option.value === value
                     ? "bg-accent-subtle text-accent"
                     : "text-text-primary hover:bg-bg-surface"

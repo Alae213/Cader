@@ -1,8 +1,29 @@
 # Feature: Chargily Pay Integration
 
-> **Status:** `draft`
+> **Status:** `implemented`
 > **Phase:** v1
 > **Last updated:** March 2026
+
+---
+
+## Security Improvements (March 2026 Audit)
+
+The following security issues were identified and fixed:
+
+| Issue | Severity | Fix |
+|-------|----------|-----|
+| Webhook signature verification was broken (only checked length) | Critical | Now properly verifies HMAC-SHA256 signature using official SDK |
+| API keys stored in plaintext | High | Keys are now encrypted with AES-256-GCM before storage |
+| Raw fetch() calls to Chargily API | Medium | Now uses official `@chargily/chargily-pay` SDK |
+| No payment amount verification | Medium | Added amount verification to prevent price manipulation |
+| Type assertion hack in webhook handler | Low | Now uses proper typed Convex API calls |
+
+### Encryption Details
+
+Chargily API keys are encrypted using AES-256-GCM before being stored in the database.
+- Encryption key: `ENCRYPTION_SECRET` environment variable (32+ characters)
+- Format: `iv:authTag:encryptedData` (all base64 encoded)
+- Backwards compatible: existing plaintext keys are passed through
 
 ---
 
@@ -186,3 +207,34 @@ Since Chargily has no native subscription/recurring payment API, implement manua
 This applies to both:
 - Community monthly subscriptions (member pays creator)
 - Platform creator subscription (creator pays platform 2,000 DZD/month)
+
+---
+
+## Production Setup
+
+### Required Environment Variables
+
+```env
+# Chargily Webhook Secret (from Chargily dashboard)
+CHARGILY_WEBHOOK_SECRET=whsec_...
+
+# Encryption key for API keys (must be 32+ characters)
+ENCRYPTION_SECRET=your-production-encryption-secret
+
+# App URL for renewal links
+NEXT_PUBLIC_APP_URL=https://your-domain.com
+```
+
+### Webhook Configuration
+
+1. Log into [Chargily Dashboard](https://pay.chargily.dz/dashboard)
+2. Go to Settings → Webhooks
+3. Add webhook URL: `https://your-domain.com/api/webhooks/chargily`
+4. Copy the webhook secret to `CHARGILY_WEBHOOK_SECRET`
+
+### Security Checklist
+
+- [ ] `CHARGILY_WEBHOOK_SECRET` is set (not `REPLACE_ME`)
+- [ ] `ENCRYPTION_SECRET` is a strong 32+ character string
+- [ ] All Chargily API keys are encrypted (check via Settings → Billing)
+- [ ] Webhook endpoint is publicly accessible (not localhost)

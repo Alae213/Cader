@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useAuth, SignInButton, SignUpButton } from "@clerk/nextjs";
 import { toast } from "sonner";
 import { Heading, Text } from "@/components/ui/Text";
 import { Button } from "@/components/ui/Button";
@@ -208,8 +209,20 @@ export function AboutTab({
   onEditClick,
   onVideoChange 
 }: AboutTabProps) {
+  const { userId } = useAuth();
   const [description, setDescription] = useState(community.description || "");
   const [descriptionEditing, setDescriptionEditing] = useState(false);
+
+  // Handle join click - store intent in session storage
+  const handleJoinClick = () => {
+    if (userId) {
+      // User is logged in - call the original handler
+      onJoinClick();
+    } else {
+      // Store intent for after auth - the SignInButton/SignUpButton will handle auth
+      sessionStorage.setItem("joinCommunitySlug", community.slug);
+    }
+  };
 
   // Calculate streak (placeholder - would come from server in real implementation)
   const streak = Math.floor(Math.random() * 30) + 1;
@@ -378,13 +391,21 @@ export function AboutTab({
 
             {/* Join Button - only for non-members/non-owners */}
             {!isMember && !isOwner && (
-              <Button 
-                className="w-full" 
-                size="lg"
-                onClick={onJoinClick}
-              >
-                {community.pricingType === "free" ? "Join Free" : "Join Now"}
-              </Button>
+              userId ? (
+                <Button 
+                  className="w-full" 
+                  size="lg"
+                  onClick={onJoinClick}
+                >
+                  {community.pricingType === "free" ? "Join Free" : "Join Now"}
+                </Button>
+              ) : (
+                <SignInButton mode="modal">
+                  <Button className="w-full" size="lg" onClick={() => sessionStorage.setItem("joinCommunitySlug", community.slug)}>
+                    {community.pricingType === "free" ? "Join Free" : "Join Now"}
+                  </Button>
+                </SignInButton>
+              )
             )}
 
             {/* Edit Button - only for owner */}

@@ -1,31 +1,3 @@
-// Level thresholds - all-time points sum determines level
-// 0 → L1, 20 → L2, 60 → L3, 140 → L4, 280 → L5
-export const LEVEL_THRESHOLDS = [0, 20, 60, 140, 280, Infinity];
-
-export const LEVEL_NAMES = [
-  "Level 1",
-  "Level 2", 
-  "Level 3",
-  "Level 4",
-  "Level 5",
-] as const;
-
-export function getLevelFromPoints(points: number): number {
-  for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) {
-    if (points >= LEVEL_THRESHOLDS[i]) {
-      return i + 1;
-    }
-  }
-  return 1;
-}
-
-export function getPointsForNextLevel(currentLevel: number): number | null {
-  if (currentLevel >= LEVEL_THRESHOLDS.length - 1) {
-    return null; // Max level reached
-  }
-  return LEVEL_THRESHOLDS[currentLevel];
-}
-
 // Platform constants
 export const PLATFORM_PRICE_DZD = 2000; // Monthly subscription
 export const FREE_MEMBER_LIMIT = 50; // Free tier member limit

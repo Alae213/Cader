@@ -48,7 +48,7 @@ export default function RootLayout({
           lang="en"
           className={`${instrumentSerif.variable} ${inter.variable} ${geistMono.variable} h-full antialiased`}
         >
-          <body className="min-h-full flex flex-col bg-bg-canvas text-text-primary">
+          <body suppressHydrationWarning className="min-h-full flex flex-col bg-bg-canvas text-text-primary">
             {children}
             <Toaster 
               position="bottom-right"

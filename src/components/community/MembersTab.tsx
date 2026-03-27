@@ -19,15 +19,6 @@ interface MembersTabProps {
   isAdmin: boolean;
 }
 
-// Get level from points (same logic as constants.ts)
-function getLevelFromPoints(points: number): number {
-  if (points >= 280) return 5;
-  if (points >= 140) return 4;
-  if (points >= 60) return 3;
-  if (points >= 20) return 2;
-  return 1;
-}
-
 // Simplified Wilaya map - displays a grid of clickable buttons since full SVG is complex
 function WilayaMap({ 
   onSelectWilaya, 

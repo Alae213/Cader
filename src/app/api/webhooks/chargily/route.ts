@@ -1,25 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { internal } from "@/convex/_generated/api";
-
-// Type assertion for internal API
-const internalApi = internal as unknown as {
-  functions: {
-    grantMembership: (args: {
-      communityId: string;
-      userId: string;
-      paymentReference: string;
-    }) => Promise<void>;
-    grantClassroomAccess: (args: {
-      classroomId: string;
-      userId: string;
-      paymentReference: string;
-    }) => Promise<void>;
-    updatePlatformTier: (args: {
-      communityId: string;
-      tier: "free" | "subscribed";
-    }) => Promise<void>;
-  };
-};
+import { api } from "@/convex/_generated/api";
+import { verifySignature } from "@chargily/chargily-pay";
+import { ConvexHttpClient } from "convex/browser";
+import type { Id } from "@/convex/_generated/dataModel";
 
 // Chargily webhook events we care about
 type ChargilyEventType = 
@@ -49,50 +32,66 @@ interface ChargilyWebhookPayload {
   };
 }
 
-// Verify webhook signature
-function verifySignature(
-  payload: string,
-  signature: string | null,
-  secret: string
-): boolean {
-  if (!signature) {
-    return false;
+// Create Convex HTTP client for server-side mutations
+function getConvexClient(): ConvexHttpClient {
+  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
+  if (!convexUrl) {
+    throw new Error("NEXT_PUBLIC_CONVEX_URL not configured");
+  }
+  return new ConvexHttpClient(convexUrl);
+}
+
+// Verify that the paid amount matches the expected price
+// This prevents price manipulation attacks where an attacker changes the price
+async function verifyPaymentAmount(
+  convex: ConvexHttpClient,
+  metadata: ChargilyWebhookPayload["data"]["metadata"],
+  paidAmount: number
+): Promise<{ valid: boolean; expectedAmount?: number; reason?: string }> {
+  if (!metadata) {
+    return { valid: false, reason: "Missing metadata" };
   }
 
-  // Chargily sends signature in format: t=timestamp,v1=signature
-  const signatureParts = signature.split(",");
-  const timestampPart = signatureParts.find((part) => part.startsWith("t="));
-  const signatureValue = signatureParts.find((part) => part.startsWith("v1="));
-  
-  if (!signatureValue || !timestampPart) {
-    return false;
+  // Platform subscription has fixed price
+  if (metadata.type === "platform") {
+    const expectedAmount = 2000 * 100; // 2000 DZD in centimes
+    if (paidAmount !== expectedAmount) {
+      return { 
+        valid: false, 
+        expectedAmount,
+        reason: `Platform subscription price mismatch: expected ${expectedAmount}, got ${paidAmount}` 
+      };
+    }
+    return { valid: true };
   }
 
-  const timestamp = timestampPart.replace("t=", "");
-  const signatureHash = signatureValue.replace("v1=", "");
+  // Get expected price from database
+  const priceInfo = await convex.query(api.functions.payments.getExpectedPrice, {
+    communityId: metadata.communityId as Id<"communities">,
+    type: metadata.type,
+    classroomId: metadata.classroomId as Id<"classrooms"> | undefined,
+  });
 
-  // Create HMAC-SHA256 signature
-  const encoder = new TextEncoder();
-  const key = encoder.encode(secret);
-  const data = encoder.encode(timestamp + "." + payload);
-  
-  // Use Web Crypto API for HMAC
-  const cryptoKey = crypto.subtle.importKey(
-    "raw",
-    key,
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-  
-  // This is async, but for simplicity we'll do a basic check
-  // In production, you'd properly await this
-  return signatureHash.length === 64;
+  if (!priceInfo) {
+    return { valid: false, reason: "Could not determine expected price" };
+  }
+
+  // Verify amount matches (with 0 tolerance - exact match required)
+  if (paidAmount !== priceInfo.expectedAmount) {
+    return { 
+      valid: false, 
+      expectedAmount: priceInfo.expectedAmount,
+      reason: `Price mismatch: expected ${priceInfo.expectedAmount} centimes, got ${paidAmount} centimes` 
+    };
+  }
+
+  return { valid: true };
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const payload = await req.text();
+    const payloadText = await req.text();
+    const payloadBuffer = Buffer.from(payloadText);
     const signature = req.headers.get("x-chargily-signature");
     
     // Get webhook secret from environment
@@ -106,8 +105,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Verify signature
-    const isValid = verifySignature(payload, signature, webhookSecret);
+    // Verify signature using official SDK
+    const isValid = verifySignature(payloadBuffer, signature || "", webhookSecret);
     if (!isValid) {
       console.error("Invalid webhook signature");
       return NextResponse.json(
@@ -117,9 +116,12 @@ export async function POST(req: NextRequest) {
     }
 
     // Parse the payload
-    const event: ChargilyWebhookPayload = JSON.parse(payload);
+    const event: ChargilyWebhookPayload = JSON.parse(payloadText);
     
     console.log("Chargily webhook received:", event.event, event.data.id);
+
+    // Get Convex client for mutations
+    const convex = getConvexClient();
 
     // Handle based on event type
     switch (event.event) {
@@ -134,15 +136,44 @@ export async function POST(req: NextRequest) {
           );
         }
 
-        // Determine the checkout type (community, classroom, or platform)
+        // SECURITY: Verify payment amount matches expected price
+        const amountVerification = await verifyPaymentAmount(
+          convex,
+          metadata,
+          event.data.amount
+        );
+
+        if (!amountVerification.valid) {
+          console.error("Payment amount verification failed:", {
+            checkoutId: event.data.id,
+            paidAmount: event.data.amount,
+            expectedAmount: amountVerification.expectedAmount,
+            reason: amountVerification.reason,
+            metadata,
+          });
+          
+          // Log the suspicious activity but still return 200 to Chargily
+          // to prevent webhook retries. The access is simply not granted.
+          return NextResponse.json(
+            { 
+              received: true, 
+              warning: "Amount mismatch - access not granted",
+              reason: amountVerification.reason 
+            },
+            { status: 200 }
+          );
+        }
+
+        // Amount verified - proceed with granting access
         if (metadata.type === "platform") {
           // Update platform tier to subscribed
           console.log("Upgrading community to subscribed tier:", {
             communityId: metadata.communityId,
+            verifiedAmount: event.data.amount,
           });
 
-          await internalApi.functions.updatePlatformTier({
-            communityId: metadata.communityId,
+          await convex.mutation(api.functions.communities.updatePlatformTier, {
+            communityId: metadata.communityId as Id<"communities">,
             tier: "subscribed",
           });
         } else if (metadata.type === "classroom" && metadata.classroomId) {
@@ -151,11 +182,12 @@ export async function POST(req: NextRequest) {
             classroomId: metadata.classroomId,
             userId: metadata.userId,
             paymentReference: event.data.id,
+            verifiedAmount: event.data.amount,
           });
 
-          await internalApi.functions.grantClassroomAccess({
-            classroomId: metadata.classroomId,
-            userId: metadata.userId,
+          await convex.mutation(api.functions.payments.grantClassroomAccess, {
+            classroomId: metadata.classroomId as Id<"classrooms">,
+            userId: metadata.userId as Id<"users">,
             paymentReference: event.data.id,
           });
         } else {
@@ -164,11 +196,12 @@ export async function POST(req: NextRequest) {
             communityId: metadata.communityId,
             userId: metadata.userId,
             paymentReference: event.data.id,
+            verifiedAmount: event.data.amount,
           });
 
-          await internalApi.functions.grantMembership({
-            communityId: metadata.communityId,
-            userId: metadata.userId,
+          await convex.mutation(api.functions.memberships.grantMembership, {
+            communityId: metadata.communityId as Id<"communities">,
+            userId: metadata.userId as Id<"users">,
             paymentReference: event.data.id,
           });
         }

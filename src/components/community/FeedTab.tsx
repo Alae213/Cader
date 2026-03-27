@@ -123,17 +123,19 @@ export function FeedTab({ communityId }: FeedTabProps) {
           </div>
         )}
 
-        {/* Post Composer Trigger */}
-        <Card className="mb-4">
-          <CardContent className="p-4">
-            <button
-              onClick={() => setShowComposer(true)}
-              className="w-full text-left px-4 py-3 rounded-lg bg-bg-elevated hover:bg-bg-muted transition-colors"
-            >
-              <Text theme="muted">What's on your mind?</Text>
-            </button>
-          </CardContent>
-        </Card>
+        {/* Post Composer Trigger - only show for authenticated users */}
+        {userId && (
+          <Card className="mb-4">
+            <CardContent className="p-4">
+              <button
+                onClick={() => setShowComposer(true)}
+                className="w-full text-left px-4 py-3 rounded-lg bg-bg-elevated hover:bg-bg-muted transition-colors"
+              >
+                <Text theme="muted">What's on your mind?</Text>
+              </button>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Feed */}
         {posts.length === 0 ? (

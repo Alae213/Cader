@@ -15,9 +15,15 @@
 
 ### Top Bar
 - Fixed at top of the community SPA shell
-- Left: community name + avatar + dropdown (community switcher + "Create new" + "Explore")
-- Right: notification bell + Profile button + dropdown (Profile, Settings, Sign out)
-- show only logo in left entirely when viewer is unauthenticated or not a member of this community
+- Left: Cader logo (50% opacity normally, 100% on hover) + vertical separator + community select component
+  - Community select shows thumbnail + name of current community
+  - Dropdown options: "+ Create new Community", "Explore Communities", separator, "My communities" + search icon (toggles to search input), list of user's communities (sorted by date, newest first)
+  - Clicking a community navigates to that community
+  - "+ Create new Community" opens existing creation modal
+  - "Explore Communities" navigates to /explore route
+- Right: Avatar (opens dropdown menu on click) + separate SearchIcon component
+  - Avatar dropdown menu: Profile (opens profile modal), Settings (opens settings modal), separator, Help (navigates to /help), separator, Logout (red on hover, shows confirmation, clears auth token, redirects to "/")
+  - SearchIcon component: clicking toggles search input visibility (appears to the right of the icon when active)
 
 ### Tab Navigation Bar
 - Below the top bar on Desktop , fixed in bottom on mobile 

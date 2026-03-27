@@ -1,17 +1,43 @@
-import { mutation } from "../_generated/server";
+import { mutation, query } from "../_generated/server";
 import { v } from "convex/values";
+import { safeDecrypt } from "../lib/encryption";
 
-// Validate Chargily API keys - mutation that tests keys via Chargily API
+// Get expected price for webhook verification
+export const getExpectedPrice = query({
+  args: {
+    communityId: v.id("communities"),
+    type: v.union(v.literal("community"), v.literal("classroom"), v.literal("platform")),
+    classroomId: v.optional(v.id("classrooms")),
+  },
+  handler: async (ctx, args) => {
+    if (args.type === "platform") {
+      return { expectedAmount: 2000 * 100, currency: "dzd" };
+    }
+
+    const community = await ctx.db.get(args.communityId);
+    if (!community) return null;
+
+    if (args.type === "classroom" && args.classroomId) {
+      const classroom = await ctx.db.get(args.classroomId);
+      if (!classroom?.priceDzd) return null;
+      return { expectedAmount: classroom.priceDzd * 100, currency: "dzd" };
+    }
+
+    if (!community.priceDzd) return null;
+    return { expectedAmount: community.priceDzd * 100, currency: "dzd" };
+  },
+});
+
+// Validate Chargily API keys (runs in browser/edge, uses fetch)
 export const validateChargilyKeys = mutation({
   args: {
     apiKey: v.string(),
     webhookSecret: v.string(),
   },
-  handler: async (ctx, args) => {
+  handler: async (_ctx, args) => {
     try {
-      // Test the keys by calling Chargily's API to get current user info
-      // This validates that the keys are valid and have the correct permissions
-      const response = await fetch("https://pay.chargily.net/api/v2/user", {
+      // Test the keys by calling Chargily's API
+      const response = await fetch("https://pay.chargily.net/api/v2/checkouts", {
         method: "GET",
         headers: {
           "Authorization": `Bearer ${args.apiKey}`,
@@ -23,26 +49,16 @@ export const validateChargilyKeys = mutation({
         const errorData = await response.json().catch(() => ({}));
         return {
           valid: false,
-          error: errorData.message || `API returned ${response.status}`,
+          error: (errorData as any).message || `API returned ${response.status}`,
         };
       }
       
-      const userData = await response.json();
-      
-      // Verify webhook secret format (basic validation)
+      // Verify webhook secret format
       if (!args.webhookSecret || args.webhookSecret.length < 10) {
-        return {
-          valid: false,
-          error: "Invalid webhook secret format",
-        };
+        return { valid: false, error: "Invalid webhook secret format" };
       }
       
-      return {
-        valid: true,
-        // Return non-sensitive info for UI feedback
-        email: userData.email,
-        name: userData.name,
-      };
+      return { valid: true, message: "API keys validated successfully" };
     } catch (error) {
       return {
         valid: false,
@@ -52,7 +68,7 @@ export const validateChargilyKeys = mutation({
   },
 });
 
-// Create Chargily checkout session for community or classroom purchase
+// Create Chargily checkout session (uses fetch, works in Convex)
 export const createChargilyCheckout = mutation({
   args: {
     communityId: v.id("communities"),
@@ -65,52 +81,47 @@ export const createChargilyCheckout = mutation({
   handler: async (ctx, args) => {
     // Get the community
     const community = await ctx.db.get(args.communityId);
-    if (!community) {
-      throw new Error("Community not found");
-    }
+    if (!community) throw new Error("Community not found");
     
     // Get the user
     const user = await ctx.db.get(args.userId);
-    if (!user) {
-      throw new Error("User not found");
-    }
+    if (!user) throw new Error("User not found");
     
-    // Check if community has Chargily keys (required for paid communities)
+    // Check if community has Chargily keys
     const isPaidCommunity = ["monthly", "annual", "one_time"].includes(community.pricingType || "");
-    
     if (isPaidCommunity && !community.chargilyApiKey) {
       throw new Error("This community is not configured for payments. Contact the owner.");
     }
     
-    // Determine price based on type
+    // Get and decrypt Chargily API key
+    const encryptedApiKey = community.chargilyApiKey;
+    if (!encryptedApiKey) throw new Error("Community payment configuration not found");
+    
+    const chargilyApiKey = await safeDecrypt(encryptedApiKey);
+    if (!chargilyApiKey) throw new Error("Failed to decrypt payment configuration");
+    
+    // Determine price
     let amount: number;
     let description: string;
     
     if (args.type === "classroom" && args.classroomId) {
-      // Get classroom price
       const classroom = await ctx.db.get(args.classroomId);
-      if (!classroom) {
-        throw new Error("Classroom not found");
-      }
+      if (!classroom) throw new Error("Classroom not found");
       amount = classroom.priceDzd || 0;
       description = `Classroom: ${classroom.title}`;
     } else {
-      // Community membership price
       amount = community.priceDzd || 0;
       description = `Community: ${community.name}`;
     }
     
-    if (amount <= 0) {
-      throw new Error("Invalid price for this purchase");
-    }
+    if (amount <= 0) throw new Error("Invalid price for this purchase");
     
-    // Get Chargily API key (use community's key for creator payments)
-    const chargilyApiKey = community.chargilyApiKey;
-    if (!chargilyApiKey) {
-      throw new Error("Community payment configuration not found");
-    }
+    // Create checkout via Chargily API (using fetch)
+    const mode = process.env.CHARGILY_MODE === "live" ? "live" : "test";
+    const baseUrl = mode === "live" 
+      ? "https://pay.chargily.net/api/v2" 
+      : "https://pay.chargily.net/test/api/v2";
     
-    // Create checkout session via Chargily API
     const checkoutData = {
       amount: amount * 100, // Chargily expects amount in centimes
       currency: "dzd",
@@ -120,8 +131,8 @@ export const createChargilyCheckout = mutation({
         first_name: user.displayName?.split(" ")[0] || "User",
         last_name: user.displayName?.split(" ").slice(1).join(" ") || "",
       },
-      callback_url: args.successUrl,
-      return_url: args.cancelUrl,
+      success_url: args.successUrl,
+      failure_url: args.cancelUrl,
       metadata: {
         communityId: args.communityId,
         userId: args.userId,
@@ -130,31 +141,26 @@ export const createChargilyCheckout = mutation({
       },
     };
     
-    try {
-      const response = await fetch("https://pay.chargily.net/api/v2/checkouts", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${chargilyApiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(checkoutData),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Chargily API error: ${response.status}`);
-      }
-      
-      const checkout = await response.json();
-      
-      return {
-        checkoutUrl: checkout.url,
-        checkoutId: checkout.id,
-      };
-    } catch (error) {
-      console.error("Chargily checkout creation failed:", error);
-      throw new Error(error instanceof Error ? error.message : "Failed to create checkout session");
+    const response = await fetch(`${baseUrl}/checkouts`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${chargilyApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(checkoutData),
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error((errorData as any).message || `Chargily API error: ${response.status}`);
     }
+    
+    const checkout = await response.json() as any;
+    
+    return {
+      checkoutUrl: checkout.checkout_url,
+      checkoutId: checkout.id,
+    };
   },
 });
 
@@ -166,13 +172,9 @@ export const grantClassroomAccess = mutation({
     paymentReference: v.string(),
   },
   handler: async (ctx, args) => {
-    // Get classroom to confirm it exists and has a price
     const classroom = await ctx.db.get(args.classroomId);
-    if (!classroom) {
-      throw new Error("Classroom not found");
-    }
+    if (!classroom) throw new Error("Classroom not found");
 
-    // Check if user already has access
     const existingAccess = await ctx.db
       .query("classroomAccess")
       .withIndex("by_classroom_and_user", (q) =>
@@ -181,7 +183,6 @@ export const grantClassroomAccess = mutation({
       .first();
 
     if (existingAccess) {
-      // Update existing access
       await ctx.db.patch(existingAccess._id, {
         accessType: "purchased",
         purchasedAt: Date.now(),
@@ -190,17 +191,13 @@ export const grantClassroomAccess = mutation({
       return existingAccess._id;
     }
 
-    // Create new classroom access
-    const now = Date.now();
-    const accessId = await ctx.db.insert("classroomAccess", {
+    return await ctx.db.insert("classroomAccess", {
       classroomId: args.classroomId,
       userId: args.userId,
       accessType: "purchased",
-      purchasedAt: now,
+      purchasedAt: Date.now(),
       paymentReference: args.paymentReference,
-      createdAt: now,
+      createdAt: Date.now(),
     });
-
-    return accessId;
   },
 });

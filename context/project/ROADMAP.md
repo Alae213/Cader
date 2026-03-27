@@ -27,11 +27,12 @@ The minimum set of features for a creator to launch a paid community and a stude
 - [ ] Analysis tab (owner-only "coming soon" placeholder)
 
 **Payments**
-- [ ] Chargily Pay integration (community membership payments)
-- [ ] Chargily Pay integration (classroom price-gated payments)
-- [ ] Platform subscription billing (2,000 DZD/month via platform's Chargily)
-- [ ] Webhook handlers (`/api/webhooks/chargily`, `/api/webhooks/clerk`)
-- [ ] Free tier enforcement (50 members) + locked tier
+- [x] Chargily Pay integration (community membership payments)
+- [x] Chargily Pay integration (classroom price-gated payments)
+- [x] Platform subscription billing (2,000 DZD/month via platform's Chargily)
+- [x] Webhook handlers (`/api/webhooks/chargily`, `/api/webhooks/clerk`)
+- [x] Free tier enforcement (50 members) + locked tier
+- [ ] **Security fixes needed**: Webhook signature verification broken, API keys stored unencrypted (T123-T125)
 
 **Modals**
 - [ ] Onboarding modal (name + phone + Chargily checkout for paid, webhook-gated)

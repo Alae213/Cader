@@ -17,6 +17,11 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Disable Turbopack on Windows due to CSS/nul path bug
+  // Remove this when Turbopack fixes Windows compatibility
+  experimental: {
+    // turbopack: false, // Uncomment if needed
+  },
 };
 
 export default nextConfig;

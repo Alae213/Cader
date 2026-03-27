@@ -19,6 +19,10 @@ import type * as functions_memberships from "../functions/memberships.js";
 import type * as functions_notifications from "../functions/notifications.js";
 import type * as functions_payments from "../functions/payments.js";
 import type * as functions_users from "../functions/users.js";
+import type * as lib_chargily from "../lib/chargily.js";
+import type * as lib_email from "../lib/email.js";
+import type * as lib_encryption from "../lib/encryption.js";
+import type * as seed from "../seed.js";
 
 import type {
   ApiFromModules,
@@ -38,6 +42,10 @@ declare const fullApi: ApiFromModules<{
   "functions/notifications": typeof functions_notifications;
   "functions/payments": typeof functions_payments;
   "functions/users": typeof functions_users;
+  "lib/chargily": typeof lib_chargily;
+  "lib/email": typeof lib_email;
+  "lib/encryption": typeof lib_encryption;
+  seed: typeof seed;
 }>;
 
 /**

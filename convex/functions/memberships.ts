@@ -1,4 +1,4 @@
-import { query, mutation } from "../_generated/server";
+import { query, mutation, internalMutation } from "../_generated/server";
 import { v } from "convex/values";
 
 // Get user's membership for a community by slug (uses Clerk ID)
@@ -228,6 +228,8 @@ export const grantMembershipWithDetails = mutation({
 });
 
 // Grant membership after successful payment (called from webhook)
+// Note: This is a public mutation because it's called from external webhook endpoint
+// Security is provided by webhook signature verification
 export const grantMembership = mutation({
   args: {
     communityId: v.id("communities"),

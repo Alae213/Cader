@@ -28,17 +28,14 @@ Tasks currently being worked on or up next.
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T21 | `[x]` | Build `/[communitySlug]` page — route segment, load community by slug, 404 if not found | [context/features/community-creation.md](../features/community-creation.md) | Integrated with Convex getBySlug, loading & 404 states handled |
-| T22 | `[x]` | Build SPA shell — top bar, tab navigation, conditional visibility | [context/features/community-creation.md](../features/community-creation.md) | CommunityShell + TabNav with membership-based visibility |
-| T23 | `[x]` | Build tab visibility logic — unauthenticated/non-member: only About; member: all tabs; owner: all + Analysis | [context/features/community-creation.md](../features/community-creation.md) | Added getMembershipBySlug query, tabs hidden for non-members |
-| T24 | `[x]` | Build `useTabPersistence` hook — localStorage read/write keyed by community slug | [context/features/tab-persistence.md](../features/tab-persistence.md) | Created useTabPersistence hook + TabNav saves preference |
-| T25 | `[x]` | Build tab state restoration — validate stored tab against access, fallback appropriately | [context/features/tab-persistence.md](../features/tab-persistence.md) | Page redirects to stored tab on load if member |
-| T26 | `[x]` | Build About tab layout — two-column, responsive | [context/features/about-tab.md](../features/about-tab.md) | |
-| T27 | `[x]` | Build video embed component — YouTube/Vimeo/GDrive URL validation on blur | [context/features/about-tab.md](../features/about-tab.md) | |
-| T28 | `[x]` | Build stats matrix — members, online now, streak (placeholder) | [context/features/about-tab.md](../features/about-tab.md) | Streak is placeholder |
-| T29 | `[x]` | Build inline edit mode for owner — click-to-edit, auto-save on blur | [context/features/about-tab.md](../features/about-tab.md) | |
-| T30 | `[x]` | Build `getCommunity` Convex query — getBySlug now returns ownerName, ownerAvatar, onlineCount | [context/features/about-tab.md](../features/about-tab.md) | Implicitly completed |
-| T31 | `[x]` | Build public/non-member view — top bar shows placeholder avatar, tabs hidden | [context/features/about-tab.md](../features/about-tab.md) | |
+| T123 | `[ ]` | Fix webhook signature verification — properly await HMAC-SHA256 verification instead of just checking length | [context/features/chargily-integration.md](../features/chargily-integration.md) | **CRITICAL SECURITY FIX**: Current code only checks signature.length === 64 |
+| T124 | `[ ]` | Install @chargily/chargily-pay package and use official SDK for API calls and signature verification | [context/features/chargily-integration.md](../features/chargily-integration.md) | Replace raw fetch() calls with SDK client, use official verifySignature |
+| T125 | `[ ]` | Encrypt Chargily API keys at rest using AES-GCM encryption before storing in Convex | [context/features/chargily-integration.md](../features/chargily-integration.md) | Schema says "encrypted" but stores plaintext — security risk |
+| T126 | `[ ]` | Remove internal API type assertion hack in webhook handler — use proper Convex internal imports | [context/features/chargily-integration.md](../features/chargily-integration.md) | `internal as unknown as { ... }` is fragile, breaks on signature changes |
+| T127 | `[ ]` | Add checkout amount verification in webhook — cross-check paid amount with expected price from database | [context/features/chargily-integration.md](../features/chargily-integration.md) | Prevent price manipulation attacks |
+| T128 | `[ ]` | Implement renewal reminder emails in checkExpiringSubscriptions — send email 3 days before expiry | [context/features/chargily-integration.md](../features/chargily-integration.md) | Currently revokes but doesn't email per spec (EC-9) |
+| T129 | `[ ]` | Add webhook retry logic for failed mutations — implement idempotency keys and dead letter queue | [context/features/chargily-integration.md](../features/chargily-integration.md) | Low priority - prevent duplicate grants on retries |
+| T130 | `[ ]` | Update .env.example and production docs with correct Chargily configuration instructions | [context/features/chargily-integration.md](../features/chargily-integration.md) | .env.local has REPLACE_ME placeholder |
 
 ---
 
@@ -107,6 +104,14 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 | T37 | `[x]` | Build `checkExpiringSubscriptions` Convex scheduled action — daily cron, detect memberships past 30-day period, trigger revocation | [context/features/chargily-integration.md](../features/chargily-integration.md) | Mutation that can be scheduled |
 | T38 | `[x]` | Build platform subscription flow — creator hits 50-member limit, platform Chargily checkout, `communities.platformTier = subscribed` on webhook | [context/features/chargily-integration.md](../features/chargily-integration.md) | Added updatePlatformTier mutation, webhook support |
 | T39 | `[x]` | Build free tier enforcement — member count check on join, locked tier when limit hit, existing members retain access | [context/features/chargily-integration.md](../features/chargily-integration.md) | EC-7, added canJoinCommunity query |
+| T123 | `[ ]` | Fix webhook signature verification — properly await HMAC-SHA256 verification instead of just checking length | [context/features/chargily-integration.md](../features/chargily-integration.md) | **CRITICAL**: Current code only checks length, not actual HMAC |
+| T124 | `[ ]` | Install @chargily/chargily-pay SDK and refactor to use official client for checkouts + signature verification | [context/features/chargily-integration.md](../features/chargily-integration.md) | Replace raw fetch() calls with SDK |
+| T125 | `[ ]` | Encrypt Chargily API keys at rest — use AES-GCM encryption before storing in Convex database | [context/features/chargily-integration.md](../features/chargily-integration.md) | Security: keys stored in plaintext |
+| T126 | `[ ]` | Refactor webhook handler — remove type assertion hack, use proper Convex internal API imports | [context/features/chargily-integration.md](../features/chargily-integration.md) | Type safety improvement |
+| T127 | `[ ]` | Add webhook amount verification — cross-check paid amount with expected price from community/classroom | [context/features/chargily-integration.md](../features/chargily-integration.md) | Prevent price manipulation |
+| T128 | `[ ]` | Implement renewal reminder emails — send checkout link 3 days before subscription expiry | [context/features/chargily-integration.md](../features/chargily-integration.md) | EC-9: currently revokes without emailing |
+| T129 | `[ ]` | Add webhook idempotency — prevent duplicate membership grants on webhook retries | [context/features/chargily-integration.md](../features/chargily-integration.md) | Low priority improvement |
+| T130 | `[ ]` | Update production docs — .env.example, setup guide with correct Chargily configuration | [context/features/chargily-integration.md](../features/chargily-integration.md) | Currently has REPLACE_ME placeholder |
 
 ### Phase 7 — Onboarding Modal (T40–T46)
 

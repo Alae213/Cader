@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
-import { useAuth } from "@clerk/nextjs";
+import { useAuth, SignInButton, SignUpButton } from "@clerk/nextjs";
 import { api } from "@/../convex/_generated/api";
 import { CommunityShell } from "@/components/layout/CommunityShell";
 import { CreateCommunityModal } from "@/components/community/CreateCommunityModal";
@@ -53,9 +53,8 @@ export default function CommunityPage() {
     if (!clerkId) {
       // Store intent in session storage for after auth
       sessionStorage.setItem("joinCommunitySlug", communitySlug);
-      // Trigger Clerk sign in - the user will be redirected back
+      // The SignInButton/SignUpButton with mode="modal" will handle auth
       // After sign in, we'll check for the stored slug and show onboarding
-      window.location.href = "/sign-in";
       return;
     }
     // User is logged in - show onboarding modal
@@ -134,11 +133,13 @@ export default function CommunityPage() {
     );
   }
 
-  // Determine membership status
+  // Determine membership status (needed for AboutTab to show Join button or Edit button)
   const isMember = membership?.isMember ?? false;
   const isOwner = membership?.isOwner ?? false;
   const isAdmin = membership?.isAdmin ?? false;
-  const showAllTabs = isMember || isOwner;
+  
+  // Show tabs for everyone (members, owners, and non-members can all see the community)
+  const showAllTabs = true;
 
   // Transform Convex data to match CommunityShell interface
   const communityData = {
@@ -158,6 +159,8 @@ export default function CommunityPage() {
         showTabs={showAllTabs}
         isOwner={isOwner}
         isAdmin={isAdmin}
+        isMember={isMember}
+        isAuthenticated={!!clerkId}
         userCommunities={userCommunities.map(c => ({
           id: c._id,
           name: c.name,
