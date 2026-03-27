@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 
-export type TabName = "feed" | "members" | "classrooms" | "leaderboard" | "analysis" | "settings";
+export type TabName = "community" | "map" | "classrooms" | "leaderboard" | "analysis" | "settings";
 
 interface UseTabPersistenceOptions {
   communitySlug: string;
@@ -13,7 +13,7 @@ interface UseTabPersistenceOptions {
 const STORAGE_KEY_PREFIX = "cader_tab_";
 
 // Tabs accessible to members (non-owners)
-const memberTabs: TabName[] = ["feed", "members", "classrooms", "leaderboard"];
+const memberTabs: TabName[] = ["community", "map", "classrooms", "leaderboard"];
 
 // Tabs accessible to owners (includes analysis)
 const ownerTabs: TabName[] = [...memberTabs, "analysis"];
@@ -26,7 +26,7 @@ export function useTabPersistence({
   isMember,
   isOwner,
 }: UseTabPersistenceOptions) {
-  const [currentTab, setCurrentTab] = useState<TabName>("feed");
+  const [currentTab, setCurrentTab] = useState<TabName>("community");
   const [isInitialized, setIsInitialized] = useState(false);
 
   // Get the storage key for this community
@@ -53,8 +53,8 @@ export function useTabPersistence({
   // Get the fallback tab based on access level
   const getFallbackTab = useCallback(() => {
     const accessibleTabs = getAccessibleTabs();
-    if (accessibleTabs.length === 0) return "feed"; // Default, will be hidden anyway
-    // For members, default to feed; for owners, default to feed (analysis is extra)
+    if (accessibleTabs.length === 0) return "community"; // Default, will be hidden anyway
+    // For members, default to community; for owners, default to community (analysis is extra)
     return accessibleTabs[0];
   }, [getAccessibleTabs]);
 

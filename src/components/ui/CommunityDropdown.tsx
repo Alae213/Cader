@@ -2,11 +2,10 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Compass, Search } from "lucide-react";
+import { Plus, Compass, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { Avatar } from "@/components/shared/Avatar";
-import { Button } from "@/components/ui/Button";
 
 export interface Community {
   id: string;
@@ -32,17 +31,40 @@ export function CommunityDropdown({
 }: CommunityDropdownProps) {
   const [isOpen, setIsOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
-  const [isSearchActive, setIsSearchActive] = React.useState(false);
+  const [focusedIndex, setFocusedIndex] = React.useState(-1);
   const ref = React.useRef<HTMLDivElement>(null);
+  const searchInputRef = React.useRef<HTMLInputElement>(null);
   const router = useRouter();
+
+  // Derive isSearchActive from searchQuery
+  const isSearchActive = searchQuery.length > 0;
+
+  // Memoized filtered communities
+  const filteredCommunities = React.useMemo(() =>
+    communities.filter((community) =>
+      community.name.toLowerCase().includes(searchQuery.toLowerCase())
+    ),
+    [communities, searchQuery]
+  );
+
+  // Memoized menu variants
+  const menuVariants = React.useMemo(() => ({
+    hidden: { opacity: 0, y: -10, scale: 0.95 },
+    visible: { opacity: 1, y: 0, scale: 1 },
+  }), []);
+
+  // Reset state helper
+  const resetState = () => {
+    setIsOpen(false);
+    setSearchQuery("");
+    setFocusedIndex(-1);
+  };
 
   // Close dropdown when clicking outside
   React.useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) {
-        setIsOpen(false);
-        setIsSearchActive(false);
-        setSearchQuery("");
+        resetState();
       }
     };
 
@@ -50,74 +72,125 @@ export function CommunityDropdown({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Filter communities based on search query (client-side)
-  const filteredCommunities = communities.filter((community) =>
-    community.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Focus search input when search becomes active
+  React.useEffect(() => {
+    if (isSearchActive && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [isSearchActive]);
 
   // Handle community selection
   const handleCommunitySelect = (slug: string) => {
-    setIsOpen(false);
-    setSearchQuery("");
-    setIsSearchActive(false);
+    resetState();
     router.push(`/${slug}`);
   };
 
   // Handle create community
   const handleCreateClick = () => {
-    setIsOpen(false);
+    resetState();
     onCreateCommunity?.();
   };
 
   // Handle explore
   const handleExploreClick = () => {
-    setIsOpen(false);
+    resetState();
     onExploreCommunities?.();
   };
 
   // Toggle search mode
   const toggleSearch = () => {
-    setIsSearchActive(!isSearchActive);
-    if (!isSearchActive) {
-      setSearchQuery("");
+    setSearchQuery((prev) => (prev ? "" : ""));
+    setFocusedIndex(-1);
+  };
+
+  // Clear search
+  const clearSearch = () => {
+    setSearchQuery("");
+    setFocusedIndex(-1);
+  };
+
+  // Keyboard navigation
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!isOpen) {
+      if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown") {
+        e.preventDefault();
+        setIsOpen(true);
+      }
+      return;
+    }
+
+    switch (e.key) {
+      case "Escape":
+        e.preventDefault();
+        resetState();
+        break;
+      case "ArrowDown":
+        e.preventDefault();
+        setFocusedIndex((prev) => {
+          const maxIndex = filteredCommunities.length - 1;
+          return prev < maxIndex ? prev + 1 : 0;
+        });
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        setFocusedIndex((prev) => {
+          const maxIndex = filteredCommunities.length - 1;
+          return prev > 0 ? prev - 1 : maxIndex;
+        });
+        break;
+      case "Enter":
+        e.preventDefault();
+        if (focusedIndex >= 0 && focusedIndex < filteredCommunities.length) {
+          handleCommunitySelect(filteredCommunities[focusedIndex].slug);
+        }
+        break;
     }
   };
 
-  // Variants for framer motion animation
-  const menuVariants = {
-    hidden: { opacity: 0, y: -10, scale: 0.95 },
-    visible: { opacity: 1, y: 0, scale: 1 },
-  };
-
   return (
-    <div ref={ref} className={cn("relative", className)}>
-      {/* Trigger button - shows current community when closed */}
+    <div ref={ref} className={cn("relative", className)} onMouseEnter={() => setIsOpen(true)} onMouseLeave={() => setIsOpen(false)}>
+      {/* Trigger button */}
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
+        onKeyDown={handleKeyDown}
+        aria-label={currentCommunity ? `Current community: ${currentCommunity.name}` : "Select a community"}
+        aria-expanded={isOpen}
+        aria-haspopup="listbox"
         className={cn(
-          "flex items-center gap-2 rounded-[14px] bg-bg-surface px-3 py-2",
+          "flex items-center justify-between gap-2 w-[280px] rounded-[22px] bg-bg-surface px-4 py-2.5",
           "text-text-primary transition-colors hover:bg-bg-elevated",
-          "focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-bg-canvas"
+          "focus:outline-none focus:ring-0",
+          "active:scale-[0.96] transition-transform"
         )}
       >
         {currentCommunity ? (
-          <>
-            <Avatar 
-              src={currentCommunity.thumbnailUrl} 
-              alt={currentCommunity.name} 
-              size="sm" 
-            />
-            <span className="text-sm font-medium truncate max-w-[120px]">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div className="flex-shrink-0">
+              {currentCommunity.thumbnailUrl ? (
+                <img 
+                  src={currentCommunity.thumbnailUrl} 
+                  alt={currentCommunity.name}
+                  className="w-8 h-8 rounded-lg object-cover"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
+                  <span className="text-lg font-serif text-white">
+                    {currentCommunity.name.charAt(0)}
+                  </span>
+                </div>
+              )}
+            </div>
+            <span className="text-sm font-medium truncate">
               {currentCommunity.name}
             </span>
-          </>
+          </div>
         ) : (
           <span className="text-sm text-text-muted">Select Community</span>
         )}
         <svg 
+          aria-hidden="true"
           className={cn(
-            "h-4 w-4 text-text-muted transition-transform duration-200",
+            "h-4 w-4 text-text-muted transition-transform duration-200 flex-shrink-0",
             isOpen && "rotate-180"
           )} 
           fill="none" 
@@ -136,19 +209,26 @@ export function CommunityDropdown({
             animate="visible"
             exit="hidden"
             variants={menuVariants}
-            className="absolute left-0 top-full z-50 mt-2 w-[280px] rounded-[14px] bg-bg-elevated py-2 shadow-lg"
+            role="listbox"
+            aria-label="Community list"
+            aria-expanded={isOpen}
+            className="absolute left-0 top-full z-50 mt-2 w-[280px] rounded-[22px] bg-bg-elevated py-2"
+            style={{
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05)',
+            }}
           >
             {/* Create New Community Button */}
             <button
               type="button"
               onClick={handleCreateClick}
               className={cn(
-                "flex w-full items-center gap-3 px-4 py-3 text-left text-sm",
-                "text-accent hover:bg-bg-surface transition-colors"
+                "flex w-full items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-left text-sm",
+                "text-accent hover:bg-white/10 transition-colors",
+                "active:scale-[0.96] transition-transform"
               )}
             >
-              <Plus className="h-5 w-5" />
-              <span className="font-medium">Create new Community</span>
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              <span className="font-medium">Create new community</span>
             </button>
 
             {/* Explore Communities Button */}
@@ -156,81 +236,56 @@ export function CommunityDropdown({
               type="button"
               onClick={handleExploreClick}
               className={cn(
-                "flex w-full items-center gap-3 px-4 py-3 text-left text-sm",
-                "text-text-primary hover:bg-bg-surface transition-colors"
+                "flex w-full items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-left text-sm",
+                "text-text-primary hover:bg-white/10 transition-colors",
+                "active:scale-[0.96] transition-transform"
               )}
             >
-              <Compass className="h-5 w-5" />
-              <span>Explore Communities</span>
+              <Compass className="h-4 w-4" aria-hidden="true" />
+              <span>Explore communities</span>
             </button>
 
             {/* Separator */}
-            <div className="my-2 h-[1px] bg-bg-surface" />
+            <div className="my-2 mx-4 h-[1px] bg-white/10" />
 
-            {/* Search / My Communities Header */}
-            <div className="px-4 py-2">
-              {isSearchActive ? (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search communities..."
-                    className={cn(
-                      "flex-1 rounded-[10px] bg-bg-surface px-3 py-2 text-sm",
-                      "text-text-primary placeholder:text-text-muted",
-                      "focus:outline-none focus:ring-2 focus:ring-accent"
-                    )}
-                    autoFocus
-                  />
-                  <button
-                    type="button"
-                    onClick={toggleSearch}
-                    className="rounded-full p-2 text-text-muted hover:bg-bg-surface"
-                  >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={toggleSearch}
-                  className={cn(
-                    "flex w-full items-center justify-between text-sm",
-                    "text-text-muted hover:text-text-primary transition-colors"
-                  )}
-                >
-                  <span>My communities</span>
-                  <Search className="h-4 w-4" />
-                </button>
-              )}
-            </div>
 
             {/* Communities List */}
-            <div className="max-h-[300px] overflow-y-auto">
+            <div className="max-h-[300px] overflow-y-auto pb-2">
               {filteredCommunities.length === 0 ? (
                 <div className="px-4 py-6 text-center text-sm text-text-muted">
                   {searchQuery ? "No communities found" : "No communities yet"}
                 </div>
               ) : (
-                filteredCommunities.map((community) => (
+                filteredCommunities.map((community, index) => (
                   <button
                     key={community.id}
                     type="button"
                     onClick={() => handleCommunitySelect(community.slug)}
+                    onMouseEnter={() => setFocusedIndex(index)}
+                    role="option"
+                    aria-selected={currentCommunity?.id === community.id}
                     className={cn(
-                      "flex w-full items-center gap-3 px-4 py-3 text-left text-sm",
-                      "text-text-primary hover:bg-bg-surface transition-colors",
-                      currentCommunity?.id === community.id && "bg-bg-surface"
+                      "flex w-full items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-left text-sm",
+                      "text-text-primary hover:bg-white/10 transition-colors",
+                      focusedIndex === index && "bg-white/10",
+                      "active:scale-[0.96] transition-transform"
                     )}
                   >
-                    <Avatar
-                      src={community.thumbnailUrl}
-                      alt={community.name}
-                      size="sm"
-                    />
+                    <div className="flex-shrink-0">
+                      {community.thumbnailUrl ? (
+                        <img 
+                          src={community.thumbnailUrl} 
+                          alt={community.name}
+                          className="w-6 h-6 rounded-md object-cover"
+                        />
+                      ) : (
+                        <div className="w-6 h-6 rounded-md bg-accent flex items-center justify-center">
+                          <span className="text-sm font-serif text-white">
+                            {community.name.charAt(0)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                     <span className="truncate">{community.name}</span>
                   </button>
                 ))

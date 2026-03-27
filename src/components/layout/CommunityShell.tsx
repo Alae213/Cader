@@ -33,6 +33,8 @@ interface CommunityShellProps {
   showTabs?: boolean;
   isOwner?: boolean;
   isAdmin?: boolean;
+  isMember?: boolean;
+  isAuthenticated?: boolean;
   // Legacy props for About tab - will be refactored
   aboutTabProps?: {
     isMember: boolean;
@@ -54,6 +56,8 @@ export function CommunityShell({
   showTabs = false, 
   isOwner = false,
   isAdmin = false,
+  isMember = false,
+  isAuthenticated = false,
   aboutTabProps,
   // New props for TopBar
   userCommunities = [],
@@ -70,7 +74,7 @@ export function CommunityShell({
   
   // Client-side tab state
   const [activeTab, setActiveTab] = useState<string>(() => 
-    getInitialTab(community.slug, isOwner)
+    getInitialTab(community.slug, isOwner, isMember, isAuthenticated)
   );
 
   // Handle tab change
@@ -121,9 +125,9 @@ export function CommunityShell({
         ) : (
           children
         );
-      case "feed":
+      case "community":
         return <FeedTab communityId={community.id} />;
-      case "members":
+      case "map":
         return <MembersTab communityId={community.id} isOwner={isOwner} isAdmin={isAdmin} />;
       case "classrooms":
         return <ClassroomsTab communityId={community.id} isOwner={isOwner} />;
@@ -156,10 +160,12 @@ export function CommunityShell({
 
       {/* Tab Navigation with content below */}
       {showTabs ? (
-        <div className=" bg-bg-canvas">
+        <div className="bg-bg-canvas pb-16 sm:pb-6">
           <TabNav 
             communitySlug={community.slug} 
             isOwner={isOwner}
+            isMember={isMember}
+            isAuthenticated={isAuthenticated}
             activeTab={activeTab}
             onTabChange={handleTabChange}
           />
