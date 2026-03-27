@@ -28,6 +28,23 @@ export default function CommunityPage() {
     clerkId ? { slug: communitySlug, clerkId } : "skip"
   );
 
+  // Fetch all user's memberships to get communities they belong to (created + joined)
+  const userMemberships = useQuery(
+    api.functions.memberships.listByUser,
+    clerkId ? { userId: clerkId } : "skip"
+  );
+
+  // Get community IDs from user's memberships
+  const userCommunityIds = (userMemberships || [])
+    .filter(m => m.status === "active")
+    .map(m => m.communityId);
+
+  // Get community details for each membership
+  const userCommunities = useQuery(
+    api.functions.communities.listByIds,
+    userCommunityIds.length > 0 ? { ids: userCommunityIds } : "skip"
+  ) || [];
+
   // Mutation to update community video URL
   const updateCommunity = useMutation(api.functions.communities.updateCommunity);
 
@@ -141,6 +158,16 @@ export default function CommunityPage() {
         showTabs={showAllTabs}
         isOwner={isOwner}
         isAdmin={isAdmin}
+        userCommunities={userCommunities.map(c => ({
+          id: c._id,
+          name: c.name,
+          slug: c.slug,
+          description: c.description,
+          imageUrl: c.logoUrl,
+          thumbnailUrl: c.logoUrl,
+          memberCount: 0, // Will be fetched separately if needed
+          isVerified: false,
+        }))}
         aboutTabProps={{
           isMember,
           onJoinClick: handleJoinClick,
@@ -148,6 +175,8 @@ export default function CommunityPage() {
           onVideoChange: handleVideoChange,
           communityData: community,
         }}
+        onCreateCommunity={() => setShowCreateModal(true)}
+        onExploreCommunities={() => window.location.href = "/explore"}
       />
 
       {/* Edit Community Modal */}

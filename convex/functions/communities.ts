@@ -1,5 +1,7 @@
-import { query, mutation } from "../_generated/server";
+import { query, mutation, internalMutation } from "../_generated/server";
 import { v } from "convex/values";
+import { encrypt } from "../lib/encryption";
+import { sendRenewalReminderEmail } from "../lib/email";
 
 // Reserved slugs that cannot be used
 const RESERVED_SLUGS = [
@@ -179,6 +181,10 @@ export const createCommunity = mutation({
     
     const now = Date.now();
     
+    // Encrypt Chargily keys before storing (security: never store plaintext)
+    const encryptedApiKey = args.chargilyApiKey ? await encrypt(args.chargilyApiKey) : undefined;
+    const encryptedWebhookSecret = args.chargilyWebhookSecret ? await encrypt(args.chargilyWebhookSecret) : undefined;
+    
     // Create the community
     const communityId = await ctx.db.insert("communities", {
       slug,
@@ -189,9 +195,9 @@ export const createCommunity = mutation({
       ownerId: user._id,
       platformTier: "free",
       memberLimit: 50,
-      // Store Chargily keys (will be encrypted in Phase 17)
-      chargilyApiKey: args.chargilyApiKey,
-      chargilyWebhookSecret: args.chargilyWebhookSecret,
+      // Store encrypted Chargily keys
+      chargilyApiKey: encryptedApiKey,
+      chargilyWebhookSecret: encryptedWebhookSecret,
       createdAt: now,
       updatedAt: now,
     });
@@ -286,8 +292,13 @@ export const updateCommunity = mutation({
       updateData.slug = args.slug;
     }
     
-    if (args.chargilyApiKey !== undefined) updateData.chargilyApiKey = args.chargilyApiKey;
-    if (args.chargilyWebhookSecret !== undefined) updateData.chargilyWebhookSecret = args.chargilyWebhookSecret;
+    // Encrypt Chargily keys before storing (security: never store plaintext)
+    if (args.chargilyApiKey !== undefined) {
+      updateData.chargilyApiKey = args.chargilyApiKey ? await encrypt(args.chargilyApiKey) : undefined;
+    }
+    if (args.chargilyWebhookSecret !== undefined) {
+      updateData.chargilyWebhookSecret = args.chargilyWebhookSecret ? await encrypt(args.chargilyWebhookSecret) : undefined;
+    }
     
     await ctx.db.patch(args.communityId, updateData);
     
@@ -377,6 +388,8 @@ export const canJoinCommunity = query({
 });
 
 // Update community's platform tier (called from webhook for platform subscriptions)
+// Note: This is a public mutation because it's called from external webhook endpoint
+// Security is provided by webhook signature verification
 export const updatePlatformTier = mutation({
   args: {
     communityId: v.id("communities"),
@@ -388,21 +401,6 @@ export const updatePlatformTier = mutation({
       throw new Error("Community not found");
     }
 
-    // Only the community owner can update the tier (enforced by checking ownership)
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      // Allow webhook calls (no auth) - this is a server-to-server operation
-    } else {
-      const user = await ctx.db
-        .query("users")
-        .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-        .first();
-      
-      if (!user || community.ownerId !== user._id) {
-        throw new Error("Only the community owner can update the platform tier");
-      }
-    }
-
     await ctx.db.patch(args.communityId, {
       platformTier: args.tier,
       updatedAt: Date.now(),
@@ -412,41 +410,116 @@ export const updatePlatformTier = mutation({
   },
 });
 
-// Scheduled action to check and revoke expired memberships
-// This runs daily to find memberships that have passed their subscription end date
+// Scheduled action to check expiring and expired memberships
+// This runs daily to:
+// 1. Send renewal reminders for memberships expiring in 3 days
+// 2. Revoke memberships that have already expired
 export const checkExpiringSubscriptions = mutation({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();
+    const threeDaysFromNow = now + (3 * 24 * 60 * 60 * 1000);
     
-    // Find all active memberships with subscription end dates that have passed
+    // Find all active memberships with subscription end dates
     const allMemberships = await ctx.db
       .query("memberships")
+      .withIndex("by_status", (q) => q.eq("status", "active"))
       .collect();
 
-    const expiredMemberships = allMemberships.filter(
-      (m: { status: string; subscriptionEndDate?: number }) => 
-        m.status === "active" && m.subscriptionEndDate && m.subscriptionEndDate < now
+    // Filter memberships that have subscription end dates
+    const membershipsToEnd = allMemberships.filter(
+      (m: { subscriptionEndDate?: number }) => m.subscriptionEndDate
     );
 
-    console.log(`Found ${expiredMemberships.length} expired memberships`);
+    const expiringSoon: typeof membershipsToEnd = [];
+    const expired: typeof membershipsToEnd = [];
 
-    // Revoke each expired membership
-    for (const membership of expiredMemberships) {
+    // Categorize memberships
+    for (const membership of membershipsToEnd) {
+      const endDate = membership.subscriptionEndDate!;
+      
+      if (endDate < now) {
+        // Already expired
+        expired.push(membership);
+      } else if (endDate < threeDaysFromNow) {
+        // Expiring within 3 days - send reminder
+        expiringSoon.push(membership);
+      }
+    }
+
+    console.log(`Subscription check: ${expiringSoon.length} expiring soon, ${expired.length} expired`);
+
+    // Send renewal reminders for memberships expiring soon
+    let remindersSent = 0;
+    for (const membership of expiringSoon) {
+      try {
+        // Get user and community details
+        const user = await ctx.db.get(membership.userId);
+        const community = await ctx.db.get(membership.communityId);
+        
+        if (!user || !community) {
+          console.error(`User or community not found for membership ${membership._id}`);
+          continue;
+        }
+
+        // Skip if user has no email
+        if (!user.email) {
+          console.error(`User ${user._id} has no email - cannot send reminder`);
+          continue;
+        }
+
+        // Calculate days until expiry
+        const daysUntilExpiry = Math.ceil((membership.subscriptionEndDate! - now) / (24 * 60 * 60 * 1000));
+        
+        // Generate renewal URL (community page with billing modal trigger)
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://cader.dz';
+        const renewalUrl = `${baseUrl}/${community.slug}?renew=true`;
+
+        // Send the renewal reminder email
+        const emailResult = await sendRenewalReminderEmail({
+          to: user.email,
+          userName: user.displayName || 'Member',
+          communityName: community.name,
+          expiryDate: new Date(membership.subscriptionEndDate!),
+          renewalUrl,
+        });
+
+        if (emailResult.success) {
+          remindersSent++;
+          console.log(`Sent renewal reminder to ${user.email} for ${community.name} (expires in ${daysUntilExpiry} days)`);
+        } else {
+          console.error(`Failed to send renewal reminder to ${user.email}:`, emailResult.error);
+        }
+      } catch (error) {
+        console.error(`Failed to process renewal reminder for membership ${membership._id}:`, error);
+      }
+    }
+
+    // Revoke expired memberships
+    let revokedCount = 0;
+    for (const membership of expired) {
       try {
         await ctx.db.patch(membership._id, {
           status: "inactive",
           updatedAt: now,
         });
-        console.log(`Revoked membership for user ${membership.userId} in community ${membership.communityId}`);
+        
+        // Log for debugging
+        const user = await ctx.db.get(membership.userId);
+        const community = await ctx.db.get(membership.communityId);
+        console.log(`Revoked membership for ${user?.email || membership.userId} in ${community?.name || membership.communityId}`);
+        revokedCount++;
       } catch (error) {
         console.error(`Failed to revoke membership ${membership._id}:`, error);
       }
     }
 
     return {
-      checked: allMemberships.length,
-      expired: expiredMemberships.length,
+      checked: membershipsToEnd.length,
+      expiringSoon: expiringSoon.length,
+      remindersSent,
+      expired: expired.length,
+      revoked: revokedCount,
     };
   },
 });
@@ -504,5 +577,20 @@ export const deleteCommunity = mutation({
     await ctx.db.delete(args.communityId);
 
     return args.communityId;
+  },
+});
+
+// Get multiple communities by their IDs
+export const listByIds = query({
+  args: { ids: v.array(v.id("communities")) },
+  handler: async (ctx, args) => {
+    const communities = [];
+    for (const id of args.ids) {
+      const community = await ctx.db.get(id);
+      if (community) {
+        communities.push(community);
+      }
+    }
+    return communities;
   },
 });

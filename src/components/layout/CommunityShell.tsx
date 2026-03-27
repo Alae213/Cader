@@ -22,6 +22,7 @@ interface Community {
   slug: string;
   description?: string;
   imageUrl?: string;
+  thumbnailUrl?: string;
   memberCount: number;
   isVerified: boolean;
 }
@@ -40,13 +41,8 @@ interface CommunityShellProps {
     onVideoChange?: (url: string) => void;
     communityData?: any;
   };
-  // New props for TopBar
-  communities?: Array<{
-    id: string;
-    name: string;
-    thumbnailUrl?: string;
-  }>;
-  onCommunitySelect?: (communityId: string) => void;
+  // New props for TopBar - communities user belongs to (created + joined)
+  userCommunities?: Community[];
   onCreateCommunity?: () => void;
   onExploreCommunities?: () => void;
   onLogout?: () => void;
@@ -60,8 +56,7 @@ export function CommunityShell({
   isAdmin = false,
   aboutTabProps,
   // New props for TopBar
-  communities = [],
-  onCommunitySelect,
+  userCommunities = [],
   onCreateCommunity,
   onExploreCommunities,
   onLogout
@@ -93,6 +88,22 @@ export function CommunityShell({
   const handleSettingsClick = () => {
     setShowSettingsModal(true);
   };
+
+  // Prepare community for TopBar (current community)
+  const currentCommunity = {
+    id: community.id,
+    name: community.name,
+    slug: community.slug,
+    thumbnailUrl: community.imageUrl || community.thumbnailUrl
+  };
+
+  // Prepare communities for dropdown (user's communities)
+  const communitiesForDropdown = userCommunities.map(c => ({
+    id: c.id,
+    name: c.name,
+    slug: c.slug,
+    thumbnailUrl: c.imageUrl || c.thumbnailUrl
+  }));
 
   // Render tab content based on active tab
   const renderTabContent = () => {
@@ -130,8 +141,8 @@ export function CommunityShell({
        {/* Top Bar */}
        <TopBar
          user={user ? { name: user.fullName, image: user.imageUrl } : null}
-         communities={communities}
-         onCommunitySelect={onCommunitySelect}
+         currentCommunity={currentCommunity}
+         communities={communitiesForDropdown}
          onCreateCommunity={onCreateCommunity}
          onExploreCommunities={onExploreCommunities}
          onProfileClick={handleProfileClick}

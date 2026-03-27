@@ -1,26 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { Search, Compass, X } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { Select } from "@/components/ui/Select";
-import { SearchIcon } from "@/components/ui/SearchIcon";
+import { CommunityDropdown } from "@/components/ui/CommunityDropdown";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/animate-ui/components/radix/dropdown-menu";
 import { Avatar } from "@/components/shared/Avatar";
 import { Button } from "@/components/ui/Button";
+
+interface Community {
+  id: string;
+  name: string;
+  slug: string;
+  thumbnailUrl?: string;
+}
 
 interface TopBarProps {
   user?: {
     name?: string | null;
     image?: string | null;
   } | null;
-  communities?: Array<{
-    id: string;
-    name: string;
-    thumbnailUrl?: string;
-  }>;
-  onCommunitySelect?: (communityId: string) => void;
+  communities?: Community[];
+  currentCommunity?: Community | null;
   onCreateCommunity?: () => void;
   onExploreCommunities?: () => void;
   onProfileClick?: () => void;
@@ -31,29 +32,13 @@ interface TopBarProps {
 export function TopBar({ 
   user, 
   communities = [], 
-  onCommunitySelect, 
+  currentCommunity = null,
   onCreateCommunity, 
   onExploreCommunities,
   onProfileClick,
   onSettingsClick,
   onLogout
 }: TopBarProps) {
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-
-  const handleSearchChange = (query: string) => {
-    setSearchQuery(query);
-  };
-
-  // Sort communities by date (newest first) assuming _id contains timestamp
-  const sortedCommunities = [...communities].sort((a, b) => 
-    b.id.localeCompare(a.id) // Simple string comparison; in real app would use timestamp from _id
-  );
-  
-  const filteredCommunities = sortedCommunities.filter(community =>
-    community.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
   // Handle logout with confirmation
   const handleLogout = async () => {
     if (window.confirm("Are you sure you want to logout?")) {
@@ -85,37 +70,12 @@ export function TopBar({
         {/* Vertical separator */}
         <div className="h-6 w-[1px] bg-bg-elevated"></div>
         
-        {/* Community Select Component */}
-        <Select
-          isCommunitySelect={true}
-          options={[
-            { 
-              value: "create", 
-              label: "+ Create new Community",
-              // No thumbnail for create option
-            },
-            {
-              value: "explore",
-              label: "Explore Communities",
-              // No thumbnail for explore option
-            },
-            ...communities.map(community => ({
-              value: community.id,
-              label: community.name,
-              thumbnail: community.thumbnailUrl
-            }))
-          ]}
-          placeholder="Select Community"
-          onChange={(value) => {
-            if (value === "create") {
-              onCreateCommunity?.();
-            } else if (value === "explore") {
-              onExploreCommunities?.();
-            } else {
-              onCommunitySelect?.(value);
-            }
-          }}
-          className="w-[200px]"
+        {/* Community Dropdown Component */}
+        <CommunityDropdown
+          currentCommunity={currentCommunity}
+          communities={communities}
+          onCreateCommunity={onCreateCommunity}
+          onExploreCommunities={onExploreCommunities}
         />
       </div>
 
@@ -164,34 +124,6 @@ export function TopBar({
           <Link href="/sign-in">
             <Button variant="ghost" size="sm">Sign in</Button>
           </Link>
-        )}
-        
-        {/* Search Icon Component (separate component) */}
-        <SearchIcon 
-          onOpenSearch={() => setIsSearchOpen(true)}
-          onCloseSearch={() => setIsSearchOpen(false)}
-        />
-        
-        {/* Conditional search input when search is open */}
-        {isSearchOpen && (
-          <div className="relative flex-max w-[200px]">
-            <input
-              type="text"
-              placeholder="Search communities..."
-              value={searchQuery}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              className="w-full px-4 py-2 rounded-[14px] bg-bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-bg-canvas"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
         )}
       </div>
       </div>
