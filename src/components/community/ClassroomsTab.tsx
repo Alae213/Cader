@@ -8,7 +8,7 @@ import { useAuth } from "@clerk/nextjs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui";
 import { Heading, Text } from "@/components/ui/Text";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -195,30 +195,34 @@ export function ClassroomsTab({ communityId, isOwner }: ClassroomsTabProps) {
             {/* Access Type */}
             <div className="space-y-2">
               <Text size="2" theme="secondary" className="font-medium">Access Type</Text>
-              <Select
-                value={accessType}
-                onChange={(value) => setAccessType(value as any)}
-                options={[
-                  { value: "open", label: "Open - Any member can access" },
-                  { value: "level", label: "Level Required - Reach a level to unlock" },
-                  { value: "price", label: "Paid - Purchase to access" },
-                  { value: "level_and_price", label: "Level + Paid - Both required" },
-                ]}
-              />
+              <Select value={accessType} onValueChange={(value) => setAccessType(value as any)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="open">Open - Any member can access</SelectItem>
+                  <SelectItem value="level">Level Required - Reach a level to unlock</SelectItem>
+                  <SelectItem value="price">Paid - Purchase to access</SelectItem>
+                  <SelectItem value="level_and_price">Level + Paid - Both required</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Level requirement (if applicable) */}
             {(accessType === "level" || accessType === "level_and_price") && (
               <div className="space-y-2">
                 <Text size="2" theme="secondary" className="font-medium">Minimum Level</Text>
-                <Select
-                  value={minLevel?.toString() || ""}
-                  onChange={(value) => setMinLevel(value ? parseInt(value) : undefined)}
-                  options={[
-                    { value: "", label: "Select level..." },
-                    ...levelOptions,
-                  ]}
-                />
+                <Select value={minLevel?.toString() || ""} onValueChange={(value) => setMinLevel(value ? parseInt(value) : undefined)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select level..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Select level...</SelectItem>
+                    {levelOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
 

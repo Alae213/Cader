@@ -128,10 +128,10 @@ function TabTrigger({
     <TabsTriggerPrimitive
       value={value}
       className={cn(
-        "group relative flex flex-col items-center justify-center gap-1 px-4 py-3",
+        "flex flex-col gap-1 pr-2 py-1 mb-2",
         "text-sm font-medium whitespace-nowrap",
         "transition-colors duration-200 ease-out",
-        "text-text-secondary hover:text-white hover:bg-white/10",
+        "text-text-secondary hover:text-white hover:bg-white/5",
         "data-[state=active]:text-white data-[state=active]:bg-transparent data-[state=active]:cursor-default",
         "data-[state=inactive]:cursor-pointer",
         "focus-visible:outline-none focus-visible:ring-0",
@@ -176,15 +176,15 @@ export function TabNav({
   return (
     <>
       {/* Desktop: sticky at top */}
-      <div className="sticky top-14 z-30 w-full bg-bg-base hidden sm:block">
-        <div className="mx-auto max-w-5xl px-4">
+      <div className="sticky top-14 z-30 w-full bg-bg-base hidden sm:block pt-1 gap-2">
+        <div className="mx-auto max-w-5xl">
           <TabsPrimitive 
             value={activeTab} 
             onValueChange={handleTabChange}
           >
             <TabListWithUnderline 
               tabs={tabs}
-              className="flex h-auto w-full justify-start gap-1 overflow-x-auto bg-transparent p-0 scrollbar-hide"
+              className="flex h-auto w-full justify-start gap-3 overflow-x-auto bg-transparent p-0 scrollbar-hide"
             >
               {tabs.map((tab) => (
                 <TabTrigger
@@ -214,7 +214,7 @@ export function TabNav({
                   key={tab.value}
                   value={tab.value}
                   className={cn(
-                    "flex flex-col items-center justify-center gap-1 px-2 py-2",
+                    "flex flex-col items-center justify-center gap-1 pr-2 py-2",
                     "text-xs font-medium whitespace-nowrap",
                     "transition-colors duration-200 ease-out",
                     "text-text-secondary hover:text-white",

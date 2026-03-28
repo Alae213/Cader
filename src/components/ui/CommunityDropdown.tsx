@@ -2,10 +2,13 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Compass, Search, X } from "lucide-react";
+import { Plus, Compass, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
-import { Avatar } from "@/components/shared/Avatar";
+import { Button } from "@/components/ui/Button";
+import { Dropdown } from "@/components/ui/dropdown";
+import { MenuItem } from "@/components/ui/menu-item";
+import type { LucideIcon } from "lucide-react";
 
 export interface Community {
   id: string;
@@ -22,6 +25,14 @@ interface CommunityDropdownProps {
   className?: string;
 }
 
+// Custom community icon component that works as a LucideIcon
+const CommunityIcon = React.forwardRef<SVGSVGElement, React.ComponentProps<typeof Square>>(
+  ({ className, ...props }, ref) => (
+    <Square ref={ref} className={cn("w-4 h-4", className)} {...props} />
+  )
+);
+CommunityIcon.displayName = "CommunityIcon";
+
 export function CommunityDropdown({
   currentCommunity,
   communities,
@@ -30,34 +41,12 @@ export function CommunityDropdown({
   className,
 }: CommunityDropdownProps) {
   const [isOpen, setIsOpen] = React.useState(false);
-  const [searchQuery, setSearchQuery] = React.useState("");
-  const [focusedIndex, setFocusedIndex] = React.useState(-1);
   const ref = React.useRef<HTMLDivElement>(null);
-  const searchInputRef = React.useRef<HTMLInputElement>(null);
   const router = useRouter();
-
-  // Derive isSearchActive from searchQuery
-  const isSearchActive = searchQuery.length > 0;
-
-  // Memoized filtered communities
-  const filteredCommunities = React.useMemo(() =>
-    communities.filter((community) =>
-      community.name.toLowerCase().includes(searchQuery.toLowerCase())
-    ),
-    [communities, searchQuery]
-  );
-
-  // Memoized menu variants
-  const menuVariants = React.useMemo(() => ({
-    hidden: { opacity: 0, y: -10, scale: 0.95 },
-    visible: { opacity: 1, y: 0, scale: 1 },
-  }), []);
 
   // Reset state helper
   const resetState = () => {
     setIsOpen(false);
-    setSearchQuery("");
-    setFocusedIndex(-1);
   };
 
   // Close dropdown when clicking outside
@@ -72,225 +61,90 @@ export function CommunityDropdown({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Focus search input when search becomes active
-  React.useEffect(() => {
-    if (isSearchActive && searchInputRef.current) {
-      searchInputRef.current.focus();
-    }
-  }, [isSearchActive]);
-
   // Handle community selection
   const handleCommunitySelect = (slug: string) => {
     resetState();
     router.push(`/${slug}`);
   };
 
-  // Handle create community
-  const handleCreateClick = () => {
-    resetState();
-    onCreateCommunity?.();
+  // Toggle dropdown
+  const toggleDropdown = () => {
+    setIsOpen(!isOpen);
   };
 
-  // Handle explore
-  const handleExploreClick = () => {
-    resetState();
-    onExploreCommunities?.();
-  };
-
-  // Toggle search mode
-  const toggleSearch = () => {
-    setSearchQuery((prev) => (prev ? "" : ""));
-    setFocusedIndex(-1);
-  };
-
-  // Clear search
-  const clearSearch = () => {
-    setSearchQuery("");
-    setFocusedIndex(-1);
-  };
-
-  // Keyboard navigation
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!isOpen) {
-      if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown") {
-        e.preventDefault();
-        setIsOpen(true);
-      }
-      return;
-    }
-
-    switch (e.key) {
-      case "Escape":
-        e.preventDefault();
-        resetState();
-        break;
-      case "ArrowDown":
-        e.preventDefault();
-        setFocusedIndex((prev) => {
-          const maxIndex = filteredCommunities.length - 1;
-          return prev < maxIndex ? prev + 1 : 0;
-        });
-        break;
-      case "ArrowUp":
-        e.preventDefault();
-        setFocusedIndex((prev) => {
-          const maxIndex = filteredCommunities.length - 1;
-          return prev > 0 ? prev - 1 : maxIndex;
-        });
-        break;
-      case "Enter":
-        e.preventDefault();
-        if (focusedIndex >= 0 && focusedIndex < filteredCommunities.length) {
-          handleCommunitySelect(filteredCommunities[focusedIndex].slug);
-        }
-        break;
-    }
-  };
+  // Find the index of current community in the communities array
+  const currentCommunityIndex = currentCommunity
+    ? communities.findIndex((c) => c.id === currentCommunity.id)
+    : -1;
 
   return (
-    <div ref={ref} className={cn("relative", className)} onMouseEnter={() => setIsOpen(true)} onMouseLeave={() => setIsOpen(false)}>
-      {/* Trigger button */}
-      <button
-        type="button"
-        onKeyDown={handleKeyDown}
-        aria-label={currentCommunity ? `Current community: ${currentCommunity.name}` : "Select a community"}
+    <div ref={ref} className={cn("relative", className)}>
+      {/* Trigger button - icon only using Button component */}
+      <Button
+        variant="ghost"
+        size="md"
+        onClick={toggleDropdown}
+        aria-label="Open community menu"
         aria-expanded={isOpen}
-        aria-haspopup="listbox"
-        className={cn(
-          "flex items-center justify-between gap-2 w-[280px] rounded-[22px] bg-bg-surface px-4 py-2.5",
-          "text-text-primary transition-colors hover:bg-bg-elevated",
-          "focus:outline-none focus:ring-0",
-          "active:scale-[0.96] transition-transform"
-        )}
+        className="p-2"
       >
-        {currentCommunity ? (
-          <div className="flex items-center gap-3 flex-1 min-w-0">
-            <div className="flex-shrink-0">
-              {currentCommunity.thumbnailUrl ? (
-                <img 
-                  src={currentCommunity.thumbnailUrl} 
-                  alt={currentCommunity.name}
-                  className="w-8 h-8 rounded-lg object-cover"
-                />
-              ) : (
-                <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
-                  <span className="text-lg font-serif text-white">
-                    {currentCommunity.name.charAt(0)}
-                  </span>
-                </div>
-              )}
-            </div>
-            <span className="text-sm font-medium truncate">
-              {currentCommunity.name}
-            </span>
-          </div>
-        ) : (
-          <span className="text-sm text-text-muted">Select Community</span>
-        )}
-        <svg 
-          aria-hidden="true"
-          className={cn(
-            "h-4 w-4 text-text-muted transition-transform duration-200 flex-shrink-0",
-            isOpen && "rotate-180"
-          )} 
-          fill="none" 
-          viewBox="0 0 24 24" 
-          stroke="currentColor"
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 12 20"
+          fill="currentColor"
+          xmlns="http://www.w3.org/2000/svg"
         >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          <path d="M0.702509 13.2926C1.09284 12.8995 1.72829 12.8984 2.12 13.2901L4.58579 15.7559C5.36684 16.5369 6.63316 16.5369 7.41421 15.7559L9.88 13.2901C10.2717 12.8984 10.9072 12.8995 11.2975 13.2926C11.6859 13.6837 11.6848 14.3153 11.295 14.7051L7.41421 18.5859C6.63317 19.3669 5.36684 19.3669 4.58579 18.5859L0.705005 14.7051C0.315239 14.3153 0.314123 13.6837 0.702509 13.2926Z" fill="currentColor" />
+          <path d="M11.2975 7.28749C10.9072 7.68059 10.2717 7.68171 9.88 7.28999L7.41421 4.82421C6.63316 4.04316 5.36684 4.04316 4.58579 4.82421L2.12 7.28999C1.72829 7.68171 1.09284 7.68059 0.702509 7.28749C0.314123 6.89635 0.315239 6.26476 0.705005 5.87499L4.58579 1.99421C5.36683 1.21316 6.63316 1.21316 7.41421 1.99421L11.295 5.87499C11.6848 6.26476 11.6859 6.89635 11.2975 7.28749Z" fill="currentColor" />
         </svg>
-      </button>
+      </Button>
 
       {/* Dropdown menu */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial="hidden"
-            animate="visible"
-            exit="hidden"
-            variants={menuVariants}
-            role="listbox"
-            aria-label="Community list"
-            aria-expanded={isOpen}
-            className="absolute left-0 top-full z-50 mt-2 w-[280px] rounded-[22px] bg-bg-elevated py-2"
-            style={{
-              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05)',
-            }}
+            initial={{ opacity: 0, y: -10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -10, scale: 0.95 }}
+            transition={{ duration: 0.15 }}
+            className="absolute left-0 top-full z-50 mt-2"
           >
-            {/* Create New Community Button */}
-            <button
-              type="button"
-              onClick={handleCreateClick}
-              className={cn(
-                "flex w-full items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-left text-sm",
-                "text-accent hover:bg-white/10 transition-colors",
-                "active:scale-[0.96] transition-transform"
-              )}
-            >
-              <Plus className="h-4 w-4" aria-hidden="true" />
-              <span className="font-medium">Create new community</span>
-            </button>
+            <Dropdown checkedIndex={currentCommunityIndex >= 0 ? currentCommunityIndex + 2 : undefined}>
+              {/* Create New Community */}
+              <MenuItem
+                index={0}
+                icon={Plus}
+                label="New community"
+                onSelect={() => {
+                  resetState();
+                  onCreateCommunity?.();
+                }}
+              />
 
-            {/* Explore Communities Button */}
-            <button
-              type="button"
-              onClick={handleExploreClick}
-              className={cn(
-                "flex w-full items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-left text-sm",
-                "text-text-primary hover:bg-white/10 transition-colors",
-                "active:scale-[0.96] transition-transform"
-              )}
-            >
-              <Compass className="h-4 w-4" aria-hidden="true" />
-              <span>Explore communities</span>
-            </button>
+              {/* Explore Communities */}
+              <MenuItem
+                index={1}
+                icon={Compass}
+                label="Explore"
+                onSelect={() => {
+                  resetState();
+                  onExploreCommunities?.();
+                }}
+              />
 
-            {/* Separator */}
-            <div className="my-2 mx-4 h-[1px] bg-white/10" />
-
-
-            {/* Communities List */}
-            <div className="max-h-[300px] overflow-y-auto pb-2">
-              {filteredCommunities.length === 0 ? (
-                <div className="px-4 py-6 text-center text-sm text-text-muted">
-                  {searchQuery ? "No communities found" : "No communities yet"}
-                </div>
-              ) : (
-                filteredCommunities.map((community, index) => (
-                  <button
-                    key={community.id}
-                    type="button"
-                    onClick={() => handleCommunitySelect(community.slug)}
-                    onMouseEnter={() => setFocusedIndex(index)}
-                    role="option"
-                    aria-selected={currentCommunity?.id === community.id}
-                    className={cn(
-                      "flex w-full items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-left text-sm",
-                      "text-text-primary hover:bg-white/10 transition-colors",
-                      focusedIndex === index && "bg-white/10",
-                      "active:scale-[0.96] transition-transform"
-                    )}
-                  >
-                    <div className="flex-shrink-0">
-                      {community.thumbnailUrl ? (
-                        <img 
-                          src={community.thumbnailUrl} 
-                          alt={community.name}
-                          className="w-6 h-6 rounded-md object-cover"
-                        />
-                      ) : (
-                        <div className="w-6 h-6 rounded-md bg-accent flex items-center justify-center">
-                          <span className="text-sm font-serif text-white">
-                            {community.name.charAt(0)}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    <span className="truncate">{community.name}</span>
-                  </button>
-                ))
-              )}
-            </div>
+              {/* Communities List */}
+              {communities.map((community) => (
+                <MenuItem
+                  key={community.id}
+                  index={communities.indexOf(community) + 2}
+                  icon={CommunityIcon}
+                  label={community.name}
+                  checked={currentCommunity?.id === community.id}
+                  onSelect={() => handleCommunitySelect(community.slug)}
+                />
+              ))}
+            </Dropdown>
           </motion.div>
         )}
       </AnimatePresence>

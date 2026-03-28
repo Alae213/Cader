@@ -18,7 +18,7 @@ import {
 import { Heading, Text } from "@/components/ui/Text";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui";
 
 interface CreateCommunityModalProps {
   open: boolean;
@@ -323,11 +323,16 @@ export function CreateCommunityModal({ open, onOpenChange }: CreateCommunityModa
                 <label className="block text-sm font-medium text-text-primary mb-1">
                   Pricing Type
                 </label>
-                <Select
-                  value={pricingType}
-                  onChange={(value) => setPricingType(value)}
-                  options={PRICING_TYPES}
-                />
+                <Select value={pricingType} onValueChange={setPricingType}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PRICING_TYPES.map((type) => (
+                      <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Price (if not free) */}
@@ -380,14 +385,17 @@ export function CreateCommunityModal({ open, onOpenChange }: CreateCommunityModa
 
               {/* Wilaya */}
               <div>
-                <Select
-                  value={wilaya}
-                  onChange={(value) => setWilaya(value)}
-                  options={[
-                    { value: "", label: "Select your wilaya" },
-                    ...WILAYAS
-                  ]}
-                />
+                <Select value={wilaya} onValueChange={setWilaya}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select your wilaya" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Select your wilaya</SelectItem>
+                    {WILAYAS.map((wilaya) => (
+                      <SelectItem key={wilaya.value} value={wilaya.value}>{wilaya.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {error && (

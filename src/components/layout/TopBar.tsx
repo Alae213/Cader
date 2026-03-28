@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { SignInButton, SignUpButton } from "@clerk/nextjs";
+import { User, Settings, HelpCircle, LogOut } from "lucide-react";
 import { CommunityDropdown } from "@/components/ui/CommunityDropdown";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/animate-ui/components/radix/dropdown-menu";
 import { Avatar } from "@/components/shared/Avatar";
 import { Button } from "@/components/ui/Button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/Dialog";
+import { Dropdown, DropdownSeparator } from "@/components/ui/dropdown";
+import { MenuItem } from "@/components/ui/menu-item";
 
 interface Community {
   id: string;
@@ -43,19 +44,36 @@ export function TopBar({
 }: TopBarProps) {
   const router = useRouter();
   const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const handleLogout = () => {
     setIsLogoutDialogOpen(false);
+    setIsUserMenuOpen(false);
     onLogout?.();
   };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+
+    if (isUserMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isUserMenuOpen]);
 
   return (
     <header className="w-full sticky top-0 z-40 flex h-14 items-center justify-center bg-bg-base px-4">
 
-      <div className="w-full max-w-5xl flex items-center justify-between">
+      <div className="w-full max-w-5xl flex items-center justify-between px-2">
         {/* Left section */}
         <div className="flex items-center gap-4">
-          {/* Logo with hover effect */}
+          {/* Logo */}
           <Link 
             href="/" 
             aria-label="Cader Home"
@@ -76,6 +94,30 @@ export function TopBar({
           {/* Vertical separator */}
           <div className="h-6 w-[1px] bg-bg-elevated"></div>
           
+          {/* Current Community Display */}
+          {currentCommunity && (
+            <div className="flex items-center gap-2">
+              <div className="flex-shrink-0">
+                {currentCommunity.thumbnailUrl ? (
+                  <img 
+                    src={currentCommunity.thumbnailUrl} 
+                    alt={currentCommunity.name}
+                    className="w-6 h-6 rounded-md object-cover"
+                  />
+                ) : (
+                  <div className="w-6 h-6 rounded-md bg-accent flex items-center justify-center">
+                    <span className="text-xs font-serif text-white">
+                      {currentCommunity.name.charAt(0)}
+                    </span>
+                  </div>
+                )}
+              </div>
+              <span className="text-sm font-medium text-text-primary truncate max-w-[120px]">
+                {currentCommunity.name}
+              </span>
+            </div>
+          )}
+          
           {/* Community Dropdown Component */}
           <CommunityDropdown
             currentCommunity={currentCommunity}
@@ -89,80 +131,92 @@ export function TopBar({
         <div className="flex items-center gap-2">
           {/* Avatar with dropdown menu */}
           {user ? (
-            <div className="relative">
-              <DropdownMenu>
-                <DropdownMenuTrigger 
-                  aria-label={`User menu for ${user.name || 'account'}`}
-                  className="flex items-center gap-2 rounded-full p-1 hover:bg-bg-elevated transition-colors"
+            <div className="relative" ref={dropdownRef}>
+              <button
+                aria-label={`User menu for ${user.name || 'account'}`}
+                className="flex items-center gap-2 rounded-full p-1 hover:bg-bg-elevated transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsUserMenuOpen(!isUserMenuOpen);
+                }}
+              >
+                <Avatar src={user.image} alt={user.name || "User"} size="md" />
+              </button>
+              
+              {isUserMenuOpen && (
+                <div 
+                  className="absolute right-0 top-full mt-2 z-50"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  <Avatar src={user.image} alt={user.name || "User"} size="md" />
-                </DropdownMenuTrigger>
-                
-                <DropdownMenuContent className="w-[200px]">
-                  {/* Profile */}
-                  <DropdownMenuItem onClick={onProfileClick}>
-                    Profile
-                  </DropdownMenuItem>
-                  
-                  {/* Settings */}
-                  <DropdownMenuItem onClick={onSettingsClick}>
-                    Settings
-                  </DropdownMenuItem>
-                  
-                  {/* Separator */}
-                  <DropdownMenuSeparator className="my-1" />
-                  
-                  {/* Help */}
-                  <DropdownMenuItem 
-                    onSelect={(e) => {
-                      e.preventDefault();
-                      router.push("/help");
-                    }}
-                    className="cursor-pointer"
-                  >
-                    Help
-                  </DropdownMenuItem>
-                  
-                  {/* Separator */}
-                  <DropdownMenuSeparator className="my-1" />
-                  
-                  {/* Logout with Dialog confirmation */}
-                  <DropdownMenuItem 
-                    onSelect={(e) => {
-                      e.preventDefault();
-                      setIsLogoutDialogOpen(true);
-                    }}
-                    className="text-destructive cursor-pointer"
-                  >
-                    Logout
-                  </DropdownMenuItem>
-                  
-                  <Dialog open={isLogoutDialogOpen} onOpenChange={setIsLogoutDialogOpen}>
-                    <DialogContent className="max-w-sm">
-                      <DialogHeader>
-                        <DialogTitle>Logout</DialogTitle>
-                        <DialogDescription>
-                          Are you sure you want to logout?
-                        </DialogDescription>
-                      </DialogHeader>
-                      <DialogFooter>
-                        <Button 
-                          variant="secondary" 
-                          onClick={() => setIsLogoutDialogOpen(false)}
-                        >
-                          Cancel
-                        </Button>
-                        <Button 
-                          variant="danger"
-                          onClick={handleLogout}
-                        >
-                          Logout
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                  <Dropdown>
+                    <MenuItem
+                      index={0}
+                      icon={User}
+                      label="Profile"
+                      onSelect={() => {
+                        setIsUserMenuOpen(false);
+                        onProfileClick?.();
+                      }}
+                    />
+                    <MenuItem
+                      index={1}
+                      icon={Settings}
+                      label="Settings"
+                      onSelect={() => {
+                        setIsUserMenuOpen(false);
+                        onSettingsClick?.();
+                      }}
+                    />
+                   
+                    <MenuItem
+                      index={2}
+                      icon={HelpCircle}
+                      label="Help"
+                      onSelect={() => {
+                        setIsUserMenuOpen(false);
+                        router.push("/help");
+                      }}
+                    />
+                   
+                    <MenuItem
+                      index={3}
+                      icon={LogOut}
+                      label="Logout"
+                      destructive
+                      onSelect={() => {
+                        setIsUserMenuOpen(false);
+                        setIsLogoutDialogOpen(true);
+                      }}
+                    />
+                  </Dropdown>
+                </div>
+              )}
+              
+              {/* Logout Dialog */}
+              {isLogoutDialogOpen && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
+                  <div className="bg-bg-base rounded-lg p-6 max-w-sm w-full mx-4">
+                    <h2 className="text-lg font-semibold mb-2">Logout</h2>
+                    <p className="text-sm text-muted-foreground mb-6">
+                      Are you sure you want to logout?
+                    </p>
+                    <div className="flex gap-3 justify-end">
+                      <button 
+                        className="px-4 py-2 text-sm bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80 transition-colors"
+                        onClick={() => setIsLogoutDialogOpen(false)}
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        className="px-4 py-2 text-sm bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/80 transition-colors"
+                        onClick={handleLogout}
+                      >
+                        Logout
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <SignInButton mode="modal">

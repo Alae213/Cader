@@ -1,5 +1,5 @@
 import * as React from "react";
-import { cn, generateRandomColor } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { User } from "lucide-react";
 
 export type AvatarSize = "xs" | "sm" | "md" | "lg" | "xl";
@@ -33,7 +33,6 @@ export function Avatar({ src, alt, name, fallback, size = "md", className }: Ava
   const [error, setError] = React.useState(false);
   const displayName = name || alt || "Avatar";
   const initials = fallback || getInitials(displayName);
-  const bgColor = generateRandomColor();
 
   if (src && !error) {
     return (
@@ -57,13 +56,16 @@ export function Avatar({ src, alt, name, fallback, size = "md", className }: Ava
   return (
     <div
       className={cn(
-        "flex items-center justify-center rounded-full font-medium text-white",
+        "flex items-center justify-center rounded-full bg-accent font-medium text-white",
         sizeClasses[size],
         className
       )}
-      style={{ backgroundColor: bgColor }}
     >
-      <User className={cn(sizeClasses[size].replace("text-", ""))} />
+      {initials ? (
+        <span>{initials}</span>
+      ) : (
+        <User className={cn(sizeClasses[size].replace("text-", ""))} />
+      )}
     </div>
   );
 }
