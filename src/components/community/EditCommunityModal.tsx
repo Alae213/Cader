@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
@@ -13,16 +13,27 @@ import {
   DialogDescription,
   DialogBody,
   DialogFooter,
-  DialogClose,
 } from "@/components/ui/Dialog";
-import { Heading, Text } from "@/components/ui/Text";
+import { Text } from "@/components/ui/Text";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui";
 
-interface CreateCommunityModalProps {
+interface Community {
+  _id: string;
+  name: string;
+  slug: string;
+  wilaya?: string;
+  pricingType: string;
+  priceDzd?: number;
+  // Encrypted keys - we can't display them, so we'll show placeholder
+  hasChargilyKeys?: boolean;
+}
+
+interface EditCommunityModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  community: Community;
 }
 
 const PRICING_TYPES = [
@@ -80,56 +91,105 @@ const WILAYAS = [
   { value: "ain_temouchent", label: "Aïn Témouchent" },
   { value: "ghardaia", label: "Ghardaïa" },
   { value: "relizane", label: "Relizane" },
-  { value: "timimoun", label: "Timimoun" },
-  { value: "bordj_baji_mokhtar", label: "Bordj Badji Mokhtar" },
-  { value: "ouled_djellal", label: "Ouled Djellal" },
-  { value: "beni_abbes", label: "Béni Abbès" },
-  { value: "in_salah", label: "In Salah" },
-  { value: "in_guzzem", label: "In Guzzem" },
-  { value: "tilтемсі", label: "Til TEMCI" },
-  { value: "el_meghaier", label: "El Meghaïer" },
-  { value: "el_menia", label: "El Ménia" },
 ];
 
-export function CreateCommunityModal({ open, onOpenChange }: CreateCommunityModalProps) {
+type TabType = "basic" | "pricing";
+
+export function EditCommunityModal({ open, onOpenChange, community }: EditCommunityModalProps) {
   const router = useRouter();
-  const [step, setStep] = useState(1);
+  const [activeTab, setActiveTab] = useState<TabType>("basic");
   const [loading, setLoading] = useState(false);
   const [validatingKeys, setValidatingKeys] = useState(false);
   const [error, setError] = useState("");
+  const [isDirty, setIsDirty] = useState(false);
   
-  // Step 1: Basic info
-  const [name, setName] = useState("");
-  const [slug, setSlug] = useState("");
+  // Basic tab fields
+  const [name, setName] = useState(community.name);
+  const [slug, setSlug] = useState(community.slug);
   const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
+  const [slugChecking, setSlugChecking] = useState(false);
   
-  // Step 2: Pricing
-  const [pricingType, setPricingType] = useState("free");
-  const [price, setPrice] = useState("");
+  // Pricing tab fields
+  const [pricingType, setPricingType] = useState(community.pricingType);
+  const [price, setPrice] = useState(community.priceDzd?.toString() || "");
   const [chargilyApiKey, setChargilyApiKey] = useState("");
   const [chargilyWebhookSecret, setChargilyWebhookSecret] = useState("");
-  const [wilaya, setWilaya] = useState("");
+  const [wilaya, setWilaya] = useState(community.wilaya || "");
+  const [chargilyError, setChargilyError] = useState("");
+  
+  // Store original values for dirty check
+  const originalValues = useRef({
+    name: community.name,
+    slug: community.slug,
+    pricingType: community.pricingType,
+    priceDzd: community.priceDzd,
+    wilaya: community.wilaya,
+  });
 
-  // Convex mutations and actions
-  const createCommunity = useMutation(api.functions.communities.createCommunity);
+  // Reset form when modal opens with new community data
+  useEffect(() => {
+    if (open && community) {
+      setName(community.name);
+      setSlug(community.slug);
+      setSlugAvailable(null);
+      setPricingType(community.pricingType);
+      setPrice(community.priceDzd?.toString() || "");
+      setWilaya(community.wilaya || "");
+      setChargilyApiKey("");
+      setChargilyWebhookSecret("");
+      setChargilyError("");
+      setError("");
+      setIsDirty(false);
+      setActiveTab("basic");
+      originalValues.current = {
+        name: community.name,
+        slug: community.slug,
+        pricingType: community.pricingType,
+        priceDzd: community.priceDzd,
+        wilaya: community.wilaya,
+      };
+    }
+  }, [open, community]);
+
+  // Check if form is dirty
+  useEffect(() => {
+    const dirty = 
+      name !== originalValues.current.name ||
+      slug !== originalValues.current.slug ||
+      pricingType !== originalValues.current.pricingType ||
+      price !== (originalValues.current.priceDzd?.toString() || "") ||
+      wilaya !== (originalValues.current.wilaya || "") ||
+      chargilyApiKey !== "" ||
+      chargilyWebhookSecret !== "";
+    setIsDirty(dirty);
+  }, [name, slug, pricingType, price, wilaya, chargilyApiKey, chargilyWebhookSecret]);
+
+  // Convex mutations
+  const updateCommunity = useMutation(api.functions.communities.updateCommunity);
   const validateChargilyKeys = useMutation(api.functions.payments.validateChargilyKeys);
   
-  // Check slug availability (debounced) - only check when slug is valid length
+  // Slug availability check
   const slugExists = useQuery(
     api.functions.communities.slugExists,
-    slug.length >= 3 ? { slug } : { slug: "" }
+    slug.length >= 3 && slug !== community.slug ? { slug } : { slug: "" }
   );
-  
+
   // Update slug availability based on server response
   useEffect(() => {
-    if (slug.length >= 3) {
+    if (slug.length >= 3 && slug !== community.slug) {
+      setSlugChecking(true);
       if (slugExists === true) {
         setSlugAvailable(false);
       } else if (slugExists === false) {
         setSlugAvailable(true);
       }
+      setSlugChecking(false);
+    } else if (slug === community.slug) {
+      setSlugAvailable(true);
+    } else {
+      setSlugAvailable(null);
     }
-  }, [slugExists, slug.length]);
+  }, [slugExists, slug.length, community.slug]);
 
   // Generate slug from name
   const generateSlug = useCallback((communityName: string) => {
@@ -139,136 +199,163 @@ export function CreateCommunityModal({ open, onOpenChange }: CreateCommunityModa
       .replace(/^-+|-+$/g, "");
   }, []);
 
-  // Handle name change and auto-generate slug
+  // Handle name change
   const handleNameChange = (value: string) => {
     setName(value);
+    // Auto-generate slug if it matches the old name pattern
     const generatedSlug = generateSlug(value);
-    // Only auto-generate slug if user hasn't manually edited it
-    if (!slug || slug === generatedSlug) {
+    if (!slug || slug === generateSlug(originalValues.current.name)) {
       setSlug(generatedSlug);
     }
   };
 
-  // Handle slug change with availability check (server-side validation)
+  // Handle slug change
   const handleSlugChange = (value: string) => {
     const newSlug = generateSlug(value);
     setSlug(newSlug);
-    // Server will validate, but we can do a quick client-side check for UX
-    // The actual availability is determined by the server query
   };
 
-  // Validate step 1
-  const isStep1Valid = name.trim().length > 0 && slug.trim().length > 0 && slugAvailable;
-
-  // Validate step 2
-  const isStep2Valid = () => {
-    if (pricingType === "free") return true;
-    if (!price || parseFloat(price) <= 0) return false;
-    if (pricingType !== "free" && (!chargilyApiKey.trim() || !chargilyWebhookSecret.trim())) {
-      return false;
+  // Handle Chargily keys validation on blur
+  const handleChargilyBlur = useCallback(async () => {
+    if (pricingType === "free" || !chargilyApiKey || !chargilyWebhookSecret) {
+      setChargilyError("");
+      return;
     }
-    return true;
-  };
 
-  // Handle next step
-  const handleNext = () => {
-    if (isStep1Valid) {
-      setStep(2);
-      setError("");
-    }
-  };
-
-  // Handle submit
-  const handleSubmit = async () => {
-    if (!isStep2Valid()) return;
-    
-    setLoading(true);
-    setError("");
+    setValidatingKeys(true);
+    setChargilyError("");
     
     try {
-      // Validate Chargily keys if provided (for paid communities)
-      if (pricingType !== "free" && chargilyApiKey && chargilyWebhookSecret) {
-        setValidatingKeys(true);
-        const validation = await validateChargilyKeys({
-          apiKey: chargilyApiKey,
-          webhookSecret: chargilyWebhookSecret,
-        });
-        
-        if (!validation.valid) {
-          setError(validation.error || "Invalid Chargily keys. Please check and try again.");
-          setLoading(false);
-          setValidatingKeys(false);
-          return;
-        }
-        setValidatingKeys(false);
-      }
-      
-      // Create the community
-      const result = await createCommunity({
-        name,
-        slug,
-        pricingType: pricingType as "free" | "monthly" | "annual" | "one_time",
-        priceDzd: price ? parseInt(price) : undefined,
-        wilaya: wilaya || undefined,
-        chargilyApiKey: pricingType !== "free" ? chargilyApiKey || undefined : undefined,
-        chargilyWebhookSecret: pricingType !== "free" ? chargilyWebhookSecret || undefined : undefined,
+      const validation = await validateChargilyKeys({
+        apiKey: chargilyApiKey,
+        webhookSecret: chargilyWebhookSecret,
       });
       
-      toast.success("Community created successfully!");
-      
-      // Close modal and redirect to community
-      onOpenChange(false);
-      router.push(`/${result.slug}`);
+      if (!validation.valid) {
+        setChargilyError(validation.error || "Invalid Chargily keys");
+      }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to create community. Please try again.";
+      setChargilyError("Failed to validate keys");
+    } finally {
+      setValidatingKeys(false);
+    }
+  }, [pricingType, chargilyApiKey, chargilyWebhookSecret, validateChargilyKeys]);
+
+  // Validate form
+  const isFormValid = useCallback(() => {
+    if (!name.trim() || !slug.trim()) return false;
+    if (slugAvailable === false) return false;
+    if (pricingType !== "free" && (!price || parseFloat(price) <= 0)) return false;
+    if (pricingType !== "free" && chargilyError) return false;
+    if (pricingType !== "free" && (!chargilyApiKey.trim() || !chargilyWebhookSecret.trim())) return false;
+    return true;
+  }, [name, slug, slugAvailable, pricingType, price, chargilyError, chargilyApiKey, chargilyWebhookSecret]);
+
+  // Handle close
+  const handleClose = () => {
+    if (isDirty && !loading) {
+      toast.warning("You have unsaved changes");
+    }
+    onOpenChange(false);
+  };
+
+  // Handle save
+  const handleSave = async () => {
+    // Final slug re-check if changed
+    if (slug !== community.slug && slugAvailable === null) {
+      const check = await slugExists;
+      if (check) {
+        setSlugAvailable(false);
+        toast.error("This URL is not available");
+        return;
+      }
+    }
+
+    if (!isFormValid()) {
+      toast.error("Please fix the errors before saving");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      await updateCommunity({
+        communityId: community._id as any,
+        name: name.trim(),
+        slug: slug.trim() !== community.slug ? slug.trim() : undefined,
+        wilaya: wilaya || undefined,
+        pricingType: pricingType as "free" | "monthly" | "annual" | "one_time",
+        priceDzd: pricingType !== "free" && price ? parseInt(price) : undefined,
+        chargilyApiKey: pricingType !== "free" && chargilyApiKey ? chargilyApiKey : undefined,
+        chargilyWebhookSecret: pricingType !== "free" && chargilyWebhookSecret ? chargilyWebhookSecret : undefined,
+      });
+
+      toast.success("Community updated successfully!");
+      
+      // Refresh the page to show updated data
+      router.refresh();
+      onOpenChange(false);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to update community";
       setError(errorMessage);
+      
+      // Clear sensitive fields on error
+      setChargilyApiKey("");
+      setChargilyWebhookSecret("");
+      
       toast.error(errorMessage);
     } finally {
       setLoading(false);
-      setValidatingKeys(false);
     }
-  };
-
-  // Reset form when closing
-  const handleClose = () => {
-    setStep(1);
-    setName("");
-    setSlug("");
-    setSlugAvailable(null);
-    setPricingType("free");
-    setPrice("");
-    setChargilyApiKey("");
-    setChargilyWebhookSecret("");
-    setWilaya("");
-    setError("");
-    onOpenChange(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent>
+      <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>
-            {step === 1 ? "Create Your Community" : "Configure Pricing"}
-          </DialogTitle>
+          <DialogTitle>Edit Community</DialogTitle>
           <DialogDescription>
-            {step === 1 
-              ? "Give your community a name and unique URL" 
-              : "Set up payment settings for your community"
-            }
+            Update your community details
           </DialogDescription>
         </DialogHeader>
 
         <hr
-                      className="h-px w-full border-0"
-                      style={{
-                        background: "rgba(242, 242, 242, 0.25)",
-                        boxShadow: "0 1px 0 0 rgba(0, 0, 0, 0.50)",
-                      }}
-                    />
+          className="h-px w-full border-0"
+          style={{
+            background: "rgba(242, 242, 242, 0.25)",
+            boxShadow: "0 1px 0 0 rgba(0, 0, 0, 0.50)",
+          }}
+        />
 
-        <DialogBody>
-          {step === 1 && (
+        {/* Tabs */}
+        <div className="flex border-b border-border">
+          <button
+            onClick={() => !loading && setActiveTab("basic")}
+            className={`flex-1 py-2 text-sm font-medium transition-colors ${
+              activeTab === "basic"
+                ? "text-accent border-b-2 border-accent"
+                : "text-text-muted hover:text-text-primary"
+            }`}
+          >
+            Basic
+          </button>
+          <button
+            onClick={() => !loading && setActiveTab("pricing")}
+            disabled={loading}
+            className={`flex-1 py-2 text-sm font-medium transition-colors ${
+              activeTab === "pricing"
+                ? "text-accent border-b-2 border-accent"
+                : "text-text-muted hover:text-text-primary"
+            } ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
+          >
+            Pricing
+          </button>
+        </div>
+
+        <DialogBody className="space-y-4">
+          {/* Basic Tab */}
+          {activeTab === "basic" && (
             <div className="space-y-4">
               {/* Community Name */}
               <div>
@@ -279,6 +366,7 @@ export function CreateCommunityModal({ open, onOpenChange }: CreateCommunityModa
                   value={name}
                   onChange={(e) => handleNameChange(e.target.value)}
                   placeholder="type name..."
+                  disabled={loading}
                 />
               </div>
 
@@ -294,8 +382,14 @@ export function CreateCommunityModal({ open, onOpenChange }: CreateCommunityModa
                     onChange={(e) => handleSlugChange(e.target.value)}
                     placeholder="type url..."
                     className="flex-1"
+                    disabled={loading}
                   />
                 </div>
+                {slugChecking && (
+                  <Text size="2" theme="muted" className="mt-1">
+                    Checking...
+                  </Text>
+                )}
                 {slugAvailable === false && (
                   <Text size="2" theme="error" className="mt-1">
                     This URL is not available
@@ -316,14 +410,19 @@ export function CreateCommunityModal({ open, onOpenChange }: CreateCommunityModa
             </div>
           )}
 
-          {step === 2 && (
+          {/* Pricing Tab */}
+          {activeTab === "pricing" && (
             <div className="space-y-4">
               {/* Pricing Type */}
               <div>
                 <label className="block text-sm font-medium text-text-primary mb-1">
                   Pricing Type
                 </label>
-                <Select value={pricingType} onValueChange={setPricingType}>
+                <Select 
+                  value={pricingType} 
+                  onValueChange={setPricingType}
+                  disabled={loading}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -346,6 +445,7 @@ export function CreateCommunityModal({ open, onOpenChange }: CreateCommunityModa
                     value={price}
                     onChange={(e) => setPrice(e.target.value)}
                     placeholder="type price..."
+                    disabled={loading}
                   />
                   <Text size="2" theme="secondary" className="mt-1">
                     {pricingType === "monthly" && "Members pay this amount monthly"}
@@ -366,7 +466,9 @@ export function CreateCommunityModal({ open, onOpenChange }: CreateCommunityModa
                       type="password"
                       value={chargilyApiKey}
                       onChange={(e) => setChargilyApiKey(e.target.value)}
-                      placeholder="type api key..."
+                      onBlur={handleChargilyBlur}
+                      placeholder={community.hasChargilyKeys ? "•••••••• (leave empty to keep)" : "type api key..."}
+                      disabled={loading}
                     />
                   </div>
                   <div>
@@ -377,15 +479,27 @@ export function CreateCommunityModal({ open, onOpenChange }: CreateCommunityModa
                       type="password"
                       value={chargilyWebhookSecret}
                       onChange={(e) => setChargilyWebhookSecret(e.target.value)}
-                      placeholder="type webhook secret..."
+                      onBlur={handleChargilyBlur}
+                      placeholder={community.hasChargilyKeys ? "•••••••• (leave empty to keep)" : "type webhook secret..."}
+                      disabled={loading}
                     />
                   </div>
+                  {chargilyError && (
+                    <Text size="2" theme="error">
+                      {chargilyError}
+                    </Text>
+                  )}
+                  {validatingKeys && (
+                    <Text size="2" theme="muted">
+                      Validating keys...
+                    </Text>
+                  )}
                 </>
               )}
 
               {/* Wilaya */}
               <div>
-                <Select value={wilaya || "none"} onValueChange={(val) => setWilaya(val === "none" ? "" : val)}>
+                <Select value={wilaya || "none"} onValueChange={(val) => setWilaya(val === "none" ? "" : val)} disabled={loading}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select your wilaya" />
                   </SelectTrigger>
@@ -408,35 +522,23 @@ export function CreateCommunityModal({ open, onOpenChange }: CreateCommunityModa
         </DialogBody>
 
         <DialogFooter>
-          {step === 1 ? (
-            <>
-              <Button variant="ghost" size="md" onClick={handleClose} className="w-full">
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleNext} 
-                disabled={!isStep1Valid}
-                className="w-full"
-                size="md"
-              >
-                Next
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button variant="ghost" size="md" onClick={() => setStep(1)} className="w-full">
-                Back
-              </Button>
-              <Button 
-                onClick={handleSubmit} 
-                disabled={!isStep2Valid() || loading || validatingKeys}
-                className="w-full"
-                size="md"
-                >
-                {validatingKeys ? "Validating keys..." : loading ? "Creating..." : pricingType === "free" ? "Create" : "Create"}
-              </Button>
-            </>
-          )}
+          <Button 
+            variant="ghost" 
+            size="md" 
+            onClick={handleClose} 
+            className="w-full"
+            disabled={loading}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleSave} 
+            disabled={!isFormValid() || loading || validatingKeys}
+            className="w-full"
+            size="md"
+          >
+            {loading ? "Saving..." : validatingKeys ? "Validating..." : "Save"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

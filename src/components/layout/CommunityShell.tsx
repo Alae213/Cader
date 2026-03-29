@@ -119,8 +119,6 @@ export function CommunityShell({
             isOwner={isOwner}
             isMember={aboutTabProps.isMember}
             onJoinClick={aboutTabProps.onJoinClick}
-            onEditClick={aboutTabProps.onEditClick}
-            onVideoChange={aboutTabProps.onVideoChange}
           />
         ) : (
           children
@@ -171,13 +169,13 @@ export function CommunityShell({
           />
           
           {/* Tab Content */}
-          <main className="mx-auto max-w-5xl px-4 py-6">
+          <main className="mx-auto max-w-5xl  py-6">
             {renderTabContent()}
           </main>
         </div>
       ) : (
         /* No tabs - just show children */
-        <main className="mx-auto max-w-5xl px-4 py-6">
+        <main className="mx-auto max-w-5xl py-6">
           {children}
         </main>
       )}

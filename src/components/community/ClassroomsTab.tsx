@@ -212,12 +212,12 @@ export function ClassroomsTab({ communityId, isOwner }: ClassroomsTabProps) {
             {(accessType === "level" || accessType === "level_and_price") && (
               <div className="space-y-2">
                 <Text size="2" theme="secondary" className="font-medium">Minimum Level</Text>
-                <Select value={minLevel?.toString() || ""} onValueChange={(value) => setMinLevel(value ? parseInt(value) : undefined)}>
+                <Select value={minLevel?.toString() || "none"} onValueChange={(value) => setMinLevel(value === "none" ? undefined : parseInt(value))}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select level..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Select level...</SelectItem>
+                    <SelectItem value="none">Select level...</SelectItem>
                     {levelOptions.map((opt) => (
                       <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                     ))}

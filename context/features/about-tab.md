@@ -44,12 +44,11 @@ without leaving the page.
 - Rich text description below .
 
 **Right column (top to bottom):**
-- Community thumbnail (image)
+- Community thumbnail (16:9 image with upload + inline crop)
 - Community title
-- Community link
-- Short description
-- Links (website, social, etc.)
-- Stats matrix: total members / online now / current streak (days)
+- Short description (200 char limit, auto-save after 1.5s)
+- 3 Link inputs (icon + URL, empty = hidden for non-owners)
+- Stats matrix: total members / online now / current streak (numbers only, no icons, separator lines)
 - Join button (visible to visitors and non-members only)
 - Edit community button (visible to owner/admin only — at bottom of right section)
 
@@ -71,17 +70,83 @@ without leaving the page.
 - "Edit community" button at bottom of right column
 
 ### Inline Editing (Owner)
+
+**Left Column:**
 1. Owner clicks on the video embed → URL input appears in place
 2. Owner pastes a YouTube/Vimeo/Google Drive URL → embed updates on save
 3. Owner clicks on the rich text body → enters rich text editing mode
 4. Changes auto-save on blur (focus leaves the field)
-5. Right column fields (title, tagline, links): same click-to-edit pattern
-6. Thumbnail: hover thumbnail → show small upload button → file upload 
+
+**Right Column - Thumbnail:**
+1. Owner hovers on thumbnail → upload button appears in center
+2. Owner clicks upload → file picker opens (JPG, PNG, WebP only)
+3. Platform checks: file size ≤2MB, valid image format
+4. If valid → enters crop mode with zoom/pan controls
+5. Owner drags image to position the 16:9 crop area
+6. Owner clicks outside image → crop saved, thumbnail updated
+
+**Right Column - Short Description:**
+1. Click to edit inline
+2. Character limit: 200 chars (counter shown)
+3. Auto-save after 1.5s of no typing
+4. If empty → hidden for non-owners (no placeholder shown)
+
+**Right Column - Link Inputs:**
+1. 3 separate input fields with link icon
+2. Click to edit, auto-save on blur
+3. If empty → hidden for non-owners (completely removed from layout)
+
+**Right Column - Edit Community Button:**
+1. Opens EditCommunityModal (not CreateCommunityModal)
+2. Modal has 2 tabs: "Basic" and "Pricing"
+3. No Next/Back buttons - free tab switching
+4. Save button at bottom
+5. Clicking outside closes modal with "unsaved changes" toast (if dirty)
+6. Pre-populated with current community data 
 
 ### Stats Matrix
 - **Members:** total count of active members (from `memberships` where `status = active`)
 - **Online:** members who have been active in the last 30 minutes (approximate, not real-time critical)
 - **Streak:** count consecutive days where members in community
+- **Layout:** Numbers only, no icons, separated by vertical lines
+
+### EditCommunityModal
+
+**Layout:**
+- Dialog/Modal with 2 tabs at top: "Basic" and "Pricing"
+- No Next/Back buttons - free navigation between tabs
+- Save button at bottom (fixed position)
+
+**Basic Tab:**
+- Community Name (required)
+- Community URL/Slug (required, real-time availability check)
+- Pre-populated with current values on open
+
+**Pricing Tab:**
+- Pricing Type (free/monthly/annual/one_time)
+- Price (if not free)
+- Chargily API Key (if not free)
+- Chargily Webhook Secret (if not free)
+- Wilaya (optional)
+
+**Validation Rules:**
+- Validate slug availability on blur (real-time)
+- Re-check slug one final time when Save button is clicked (before enabling)
+- Validate Chargily keys on blur (immediate error)
+- If slug unavailable or keys invalid → Save button disabled
+
+**Save Behavior:**
+- Show spinner on Save button while saving
+- Disable tabs while saving
+- Disable outside click warning while saving
+- On success: close modal, show success toast, refresh data
+- On failure: keep modal open, clear sensitive fields (API keys), show error toast
+
+**Edge Cases:**
+- If user changed fields but clicks outside → show "You have unsaved changes" toast
+- If data was changed by another user → show warning, offer to reload
+- On modal close → reset form state to empty
+- Send `null` for optional empty fields
 
 ---
 
@@ -90,8 +155,12 @@ without leaving the page.
 - Video URL validation: accepted formats are YouTube (`youtube.com/watch?v=`, `youtu.be/`), Vimeo (`vimeo.com/`), Google Drive (`drive.google.com/`). Invalid URLs show an inline error on blur.
 - If no video is set, the left column shows a placeholder with a prompt for the owner ("+").
 - If no rich text is set, the left column shows a placeholder ("press / for commends").
+- **Thumbnail upload:** Max 2MB, accepted formats: JPG, PNG, WebP. Platform validates size and format before allowing crop. Crop enforced to 16:9 aspect ratio with zoom/pan controls.
+- **Short description:** 200 character limit, auto-save after 1.5s of inactivity. If empty → hidden for non-owners.
+- **Link inputs:** 3 fields with link icon. If all empty → hidden for non-owners. If partial → show only filled links.
+- **Stats matrix:** Numbers only, no icons, separated by vertical lines.
 - The Join button is hidden if the viewer is already a member or an admin of this community.
-- The Edit community button opens the creation modal in edit mode, pre-filling all current values.
+- The Edit community button opens the EditCommunityModal (not CreateCommunityModal) in edit mode.
 - Stats are live via Convex `useQuery` — no page refresh needed.
 - The About tab is the default tab for unauthenticated visitors regardless of localStorage state (EC-13).
 
@@ -99,8 +168,8 @@ without leaving the page.
 
 ## Connections
 
-- **Depends on:** Community creation (community record must exist), Clerk auth (to determine view state)
-- **Triggers:** Onboarding modal (when Join is clicked), Community creation modal (when Edit community is clicked)
+- **Depends on:** Community creation (community record must exist), Clerk auth (to determine view state), Convex mutations for inline editing
+- **Triggers:** Onboarding modal (when Join is clicked), EditCommunityModal (when Edit community is clicked)
 - **Shares data with:** Members tab (member count), Leaderboard (streak data — TBD)
 
 ---
@@ -138,6 +207,14 @@ without leaving the page.
 | T— | `[x]` | Build Join button (triggers onboarding modal; hidden for members/owners) |
 | T— | `[x]` | Build "Edit community" button (opens creation modal in edit mode) |
 | T31 | `[x]` | Ensure top bar + tabs are hidden for unauthenticated visitors and non-members |
+| T32 | `[x]` | Create QuickInfoCard component (Right column as separate component) |
+| T33 | `[x]` | Build ThumbnailUpload with upload + crop (zoom/pan) - 16:9, 2MB limit |
+| T34 | `[x]` | Build ShortDescription inline edit (200 char, 1.5s auto-save) |
+| T35 | `[x]` | Build 3 Link inputs (icon + URL, empty = hidden) |
+| T36 | `[x]` | Update StatsMatrix (remove icons, use separator lines) |
+| T37 | `[x]` | Create EditCommunityModal (2 tabs: Basic/Pricing, free nav, pre-populated) |
+| T38 | `[x]` | Add updateCommunity Convex mutation (partial updates) |
+| T39 | `[x]` | Add slug re-check on Save button click |
 
 ---
 
@@ -145,6 +222,6 @@ without leaving the page.
 
 **UAT Status:** `passed`
 **Last tested:** March 2026
-**Outcome:** All tasks completed — inline editing, video embed, stats matrix, public view all working. CreateCommunityModal updated to be reusable for editing.
+**Outcome:** All tasks completed — QuickInfoCard with thumbnail upload + crop, ShortDescription inline edit, 3 LinkInputs, StatsMatrix without icons, EditCommunityModal with 2 tabs, free navigation, pre-populated fields.
 
 ---
