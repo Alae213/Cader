@@ -1,15 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useMutation } from "convex/react";
 import { toast } from "sonner";
 import { api } from "../../../convex/_generated/api";
+import { Id } from "../../../convex/_generated/dataModel";
 import { Text } from "@/components/ui/Text";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { Users, Edit3, Play } from "lucide-react";
+import { Users, Edit3, Play, Lock, Star, Ticket } from "lucide-react";
 import { QuickInfoCard } from "./QuickInfoCard";
 import { EditCommunityModal } from "./EditCommunityModal";
 
@@ -98,6 +99,7 @@ function VideoEmbed({
     return (
       <div className="relative aspect-video rounded-lg overflow-hidden bg-bg-elevated">
         <iframe
+          title="Community video introduction"
           src={embedUrl}
           className="absolute inset-0 w-full h-full"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -132,7 +134,12 @@ function VideoEmbed({
     );
   }
 
-  return null;
+  // Non-owner empty state
+  return (
+    <div className="aspect-video rounded-lg bg-bg-elevated flex items-center justify-center">
+      <Text theme="muted">No video introduction yet.</Text>
+    </div>
+  );
 }
 
 // Format price for display
@@ -182,57 +189,115 @@ export function AboutTab({
   // Mutations for inline editing
   const updateCommunity = useMutation(api.functions.communities.updateCommunity);
 
-  // Handle video change
-  const handleVideoChange = async (url: string) => {
+  const [savingField, setSavingField] = useState<string | null>(null);
+  
+  // Description state with debounce
+  const [description, setDescription] = useState(community.description || "");
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-grow textarea height
+  const adjustTextareaHeight = () => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = "auto";
+      textarea.style.height = textarea.scrollHeight + "px";
+    }
+  };
+
+  // Sync description when community data changes
+  useEffect(() => {
+    setDescription(community.description || "");
+    // Adjust height after content loads
+    setTimeout(adjustTextareaHeight, 0);
+  }, [community.description]);
+
+  // Auto-save function
+  const saveDescription = useCallback(async (text: string) => {
+    if (text === community.description) return; // No changes
     try {
-      await updateCommunity({
-        communityId: community._id as any,
-        videoUrl: url,
-      });
+      setSavingField("description");
+      await updateCommunity({ communityId: community._id as Id<"communities">, description: text });
+    } catch {
+      toast.error("Failed to save description");
+    } finally {
+      setSavingField(null);
+    }
+  }, [community._id, community.description, updateCommunity]);
+
+  // Handle description change with debounce (left section)
+  const handleDescriptionChange = useCallback((text: string) => {
+    setDescription(text);
+    
+    // Clear existing timer
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    
+    // Set new timer for 1.5s auto-save
+    debounceRef.current = setTimeout(() => {
+      saveDescription(text);
+    }, 1500);
+  }, [saveDescription]);
+
+  // Handle blur - save immediately
+  const handleDescriptionBlur = useCallback(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    saveDescription(description);
+  }, [description, saveDescription]);
+
+  // Handle tagline change (right section - ShortDescription)
+  const handleTaglineChange = useCallback(async (tagline: string) => {
+    try {
+      setSavingField("tagline");
+      await updateCommunity({ communityId: community._id as Id<"communities">, tagline });
+    } catch {
+      toast.error("Failed to save tagline");
+    } finally {
+      setSavingField(null);
+    }
+  }, [community._id, updateCommunity]);
+
+  // Handle video change
+  const handleVideoChange = useCallback(async (url: string) => {
+    try {
+      setSavingField("video");
+      await updateCommunity({ communityId: community._id as Id<"communities">, videoUrl: url });
       toast.success("Video updated");
     } catch {
       toast.error("Failed to update video");
+    } finally {
+      setSavingField(null);
     }
-  };
+  }, [community._id, updateCommunity]);
 
   // Handle thumbnail change
-  const handleThumbnailChange = async (thumbnailData: string) => {
+  const handleThumbnailChange = useCallback(async (thumbnailData: string) => {
     try {
-      await updateCommunity({
-        communityId: community._id as any,
-        logoUrl: thumbnailData,
-      });
+      setSavingField("thumbnail");
+      await updateCommunity({ communityId: community._id as Id<"communities">, logoUrl: thumbnailData });
       toast.success("Thumbnail updated");
     } catch {
       toast.error("Failed to update thumbnail");
+    } finally {
+      setSavingField(null);
     }
-  };
-
-  // Handle description change
-  const handleDescriptionChange = async (description: string) => {
-    try {
-      await updateCommunity({
-        communityId: community._id as any,
-        tagline: description,
-      });
-      toast.success("Description updated");
-    } catch {
-      toast.error("Failed to update description");
-    }
-  };
+  }, [community._id, updateCommunity]);
 
   // Handle links change
-  const handleLinksChange = async (links: string[]) => {
+  const handleLinksChange = useCallback(async (links: string[]) => {
     try {
-      await updateCommunity({
-        communityId: community._id as any,
-        links: links,
-      });
+      setSavingField("links");
+      await updateCommunity({ communityId: community._id as Id<"communities">, links });
       toast.success("Links updated");
     } catch {
       toast.error("Failed to update links");
+    } finally {
+      setSavingField(null);
     }
-  };
+  }, [community._id, updateCommunity]);
 
   // Get initials for avatar
   const getInitials = (name: string) => {
@@ -258,53 +323,72 @@ export function AboutTab({
         {/* Owner Info + Stats */}
         <div>
           <CardContent className="pt-4">
-            <div className="flex items-center gap-3">
-              {/* Owner Avatar */}
-              <div className="h-12 w-12 rounded-full bg-accent flex items-center justify-center">
-                {community.ownerAvatar ? (
-                  <img 
-                    src={community.ownerAvatar} 
-                    alt={community.ownerName}
-                    className="h-full w-full rounded-full object-cover"
-                  />
-                ) : (
-                  <span className="font-medium text-white">
-                    {community.ownerName ? getInitials(community.ownerName) : "?"}
-                  </span>
-                )}
+            <div className="flex items-center gap-6">
+              {/* Privet */}
+              <div className="flex items-center gap-2">
+                <Lock className="w-4 h-4 text-text-muted" />
+                <Text size="2" theme="secondary">Privet</Text>
               </div>
-              <div className="flex-1">
-                <Text size="3" className="font-medium">{community.ownerName || "Unknown"}</Text>
-                <div className="flex items-center gap-2 mt-1">
-                  <Badge variant="secondary">
-                    <Users className="w-3 h-3 mr-1" />
-                    {community.memberCount} members
-                  </Badge>
-                  <Badge variant="secondary">
-                    {formatPrice(community.pricingType, community.priceDzd)}
-                  </Badge>
+
+              {/* Members */}
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-text-muted" />
+                <Text size="2">{community.memberCount} members</Text>
+              </div>
+
+              {/* Price */}
+              <div className="flex items-center gap-2">
+                <Ticket className="w-4 h-4 text-text-muted" />
+                <Text size="2">{formatPrice(community.pricingType, community.priceDzd)}</Text>
+              </div>
+
+              {/* Avatar + Name + Star */}
+              <div className="flex items-center gap-2">
+                <div className="h-4 w-4 rounded-full bg-bg-elevated border border-border flex items-center justify-center">
+                  {community.ownerAvatar ? (
+                    <img 
+                      src={community.ownerAvatar} 
+                      alt={community.ownerName || "Owner"}
+                      className="h-full w-full rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-[8px] font-medium text-text-primary">
+                      {community.ownerName ? getInitials(community.ownerName) : "?"}
+                    </span>
+                  )}
                 </div>
+                <Text size="2" className="font-medium">{community.ownerName || "Unknown"}</Text>
+                <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
               </div>
             </div>
           </CardContent>
         </div>
 
         {/* Description */}
-        <div>
-          <CardContent className="pt-4">
-            {community.description ? (
-              <div className="prose prose-invert max-w-none">
-                <Text>{community.description}</Text>
-              </div>
-            ) : isOwner ? (
-              <Text theme="muted" className="italic">
-                Click to add a description...
-              </Text>
-            ) : (
-              <Text theme="muted">No description yet.</Text>
+        {isOwner ? (
+          <CardContent className="pt-2">
+            <textarea
+              ref={textareaRef}
+              className="w-full p-3 text-sm bg-bg-subtle hover:bg-bg-elevated focus:bg-bg-elevated rounded-lg resize-none focus:outline-none transition-colors"
+              placeholder="Write a description..."
+              value={description}
+              onChange={(e) => {
+                handleDescriptionChange(e.target.value);
+                adjustTextareaHeight();
+              }}
+              onBlur={handleDescriptionBlur}
+              style={{ height: "auto" }}
+            />
+            {savingField === "description" && (
+              <Text size="1" theme="muted" className="mt-1">Saving...</Text>
             )}
           </CardContent>
-        </div>
+        ) : community.description ? (
+          <CardContent className="pt-2">
+            <Text size="2" className="whitespace-pre-wrap">{community.description}</Text>
+          </CardContent>
+        ) : null}
+
       </Card>
 
       {/* Right Column - QuickInfoCard */}
@@ -316,7 +400,7 @@ export function AboutTab({
           onJoinClick={onJoinClick}
           onEditClick={() => setEditModalOpen(true)}
           onThumbnailChange={handleThumbnailChange}
-          onDescriptionChange={handleDescriptionChange}
+          onTaglineChange={handleTaglineChange}
           onLinksChange={handleLinksChange}
         />
       </div>

@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Text } from "@/components/ui/Text";
-import { toast } from "sonner";
 
 interface ShortDescriptionProps {
   value?: string;
@@ -11,87 +10,67 @@ interface ShortDescriptionProps {
 }
 
 const MAX_CHARS = 200;
-const AUTO_SAVE_DELAY = 1500; // 1.5s
 
 export function ShortDescription({ value = "", isOwner, onSave }: ShortDescriptionProps) {
-  const [isEditing, setIsEditing] = useState(false);
   const [inputValue, setInputValue] = useState(value);
   const [isSaving, setIsSaving] = useState(false);
-  const [showCounter, setShowCounter] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Sync with external value changes
+  // Sync when value changes from parent
   useEffect(() => {
-    if (!isEditing) {
-      setInputValue(value);
-    }
-  }, [value, isEditing]);
+    setInputValue(value);
+  }, [value]);
 
-  // Auto-save after delay
-  const handleAutoSave = useCallback(() => {
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-
-    if (inputValue === value) {
-      setIsEditing(false);
-      return;
-    }
-
-    setIsSaving(true);
-    saveTimeoutRef.current = setTimeout(() => {
-      onSave(inputValue);
+  // Save function
+  const save = useCallback(async (text: string) => {
+    const currentValue = value || "";
+    const newValue = text || "";
+    
+    if (newValue === currentValue) return; // No changes - don't save
+    
+    try {
+      setIsSaving(true);
+      await onSave(text);
+    } finally {
       setIsSaving(false);
-      setIsEditing(false);
-      toast.success("Description saved");
-    }, AUTO_SAVE_DELAY);
-  }, [inputValue, value, onSave]);
+    }
+  }, [value, onSave]);
 
-  // Handle input change
+  // Handle change with debounce
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;
     if (newValue.length <= MAX_CHARS) {
       setInputValue(newValue);
-    }
-  };
-
-  // Handle focus
-  const handleFocus = () => {
-    setIsEditing(true);
-    setShowCounter(true);
-  };
-
-  // Handle blur (save)
-  const handleBlur = () => {
-    if (inputValue !== value) {
-      // Clear any pending auto-save and save immediately
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
+      
+      // Clear existing timer
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
       }
-      setIsSaving(true);
-      onSave(inputValue);
-      setIsSaving(false);
+      
+      // Set new timer for 1.5s auto-save
+      debounceRef.current = setTimeout(() => {
+        save(newValue);
+      }, 1500);
     }
-    setIsEditing(false);
-    setShowCounter(false);
   };
 
-  // Handle key down
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Escape") {
-      setInputValue(value);
-      setIsEditing(false);
-      setShowCounter(false);
+  // Handle focus/blur - show/hide counter
+  const handleFocus = () => setIsFocused(true);
+  const handleBlur = () => {
+    setIsFocused(false);
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
     }
+    save(inputValue);
   };
 
   // Cleanup
   useEffect(() => {
     return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
       }
     };
   }, []);
@@ -106,17 +85,15 @@ export function ShortDescription({ value = "", isOwner, onSave }: ShortDescripti
     return (
       <div className="space-y-1">
         <textarea
-          ref={textareaRef}
           value={inputValue}
           onChange={handleChange}
           onFocus={handleFocus}
           onBlur={handleBlur}
-          onKeyDown={handleKeyDown}
-          placeholder="Type description..."
-          className="w-full p-2 bg-bg-elevated border border-border rounded-lg text-text-primary resize-none focus:outline-none focus:ring-2 focus:ring-accent text-sm"
+          placeholder="Write a short description..."
+          className="w-full p-3 bg-bg-subtle hover:bg-bg-elevated focus:bg-bg-elevated rounded-lg text-text-primary resize-none focus:outline-none transition-colors text-sm"
           rows={2}
         />
-        {showCounter && (
+        {isFocused && (
           <div className="flex justify-end">
             <Text size="1" theme={inputValue.length >= MAX_CHARS ? "error" : "muted"}>
               {inputValue.length}/{MAX_CHARS}

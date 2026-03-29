@@ -32,7 +32,7 @@ interface QuickInfoCardProps {
   onJoinClick: () => void;
   onEditClick: () => void;
   onThumbnailChange?: (thumbnailData: string) => void;
-  onDescriptionChange?: (description: string) => void;
+  onTaglineChange?: (tagline: string) => void;
   onLinksChange?: (links: string[]) => void;
 }
 
@@ -44,7 +44,7 @@ export function QuickInfoCard({
   onJoinClick,
   onEditClick,
   onThumbnailChange,
-  onDescriptionChange,
+  onTaglineChange,
   onLinksChange,
 }: QuickInfoCardProps) {
   const { userId } = useAuth();
@@ -75,7 +75,7 @@ export function QuickInfoCard({
               value={community.tagline}
               isOwner={isOwner}
               onSave={(value) => {
-                onDescriptionChange?.(value);
+                onTaglineChange?.(value);
               }}
             />
           </div>
