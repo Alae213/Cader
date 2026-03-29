@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, memo } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
@@ -13,7 +13,9 @@ import { Heading, Text } from "@/components/ui/Text";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { ClassroomViewer } from "./ClassroomViewer";
+import { ThumbnailUpload } from "./ThumbnailUpload";
 
 // Classroom access type labels
 const accessTypeLabels = {
@@ -22,6 +24,14 @@ const accessTypeLabels = {
   price: "Paid",
   level_and_price: "Level + Paid",
 };
+
+// Access type options for select
+const accessTypeOptions = [
+  { value: "open", label: "Open - Any member can access" },
+  { value: "level", label: "Level Required - Reach a level to unlock" },
+  { value: "price", label: "Paid - Purchase to access" },
+  { value: "level_and_price", label: "Level + Paid - Both required" },
+];
 
 // Level options (1-5)
 const levelOptions = [
@@ -35,36 +45,67 @@ const levelOptions = [
 interface ClassroomsTabProps {
   communityId: string;
   isOwner: boolean;
+  currentUser?: {
+    _id: Id<"users">;
+  };
 }
 
-export function ClassroomsTab({ communityId, isOwner }: ClassroomsTabProps) {
-  const { userId: clerkId } = useAuth();
+// Proper TypeScript interface for classroom data
+interface ClassroomData {
+  _id: Id<"classrooms">;
+  title: string;
+  description?: string;
+  thumbnailUrl?: string;
+  accessType: "open" | "level" | "price" | "level_and_price";
+  minLevel?: number;
+  priceDzd?: number;
+  hasAccess: boolean;
+  progress: number;
+}
+
+export function ClassroomsTab({ communityId, isOwner, currentUser: providedUser }: ClassroomsTabProps) {
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingClassroomId, setEditingClassroomId] = useState<string | null>(null);
   const [selectedClassroomId, setSelectedClassroomId] = useState<string | null>(null);
+  
+  // Confirmation modal state
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    classroomId: string;
+  } | null>(null);
   
   // Form state
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [accessType, setAccessType] = useState<"open" | "level" | "price" | "level_and_price">("open");
   const [minLevel, setMinLevel] = useState<number | undefined>(undefined);
   const [priceDzd, setPriceDzd] = useState<string>("");
   const [formError, setFormError] = useState<string | null>(null);
+  
+  // Loading states for mutations
+  const [isCreating, setIsCreating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  // Get current user
-  const currentUser = useQuery(api.functions.users.getUserByClerkId, clerkId ? { clerkId } : "skip");
+  // Use provided user or skip query
+  const userId = providedUser?._id;
   
   // Get classrooms
   const classrooms = useQuery(
     api.functions.classrooms.listClassrooms, 
-    currentUser 
-      ? { communityId: communityId as Id<"communities">, userId: currentUser._id as Id<"users"> }
+    userId 
+      ? { communityId: communityId as Id<"communities">, userId }
       : { communityId: communityId as Id<"communities">, userId: undefined }
   );
 
   // Create classroom mutation
   const createClassroom = useMutation(api.functions.classrooms.createClassroom);
+  const updateClassroom = useMutation(api.functions.classrooms.updateClassroom);
   const deleteClassroom = useMutation(api.functions.classrooms.deleteClassroom);
 
-  const handleCreateClassroom = async () => {
+  const handleCreateClassroom = useCallback(async () => {
     if (!title.trim()) {
       setFormError("Title is required");
       return;
@@ -80,60 +121,99 @@ export function ClassroomsTab({ communityId, isOwner }: ClassroomsTabProps) {
       return;
     }
 
+    setIsCreating(true);
+    setFormError(null);
+    
     try {
-      await createClassroom({
-        communityId: communityId as Id<"communities">,
-        title: title.trim(),
-        accessType,
-        minLevel,
-        priceDzd: priceDzd ? parseInt(priceDzd) : undefined,
-      });
+      if (editingClassroomId) {
+        // Edit existing classroom
+        await updateClassroom({
+          classroomId: editingClassroomId as Id<"classrooms">,
+          title: title.trim(),
+          description: description.trim() || undefined,
+          accessType,
+          minLevel,
+          priceDzd: priceDzd ? parseInt(priceDzd) : undefined,
+        });
+      } else {
+        // Create new classroom
+        await createClassroom({
+          communityId: communityId as Id<"communities">,
+          title: title.trim(),
+          description: description.trim() || undefined,
+          accessType,
+          minLevel,
+          priceDzd: priceDzd ? parseInt(priceDzd) : undefined,
+        });
+      }
       
       // Reset form and close modal
       setTitle("");
+      setDescription("");
       setAccessType("open");
       setMinLevel(undefined);
       setPriceDzd("");
       setFormError(null);
       setShowCreateModal(false);
+      setEditingClassroomId(null);
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : "Failed to create classroom");
+      setFormError(error instanceof Error ? error.message : "Failed to save classroom");
+    } finally {
+      setIsCreating(false);
     }
-  };
+  }, [title, description, accessType, minLevel, priceDzd, createClassroom, updateClassroom, communityId, editingClassroomId]);
 
-  const handleDeleteClassroom = async (classroomId: string) => {
-    if (confirm("Are you sure you want to delete this classroom? All content will be lost.")) {
-      try {
-        await deleteClassroom({ classroomId: classroomId as Id<"classrooms"> });
-      } catch (error) {
-        console.error("Failed to delete classroom:", error);
-      }
+  const handleDeleteClassroom = useCallback(async () => {
+    if (!confirmModal) return;
+    
+    setIsDeleting(true);
+    setDeleteError(null);
+    
+    try {
+      await deleteClassroom({ classroomId: confirmModal.classroomId as Id<"classrooms"> });
+      setConfirmModal(null);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to delete classroom";
+      setDeleteError(errorMessage);
+      console.error("Failed to delete classroom:", error);
+    } finally {
+      setIsDeleting(false);
     }
-  };
+  }, [confirmModal, deleteClassroom]);
+
+  // Wrapper to trigger delete confirmation
+  const triggerDelete = useCallback((classroomId: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: "Delete Classroom",
+      message: "Are you sure you want to delete this classroom? All content will be lost.",
+      classroomId,
+    });
+  }, []);
+
+  // Memoized handler for closing viewer
+  const handleCloseViewer = useCallback(() => {
+    setSelectedClassroomId(null);
+  }, []);
 
   // If a classroom is selected, show the viewer
   if (selectedClassroomId) {
     return (
-      <ClassroomViewer
-        classroomId={selectedClassroomId}
-        onBack={() => setSelectedClassroomId(null)}
-        isOwner={isOwner}
-      />
+      <ErrorBoundary>
+        <ClassroomViewer
+          classroomId={selectedClassroomId}
+          onBack={() => setSelectedClassroomId(null)}
+          isOwner={isOwner}
+          currentUser={providedUser}
+        />
+      </ErrorBoundary>
     );
   }
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <Heading size="4" className="text-text-primary">Classrooms</Heading>
-        {isOwner && (
-          <Button onClick={() => setShowCreateModal(true)}>
-            + Create Classroom
-          </Button>
-        )}
-      </div>
-
-      {/* Classroom Grid */}
+    <ErrorBoundary>
+      <div>
+        {/* Classroom Grid */}
       {classrooms === undefined ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3].map((i) => (
@@ -149,12 +229,22 @@ export function ClassroomsTab({ communityId, isOwner }: ClassroomsTabProps) {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {classrooms.map((classroom: any) => (
+          {classrooms.map((classroom: ClassroomData) => (
             <ClassroomCard
               key={classroom._id}
               classroom={classroom}
               onClick={() => setSelectedClassroomId(classroom._id)}
-              onDelete={isOwner ? () => handleDeleteClassroom(classroom._id) : undefined}
+              onDelete={() => triggerDelete(classroom._id)}
+              onEdit={() => {
+                setEditingClassroomId(classroom._id);
+                setTitle(classroom.title);
+                setDescription(classroom.description || "");
+                setAccessType(classroom.accessType);
+                setMinLevel(classroom.minLevel);
+                setPriceDzd(classroom.priceDzd?.toString() || "");
+                setShowCreateModal(true);
+              }}
+              onUpdateThumbnail={(thumbnailData) => updateClassroom({ classroomId: classroom._id, thumbnailUrl: thumbnailData })}
               isOwner={isOwner}
             />
           ))}
@@ -162,8 +252,17 @@ export function ClassroomsTab({ communityId, isOwner }: ClassroomsTabProps) {
           {/* Add Classroom Card (owner only) */}
           {isOwner && (
             <div
+              role="button"
+              tabIndex={0}
+              aria-label="Add new classroom"
               onClick={() => setShowCreateModal(true)}
-              className="border-2 border-dashed border-border rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer hover:border-accent hover:bg-bg-elevated/30 transition-colors min-h-[180px]"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setShowCreateModal(true);
+                }
+              }}
+              className="border-2 border-dashed border-border rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer hover:border-accent hover:bg-bg-elevated/30 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-bg-canvas transition-colors min-h-[180px]"
             >
               <div className="w-12 h-12 rounded-full bg-bg-elevated flex items-center justify-center mb-3">
                 <span className="text-2xl text-text-secondary">+</span>
@@ -174,11 +273,21 @@ export function ClassroomsTab({ communityId, isOwner }: ClassroomsTabProps) {
         </div>
       )}
 
-      {/* Create Classroom Modal */}
-      <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
+      {/* Create/Edit Classroom Modal */}
+      <Dialog open={showCreateModal} onOpenChange={(open) => {
+        setShowCreateModal(open);
+        if (!open) {
+          setEditingClassroomId(null);
+          setTitle("");
+          setDescription("");
+          setAccessType("open");
+          setMinLevel(undefined);
+          setPriceDzd("");
+        }
+      }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Create Classroom</DialogTitle>
+            <DialogTitle>{editingClassroomId ? "Edit Classroom" : "Create Classroom"}</DialogTitle>
           </DialogHeader>
           
           <div className="space-y-4 py-4">
@@ -192,18 +301,34 @@ export function ClassroomsTab({ communityId, isOwner }: ClassroomsTabProps) {
               />
             </div>
 
+            {/* Description */}
+            <div className="space-y-2">
+              <Text size="2" theme="secondary" className="font-medium">Description (optional)</Text>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value.slice(0, 80))}
+                placeholder="Brief description..."
+                maxLength={80}
+                className="w-full min-h-[60px] px-3 py-2 bg-bg-elevated border border-border rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent"
+              />
+              <Text size="1" theme="muted">{description.length}/80</Text>
+            </div>
+
             {/* Access Type */}
             <div className="space-y-2">
               <Text size="2" theme="secondary" className="font-medium">Access Type</Text>
-              <Select value={accessType} onValueChange={(value) => setAccessType(value as any)}>
+              <Select value={accessType} onValueChange={(value) => {
+                if (["open", "level", "price", "level_and_price"].includes(value)) {
+                  setAccessType(value as "open" | "level" | "price" | "level_and_price");
+                }
+              }}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="open">Open - Any member can access</SelectItem>
-                  <SelectItem value="level">Level Required - Reach a level to unlock</SelectItem>
-                  <SelectItem value="price">Paid - Purchase to access</SelectItem>
-                  <SelectItem value="level_and_price">Level + Paid - Both required</SelectItem>
+                  {accessTypeOptions.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -248,130 +373,229 @@ export function ClassroomsTab({ communityId, isOwner }: ClassroomsTabProps) {
           </div>
 
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setShowCreateModal(false)}>
+            <Button variant="ghost" onClick={() => {
+              setShowCreateModal(false);
+              setEditingClassroomId(null);
+            }}>
               Cancel
             </Button>
-            <Button onClick={handleCreateClassroom}>
-              Create Classroom
+            <Button onClick={handleCreateClassroom} disabled={isCreating}>
+              {isCreating ? "Saving..." : (editingClassroomId ? "Save Changes" : "Create Classroom")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmation Modal */}
+      <Dialog open={!!confirmModal} onOpenChange={(open) => !open && setConfirmModal(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{confirmModal?.title || "Confirm"}</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Text theme="secondary">{confirmModal?.message}</Text>
+            {deleteError && (
+              <Text size="2" theme="error" className="mt-3">{deleteError}</Text>
+            )}
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="ghost" 
+              onClick={() => setConfirmModal(null)}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="danger"
+              onClick={handleDeleteClassroom}
+              disabled={isDeleting}
+            >
+              {isDeleting ? "Deleting..." : "Delete"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
+    </ErrorBoundary>
   );
 }
+
+// Access type for classroom
+type AccessType = "open" | "level" | "price" | "level_and_price";
 
 // Classroom Card Component
 interface ClassroomCardProps {
   classroom: {
     _id: string;
     title: string;
+    description?: string;
     thumbnailUrl?: string;
-    accessType: string;
+    accessType: AccessType;
     minLevel?: number;
     priceDzd?: number;
     hasAccess: boolean;
     progress: number;
   };
   onClick: () => void;
-  onDelete?: () => void;
+  onDelete: () => void;
+  onEdit: () => void;
+  onUpdateThumbnail: (thumbnailData: string) => void;
   isOwner: boolean;
 }
 
-function ClassroomCard({ classroom, onClick, onDelete, isOwner }: ClassroomCardProps) {
-  const accessLabel = accessTypeLabels[classroom.accessType as keyof typeof accessTypeLabels] || classroom.accessType;
+const ClassroomCard = memo(function ClassroomCard({ 
+  classroom, 
+  onClick, 
+  onDelete, 
+  onEdit,
+  onUpdateThumbnail,
+  isOwner 
+}: ClassroomCardProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  // Show lock badge only if classroom is locked by level or price (for all users)
+  const isLocked = classroom.accessType !== "open" && !classroom.hasAccess;
   
+  // Get lock reason message
+  const getLockMessage = () => {
+    if (classroom.accessType === "level") return `Level ${classroom.minLevel} required`;
+    if (classroom.accessType === "price") return `${classroom.priceDzd} DZD`;
+    if (classroom.accessType === "level_and_price") return `Level ${classroom.minLevel} + ${classroom.priceDzd} DZD`;
+    return "";
+  };
+
+  // Handle thumbnail click - for owner: upload, for non-owner: navigate
+  const handleThumbnailClick = (e: React.MouseEvent) => {
+    if (isOwner) {
+      e.stopPropagation();
+      // Let ThumbnailUpload handle the click
+    }
+    // Non-owner: let the click propagate to navigate
+  };
+
   return (
     <Card 
-      className={`cursor-pointer hover:ring-2 hover:ring-accent transition-all ${
-        !classroom.hasAccess && !isOwner ? "opacity-70" : ""
-      }`}
+      className="cursor-pointer hover:ring-2 hover:ring-accent transition-all group  flex flex-col"
       onClick={onClick}
     >
-      {/* Thumbnail */}
-      <div className="relative h-32 bg-bg-elevated rounded-t-[22px] overflow-hidden">
-        {classroom.thumbnailUrl ? (
+      {/* Thumbnail with upload */}
+      <div 
+        className="relative aspect-video bg-bg-elevated rounded-[16px] overflow-hidden"
+        onClick={handleThumbnailClick}
+      >
+        {isOwner ? (
+          <ThumbnailUpload
+            currentUrl={classroom.thumbnailUrl}
+            communityName={classroom.title}
+            onSave={onUpdateThumbnail}
+          />
+        ) : classroom.thumbnailUrl ? (
           <img 
             src={classroom.thumbnailUrl} 
-            alt={classroom.title}
+            alt={`${classroom.title} thumbnail`}
             className="w-full h-full object-cover"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <span className="text-4xl">📚</span>
-          </div>
+          <div className="w-full h-full bg-bg-elevated flex items-center justify-center" />
         )}
         
-        {/* Lock overlay for no access */}
-        {!classroom.hasAccess && !isOwner && (
-          <div className="absolute inset-0 bg-bg-canvas/80 flex items-center justify-center">
-            <div className="bg-bg-surface rounded-full p-3">
-              <span className="text-2xl">🔒</span>
+        {/* Lock badge - for owner OR locked classroom */}
+        {isLocked && (
+          <Badge 
+            variant="secondary"
+            className="absolute top-3 left-3 bg-bg-base/80"
+            aria-label={`Locked: ${getLockMessage()}`}
+          >
+            🔒 <span className="sr-only">Locked:</span>{getLockMessage()}
+          </Badge>
+        )}
+        
+        {/* 3-dot menu (owner only) - always hidden, visible on hover */}
+        {isOwner && (
+          <div 
+            className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+          >
+            <div 
+              className="relative"
+            >
+              <button 
+                className="w-8 h-8 rounded-full bg-bg-base/80 cursor-pointer flex items-center justify-center hover:bg-bg-base transition-colors"
+                aria-label="Classroom options menu"
+                aria-haspopup="true"
+                aria-expanded={menuOpen}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMenuOpen(!menuOpen);
+                }}
+              >
+                <span className="text-lg" aria-hidden="true">⋮</span>
+              </button>
+              
+              {/* Dropdown menu - opens on click */}
+              {menuOpen && (
+                <div 
+                  className="absolute right-0 top-full mt-1 w-32 bg-bg-surface rounded-xl p-1 z-10"
+                  role="menu"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    role="menuitem"
+                    onClick={() => {
+                      onEdit();
+                      setMenuOpen(false);
+                    }}
+                    className="w-full rounded-lg cursor-pointer px-3 py-2 text-left text-sm text-text-primary hover:bg-bg-elevated transition-colors"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    role="menuitem"
+                    onClick={() => {
+                      onDelete();
+                      setMenuOpen(false);
+                    }}
+                    className="w-full rounded-lg cursor-pointer px-3 py-2 text-left text-sm text-error hover:bg-bg-elevated transition-colors"
+                  >
+                    Delete
+                  </button>
+                </div>
+              )}
             </div>
           </div>
-        )}
-        
-        {/* Access badge */}
-        {classroom.accessType !== "open" && (
-            <Badge 
-              variant="accent"
-              className="absolute top-3 right-3"
-            >
-            {classroom.priceDzd ? `${classroom.priceDzd} DZD` : `Level ${classroom.minLevel}`}
-          </Badge>
         )}
       </div>
 
-      <CardHeader className="pb-2">
-        <div className="flex items-start justify-between">
-          <CardTitle className="text-lg line-clamp-2">{classroom.title}</CardTitle>
-          {isOwner && onDelete && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete();
-              }}
-              className="text-text-muted hover:text-error p-1"
-            >
-              <span className="text-sm">🗑️</span>
-            </button>
-          )}
-        </div>
-      </CardHeader>
-
-      <CardContent>
-        {/* Access type label */}
-        <Text size="1" theme="muted" className="mb-3">
-          {accessLabel}
+      <CardContent className="p-3 pt-4 gap-2 flex flex-col">
+        {/* Title - simple text display */}
+        <Text size="4" fontWeight="semibold" className="line-clamp-1">
+          {classroom.title}
         </Text>
 
-        {/* Progress bar (if has access) */}
-        {classroom.hasAccess && classroom.progress > 0 && (
-          <div className="space-y-1">
-            <div className="flex justify-between">
-              <Text size="1" theme="muted">Progress</Text>
-              <Text size="1" theme="secondary">{classroom.progress}%</Text>
-            </div>
-            <div className="h-1.5 bg-bg-elevated rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-accent rounded-full transition-all"
-                style={{ width: `${classroom.progress}%` }}
-              />
-            </div>
-          </div>
-        )}
+        {/* Description - always show space, with line-clamp for overflow */}
+        <Text size="3" theme="secondary" className="line-clamp-2 min-h-[2.5rem]">
+          {classroom.description || " "}
+        </Text>
 
-        {/* No access indicator */}
-        {!classroom.hasAccess && !isOwner && (
-          <div className="text-center py-2">
-            <Text size="1" theme="muted">
-              {classroom.accessType === "level" && `Reach Level ${classroom.minLevel} to unlock`}
-              {classroom.accessType === "price" && `Purchase for ${classroom.priceDzd} DZD`}
-              {classroom.accessType === "level_and_price" && `Reach Level ${classroom.minLevel} and purchase`}
-            </Text>
+        {/* Progress Bar - Always visible */}
+        <div className="relative p-1 mt-auto">
+          <span className="items-end justify-end flex pb-1 text-[10px] text-text-secondary">
+            {classroom.progress}%
+          </span>
+          <div>
+          <div 
+            className="h-[8px] bg-black/80 rounded-full overflow-hidden"
+            style={{ boxShadow: 'var(--input-shadow)' }}
+          >
+            <div 
+              className="h-full bg-green-500 rounded-full transition-all shadow-(0 0px 4px rgba(5, 222, 106, 0.2))" 
+              style={{ width: `${classroom.progress}%` }}
+            />
+          </div> 
           </div>
-        )}
+          
+        </div>
       </CardContent>
     </Card>
   );
-}
+});
