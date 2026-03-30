@@ -50,8 +50,8 @@ export function QuickInfoCard({
   const { userId } = useAuth();
 
   return (
-    <Card>
-      <CardContent className="pt-4 space-y-4">
+    <Card className="max-w-[260px]">
+      <CardContent className="p-0 flex flex-col gap-2">
         {/* Thumbnail */}
         <div>
           <ThumbnailUpload
@@ -64,25 +64,23 @@ export function QuickInfoCard({
         </div>
 
         {/* Title */}
-        <Heading size="4" className="text-center">
+        <Heading size="4" className="font-sans text-left">
           {community.name}
         </Heading>
 
         {/* Short Description */}
-        {isOwner || community.tagline ? (
-          <div className="px-4">
-            <ShortDescription
-              value={community.tagline}
-              isOwner={isOwner}
-              onSave={(value) => {
-                onTaglineChange?.(value);
-              }}
-            />
-          </div>
-        ) : null}
+        <div>
+          <ShortDescription
+            value={community.tagline}
+            isOwner={isOwner}
+            onSave={(value) => {
+              onTaglineChange?.(value);
+            }}
+          />
+        </div>
 
         {/* Links */}
-        <div className="min-h-[32px]">
+        <div>
           <LinkInputs
             links={community.links}
             isOwner={isOwner}

@@ -9,7 +9,7 @@ interface ShortDescriptionProps {
   onSave: (value: string) => void;
 }
 
-const MAX_CHARS = 200;
+const MAX_CHARS = 80;
 
 export function ShortDescription({ value = "", isOwner, onSave }: ShortDescriptionProps) {
   const [inputValue, setInputValue] = useState(value);
@@ -17,10 +17,28 @@ export function ShortDescription({ value = "", isOwner, onSave }: ShortDescripti
   const [isFocused, setIsFocused] = useState(false);
   
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-grow textarea height
+  const adjustHeight = () => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = "auto";
+      textarea.style.height = textarea.scrollHeight + "px";
+    }
+  };
 
   // Sync when value changes from parent
   useEffect(() => {
     setInputValue(value);
+    // Adjust height after state update
+    setTimeout(() => {
+      const textarea = textareaRef.current;
+      if (textarea) {
+        textarea.style.height = "auto";
+        textarea.style.height = textarea.scrollHeight + "px";
+      }
+    }, 0);
   }, [value]);
 
   // Save function
@@ -53,6 +71,15 @@ export function ShortDescription({ value = "", isOwner, onSave }: ShortDescripti
       debounceRef.current = setTimeout(() => {
         save(newValue);
       }, 1500);
+      
+      // Adjust height after state update
+      setTimeout(() => {
+        const textarea = textareaRef.current;
+        if (textarea) {
+          textarea.style.height = "auto";
+          textarea.style.height = textarea.scrollHeight + "px";
+        }
+      }, 0);
     }
   };
 
@@ -85,13 +112,15 @@ export function ShortDescription({ value = "", isOwner, onSave }: ShortDescripti
     return (
       <div className="space-y-1">
         <textarea
+          ref={textareaRef}
           value={inputValue}
           onChange={handleChange}
           onFocus={handleFocus}
           onBlur={handleBlur}
           placeholder="Write a short description..."
-          className="w-full p-3 bg-bg-subtle hover:bg-bg-elevated focus:bg-bg-elevated rounded-lg text-text-primary resize-none focus:outline-none transition-colors text-sm"
-          rows={2}
+          className="w-full p-1 bg-bg-subtle hover:bg-bg-elevated focus:bg-bg-elevated rounded-lg text-text-primary resize-none focus:outline-none transition-colors text-sm"
+          style={{ height: "auto" }}
+          rows={1}
         />
         {isFocused && (
           <div className="flex justify-end">

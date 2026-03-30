@@ -3,6 +3,71 @@ import { v } from "convex/values";
 import { encrypt } from "../lib/encryption";
 import { sendRenewalReminderEmail } from "../lib/email";
 
+// Sanitize HTML to prevent XSS attacks while allowing safe formatting
+function sanitizeHtml(html: string): string {
+  if (!html) return html;
+  
+  // Allowlist of safe tags
+  const allowedTags = [
+    'p', 'br', 'strong', 'b', 'em', 'i', 'u', 's', 'strike',
+    'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'ul', 'ol', 'li',
+    'blockquote', 'pre', 'code',
+    'hr', 'a'
+  ];
+  
+  // Create a temporary DOM element to parse HTML
+  const DOMParser = (globalThis as any).DOMParser;
+  const parser = DOMParser ? new DOMParser() : null;
+  const temp = parser ? parser.parseFromString(html, 'text/html') : null;
+  
+  if (temp && temp.body) {
+    // Use DOM-based sanitization
+    const elements = temp.body.querySelectorAll('*');
+    elements.forEach((el: Element) => {
+      const tagName = el.tagName.toLowerCase();
+      if (!allowedTags.includes(tagName)) {
+        // Replace non-allowed tags with their content
+        el.replaceWith(...Array.from(el.childNodes));
+      }
+    });
+    
+    // Remove all event handlers
+    const allElements = temp.body.querySelectorAll('*');
+    allElements.forEach((el: Element) => {
+      Array.from(el.attributes).forEach((attr: Attr) => {
+        if (attr.name.startsWith('on') || attr.name === 'style') {
+          el.removeAttribute(attr.name);
+        }
+      });
+    });
+    
+    // Only keep href on links
+    const links = temp.body.querySelectorAll('a');
+    links.forEach((el: HTMLAnchorElement) => {
+      if (!el.href.startsWith('http://') && !el.href.startsWith('https://') && !el.href.startsWith('/')) {
+        el.removeAttribute('href');
+      }
+    });
+    
+    return temp.body.innerHTML;
+  } else {
+    // Fallback sanitization
+    let result = html;
+    
+    // Remove script tags
+    result = result.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+    
+    // Remove on* event handlers  
+    result = result.replace(/\s*on\w+\s*=\s*(['"])[^'"]*\1/gi, '');
+    
+    // Remove javascript: URLs
+    result = result.replace(/javascript:/gi, '');
+    
+    return result;
+  }
+}
+
 // Reserved slugs that cannot be used
 const RESERVED_SLUGS = [
   "explore", "help", "api", "settings", "create", 
@@ -270,7 +335,7 @@ export const updateCommunity = mutation({
     
     if (args.name !== undefined) updateData.name = args.name;
     if (args.tagline !== undefined) updateData.tagline = args.tagline;
-    if (args.description !== undefined) updateData.description = args.description;
+    if (args.description !== undefined) updateData.description = sanitizeHtml(args.description);
     if (args.logoUrl !== undefined) updateData.logoUrl = args.logoUrl;
     if (args.videoUrl !== undefined) updateData.videoUrl = args.videoUrl;
     if (args.links !== undefined) updateData.links = args.links;

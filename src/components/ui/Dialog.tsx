@@ -53,7 +53,7 @@ export function DialogOverlay(props: DialogOverlayBaseProps) {
   return (
     <DialogOverlayBase
       {...props}
-      className={cn('fixed inset-0 z-[60] bg-black/30', props.className)}
+      className={cn('fixed inset-0 z-[60] bg-black/60', props.className)}
     />
   );
 }
@@ -63,10 +63,11 @@ export function DialogContent(props: DialogContentBaseProps) {
   return (
     <DialogContentBase
       {...props}
-      className={cn(
-        'bg-bg-canvas',
-        props.className
-      )}
+      className={cn(props.className, 'shadow-card-shadow')}
+      style={{
+        background: 'var(--bg-canvas)',
+        ...props.style,
+      }}
     />
   );
 }

@@ -72,7 +72,7 @@ export const listClassrooms = query({
           hasAccess = membership?.status === "active" && !!accessRecord;
         }
 
-        // Calculate progress (pages viewed / total pages)
+        // Calculate progress (lessons completed / total lessons)
         let progress = 0;
         if (hasAccess) {
           const classroomModules = await ctx.db
@@ -120,7 +120,7 @@ export const getClassroomContent = query({
     const classroom = await ctx.db.get(args.classroomId);
     if (!classroom) return null;
 
-    // Get modules for this classroom
+    // Get modules (chapters) for this classroom
     const modules = await ctx.db
       .query("modules")
       .withIndex("by_classroom_id", (q) => q.eq("classroomId", classroom._id))
@@ -137,8 +137,24 @@ export const getClassroomContent = query({
           .withIndex("by_module_id", (q) => q.eq("moduleId", mod._id))
           .collect();
 
-        // Sort pages by order
+          // Sort pages by order
         pages.sort((a, b) => a.order - b.order);
+
+        // Get viewed pages for this user
+        let viewedPageIds: Set<string> = new Set();
+        if (args.userId) {
+          const progressRecords = await ctx.db
+            .query("lessonProgress")
+            .withIndex("by_user_id", (q) => q.eq("userId", args.userId!))
+            .collect();
+          // Filter to this classroom's pages
+          const pageIds = new Set(pages.map(p => p._id));
+          progressRecords.forEach(pr => {
+            if (pageIds.has(pr.pageId)) {
+              viewedPageIds.add(pr.pageId);
+            }
+          });
+        }
 
         return {
           ...mod,
@@ -146,6 +162,7 @@ export const getClassroomContent = query({
             _id: p._id,
             title: p.title,
             order: p.order,
+            isViewed: viewedPageIds.has(p._id),
           })),
         };
       })
@@ -262,7 +279,15 @@ export const getPageContent = query({
     }
 
     return {
-      ...page,
+      _id: page._id,
+      title: page.title,
+      content: page.content,
+      videoUrl: page.videoUrl,
+      description: page.description,
+      order: page.order,
+      moduleId: page.moduleId,
+      createdAt: page.createdAt,
+      updatedAt: page.updatedAt,
       moduleTitle: module.title,
       classroomTitle: classroom.title,
       classroomId: classroom._id,
@@ -382,6 +407,7 @@ export const createClassroom = mutation({
   args: {
     communityId: v.id("communities"),
     title: v.string(),
+    description: v.optional(v.string()),
     thumbnailUrl: v.optional(v.string()),
     accessType: v.union(v.literal("open"), v.literal("level"), v.literal("price"), v.literal("level_and_price")),
     minLevel: v.optional(v.number()),
@@ -425,6 +451,7 @@ export const createClassroom = mutation({
     const classroomId = await ctx.db.insert("classrooms", {
       communityId: args.communityId,
       title: args.title,
+      description: args.description,
       thumbnailUrl: args.thumbnailUrl,
       accessType: args.accessType,
       minLevel: args.minLevel,
@@ -442,6 +469,7 @@ export const updateClassroom = mutation({
   args: {
     classroomId: v.id("classrooms"),
     title: v.optional(v.string()),
+    description: v.optional(v.string()),
     thumbnailUrl: v.optional(v.string()),
     accessType: v.optional(v.union(v.literal("open"), v.literal("level"), v.literal("price"), v.literal("level_and_price"))),
     minLevel: v.optional(v.number()),
@@ -482,6 +510,7 @@ export const updateClassroom = mutation({
     };
 
     if (args.title !== undefined) updateData.title = args.title;
+    if (args.description !== undefined) updateData.description = args.description;
     if (args.thumbnailUrl !== undefined) updateData.thumbnailUrl = args.thumbnailUrl;
     if (args.accessType !== undefined) updateData.accessType = args.accessType;
     if (args.minLevel !== undefined) updateData.minLevel = args.minLevel;
@@ -691,12 +720,14 @@ export const createPage = mutation({
   },
 });
 
-// Update page content (owner only)
+// Update page/lesson content (owner only)
 export const updatePageContent = mutation({
   args: {
     pageId: v.id("pages"),
     title: v.optional(v.string()),
     content: v.optional(v.string()),
+    videoUrl: v.optional(v.string()),
+    description: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -744,10 +775,133 @@ export const updatePageContent = mutation({
 
     if (args.title !== undefined) updateData.title = args.title;
     if (args.content !== undefined) updateData.content = args.content;
+    if (args.videoUrl !== undefined) updateData.videoUrl = args.videoUrl;
+    if (args.description !== undefined) updateData.description = args.description;
 
     await ctx.db.patch(args.pageId, updateData);
 
     return args.pageId;
+  },
+});
+
+// Update chapter/module title (owner only)
+export const updateChapter = mutation({
+  args: {
+    chapterId: v.id("modules"),
+    title: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("You must be signed in");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const chapter = await ctx.db.get(args.chapterId);
+    if (!chapter) {
+      throw new Error("Chapter not found");
+    }
+
+    const classroom = await ctx.db.get(chapter.classroomId);
+    if (!classroom) {
+      throw new Error("Classroom not found");
+    }
+
+    const community = await ctx.db.get(classroom.communityId);
+    if (!community) {
+      throw new Error("Community not found");
+    }
+
+    // Check ownership
+    if (community.ownerId !== user._id) {
+      throw new Error("Only the community owner can edit chapters");
+    }
+
+    await ctx.db.patch(args.chapterId, {
+      title: args.title,
+    });
+
+    return args.chapterId;
+  },
+});
+
+// Toggle lesson completion (add/remove from lessonProgress)
+export const toggleLessonComplete = mutation({
+  args: {
+    pageId: v.id("pages"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("You must be signed in");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const page = await ctx.db.get(args.pageId);
+    if (!page) {
+      throw new Error("Lesson not found");
+    }
+
+    // Get the classroomId from the chapter/module
+    const chapter = await ctx.db.get(page.moduleId);
+    if (!chapter) {
+      throw new Error("Chapter not found");
+    }
+
+    const classroomId = chapter.classroomId;
+
+    // Check if already completed
+    const existingProgress = await ctx.db
+      .query("lessonProgress")
+      .withIndex("by_classroom_and_user", (q) =>
+        q.eq("classroomId", classroomId).eq("userId", user._id)
+      )
+      .first();
+
+    // Check if this specific page is completed
+    const isCompleted = existingProgress?.pageId === args.pageId;
+
+    if (isCompleted) {
+      // Toggle OFF: remove the progress record
+      if (existingProgress) {
+        await ctx.db.delete(existingProgress._id);
+      }
+    } else {
+      // Toggle ON: add/update the progress record
+      if (existingProgress) {
+        // Update existing record to point to this page
+        await ctx.db.patch(existingProgress._id, {
+          pageId: args.pageId,
+          completedAt: Date.now(),
+        });
+      } else {
+        // Create new progress record
+        await ctx.db.insert("lessonProgress", {
+          classroomId,
+          userId: user._id,
+          pageId: args.pageId,
+          completedAt: Date.now(),
+        });
+      }
+    }
+
+    return { pageId: args.pageId, isCompleted: !isCompleted };
   },
 });
 
@@ -857,5 +1011,114 @@ export const deletePage = mutation({
     await ctx.db.delete(args.pageId);
 
     return args.pageId;
+  },
+});
+
+// Reorder chapters (owner only) - update order for multiple chapters
+export const reorderChapters = mutation({
+  args: {
+    classroomId: v.id("classrooms"),
+    chapterOrders: v.array(v.object({
+      chapterId: v.id("modules"),
+      order: v.number(),
+    })),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("You must be signed in");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const classroom = await ctx.db.get(args.classroomId);
+    if (!classroom) {
+      throw new Error("Classroom not found");
+    }
+
+    const community = await ctx.db.get(classroom.communityId);
+    if (!community) {
+      throw new Error("Community not found");
+    }
+
+    // Check ownership
+    if (community.ownerId !== user._id) {
+      throw new Error("Only the community owner can reorder chapters");
+    }
+
+    // Update order for each chapter
+    for (const { chapterId, order } of args.chapterOrders) {
+      await ctx.db.patch(chapterId, { order });
+    }
+
+    return { success: true };
+  },
+});
+
+// Reorder lessons within a chapter (owner only) - update order for multiple lessons
+export const reorderLessons = mutation({
+  args: {
+    moduleId: v.id("modules"),
+    lessonOrders: v.array(v.object({
+      lessonId: v.id("pages"),
+      order: v.number(),
+    })),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("You must be signed in");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const module = await ctx.db.get(args.moduleId);
+    if (!module) {
+      throw new Error("Chapter not found");
+    }
+
+    const classroom = await ctx.db.get(module.classroomId);
+    if (!classroom) {
+      throw new Error("Classroom not found");
+    }
+
+    const community = await ctx.db.get(classroom.communityId);
+    if (!community) {
+      throw new Error("Community not found");
+    }
+
+    // Check ownership
+    if (community.ownerId !== user._id) {
+      throw new Error("Only the community owner can reorder lessons");
+    }
+
+    // Verify all lessons belong to this module
+    for (const { lessonId } of args.lessonOrders) {
+      const lesson = await ctx.db.get(lessonId);
+      if (!lesson || lesson.moduleId !== args.moduleId) {
+        throw new Error("Lesson does not belong to this chapter");
+      }
+    }
+
+    // Update order for each lesson
+    for (const { lessonId, order } of args.lessonOrders) {
+      await ctx.db.patch(lessonId, { order });
+    }
+
+    return { success: true };
   },
 });

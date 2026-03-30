@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useUser } from "@clerk/nextjs";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { TopBar } from "./TopBar";
 import { TabNav, getInitialTab } from "./TabNav";
 
@@ -65,7 +67,17 @@ export function CommunityShell({
   onExploreCommunities,
   onLogout
 }: CommunityShellProps) {
-  const { user } = useUser();
+  const { user: clerkUser } = useUser();
+  
+  // Get current user from Convex
+  const currentUserQuery = useQuery(
+    api.functions.users.getUserByClerkId,
+    clerkUser ? { clerkId: clerkUser.id } : "skip"
+  );
+  
+  // Convert null to undefined for type compatibility
+  const currentUser = currentUserQuery ?? undefined;
+  
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -128,7 +140,7 @@ export function CommunityShell({
       case "map":
         return <MembersTab communityId={community.id} isOwner={isOwner} isAdmin={isAdmin} />;
       case "classrooms":
-        return <ClassroomsTab communityId={community.id} isOwner={isOwner} />;
+        return <ClassroomsTab communityId={community.id} isOwner={isOwner} currentUser={currentUser ?? undefined} />;
       case "leaderboard":
         return <LeaderboardTab communityId={community.id} />;
       case "analysis":
@@ -139,26 +151,33 @@ export function CommunityShell({
   };
 
   return (
-    <div className="min-h-screen bg-bg-canvas">
-       {/* Top Bar */}
-       <TopBar
-         user={user ? { name: user.fullName, image: user.imageUrl } : null}
-         currentCommunity={currentCommunity}
-         communities={communitiesForDropdown}
-         onCreateCommunity={onCreateCommunity}
-         onExploreCommunities={onExploreCommunities}
-         onProfileClick={handleProfileClick}
-         onSettingsClick={handleSettingsClick}
-         onLogout={() => {
-           // Implement logout logic here
-           // For now, we'll just redirect to home
-           window.location.href = "/";
-         }}
-       />
+    <div>
+      {/* Glass container for TopBar + TabNav (desktop) */}
+      <div 
+        className="sticky top-0 z-40"
+        style={{
+          background: 'rgba(31, 31, 31, 0.8)',
+          backdropFilter: 'blur(24px)',
+          WebkitBackdropFilter: 'blur(24px)',
+          boxShadow: '0px 0px 2px 2px rgba(0, 0, 0, 0.17), inset 0px -5px 13px 0px rgba(255, 255, 255, 0.02), inset 0px 0px 20px 18px rgba(255, 255, 255, 0.01)',
+        }}
+      >
+        {/* Top Bar */}
+        <TopBar
+          user={clerkUser ? { name: clerkUser.fullName, image: clerkUser.imageUrl } : null}
+          currentCommunity={currentCommunity}
+          communities={communitiesForDropdown}
+          onCreateCommunity={onCreateCommunity}
+          onExploreCommunities={onExploreCommunities}
+          onProfileClick={handleProfileClick}
+          onSettingsClick={handleSettingsClick}
+          onLogout={() => {
+            window.location.href = "/";
+          }}
+        />
 
-      {/* Tab Navigation with content below */}
-      {showTabs ? (
-        <div className="bg-bg-canvas pb-16 sm:pb-6">
+        {/* Tab Navigation - desktop only (inside glass container) */}
+        {showTabs && (
           <TabNav 
             communitySlug={community.slug} 
             isOwner={isOwner}
@@ -166,15 +185,45 @@ export function CommunityShell({
             isAuthenticated={isAuthenticated}
             activeTab={activeTab}
             onTabChange={handleTabChange}
+            variant="desktop"
           />
-          
-          {/* Tab Content */}
-          <main className="mx-auto max-w-5xl  py-6">
+        )}
+      </div>
+
+      {/* Content area */}
+      {showTabs && (
+        <div className="pb-16 sm:pb-6 ">
+          <main className="mx-auto max-w-5xl py-6 ">
             {renderTabContent()}
           </main>
         </div>
-      ) : (
-        /* No tabs - just show children */
+      )}
+
+      {/* Mobile TabNav - separate glass container at bottom */}
+      {showTabs && (
+        <div 
+          className="fixed bottom-0 left-0 right-0 z-30 sm:hidden border-t border-white/[0.06]"
+          style={{
+            background: 'rgba(31, 31, 31, 0.8)',
+            backdropFilter: 'blur(24px)',
+            WebkitBackdropFilter: 'blur(24px)',
+            boxShadow: '0px 0px 1px 2px rgba(0, 0, 0, 0.37), inset 0px -5px 13px 0px rgba(255, 255, 255, 0.03), inset 0px 0px 20px 18px rgba(255, 255, 255, 0.02)',
+          }}
+        >
+          <TabNav 
+            communitySlug={community.slug} 
+            isOwner={isOwner}
+            isMember={isMember}
+            isAuthenticated={isAuthenticated}
+            activeTab={activeTab}
+            onTabChange={handleTabChange}
+            variant="mobile"
+          />
+        </div>
+      )}
+
+      {/* No tabs - just show children */}
+      {!showTabs && (
         <main className="mx-auto max-w-5xl py-6">
           {children}
         </main>

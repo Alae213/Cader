@@ -26,7 +26,7 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = "primary", size = "md", ...props }, ref) => {
     const shadowStyle = variant === "primary" 
-      ? { boxShadow: "inset 0 0.5px 0.5px 0.5px rgba(255, 255, 255, 0.4), 0 2px 4px 0 rgba(0, 0, 0, 0.75), 0 1px 1.5px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.4),inset 0 2px 6px 2px rgba(255, 255, 255, 0.1)" }
+      ? { boxShadow: "inset 0 0.5px 0.5px 0.5px rgba(255, 255, 255, 0.4), 0 2px 4px 0 rgba(0, 0, 0, 0.4), 0 0px 0px 2px rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.4),inset 0 2px 6px 2px rgba(255, 255, 255, 0.1)" }
       : {};
 
     return (

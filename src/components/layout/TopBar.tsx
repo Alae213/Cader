@@ -68,7 +68,7 @@ export function TopBar({
   }, [isUserMenuOpen]);
 
   return (
-    <header className="w-full sticky top-0 z-40 flex h-14 items-center justify-center bg-bg-base px-4">
+    <header className="w-full sticky top-0 z-40 flex h-14 items-center justify-center px-4">
 
       <div className="w-full max-w-5xl flex items-center justify-between px-2">
         {/* Left section */}

@@ -176,6 +176,7 @@ export default defineSchema({
     communityId: v.id("communities"),
     
     title: v.string(),
+    description: v.optional(v.string()),
     thumbnailUrl: v.optional(v.string()),
     
     // Access rules
@@ -187,7 +188,9 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index("by_community_id", ["communityId"]),
 
-  // Modules - chapters within a classroom
+  // Chapters - folders within a classroom (formerly modules)
+  // Note: Keeping 'modules' table name for backward compatibility with existing data
+  // In v2, this will be renamed to 'chapters'
   modules: defineTable({
     classroomId: v.id("classrooms"),
     title: v.string(),
@@ -195,12 +198,16 @@ export default defineSchema({
     createdAt: v.number(),
   }).index("by_classroom_id", ["classroomId"]),
 
-  // Pages - lessons within a module
+  // Pages - lessons within a chapter
+  // Note: 'moduleId' kept for backward compatibility, 'chapterId' alias in queries
   pages: defineTable({
     moduleId: v.id("modules"),
     
     title: v.string(),
-    content: v.string(), // JSON string of blocks
+    content: v.string(), // JSON string of blocks (legacy)
+    videoUrl: v.optional(v.string()), // Video embed URL (YouTube/Vimeo/GDrive)
+    description: v.optional(v.string()), // Plain text description
+    
     order: v.number(),
     
     createdAt: v.number(),

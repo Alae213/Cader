@@ -164,18 +164,9 @@ export function ThumbnailUpload({ currentUrl, communityName, onSave }: Thumbnail
   if (isCropping && imageSrc) {
     return (
       <div className="relative w-full bg-bg-canvas rounded-xl border border-border overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-bg-elevated">
-          <div className="flex items-center gap-2">
-            <ImageIcon className="w-5 h-5 text-accent" />
-            <Text size="3" className="font-medium">Crop Cover Image</Text>
-          </div>
-          <Text size="2" theme="muted">16:9 aspect ratio</Text>
-        </div>
-
         {/* Crop container - Modern styling */}
-        <div className="p-6 bg-bg-secondary/50">
-          <div className="relative rounded-lg overflow-hidden bg-black/20">
+        <div className="p-4 bg-bg-secondary/50">
+          <div className="relative rounded-lg overflow-hidden bg-black/10">
             <ReactCrop
               crop={crop}
               onChange={(c) => setCrop(c)}
@@ -187,7 +178,7 @@ export function ThumbnailUpload({ currentUrl, communityName, onSave }: Thumbnail
                 ref={imgRef}
                 src={imageSrc}
                 alt="Crop preview"
-                className="max-h-[350px] w-full object-contain"
+                className="max-h-[250px] w-full object-contain"
                 onLoad={onImageLoad}
               />
             </ReactCrop>
@@ -198,29 +189,23 @@ export function ThumbnailUpload({ currentUrl, communityName, onSave }: Thumbnail
         <canvas ref={canvasRef} className="hidden" />
 
         {/* Action buttons - Modern floating style */}
-        <div className="flex items-center justify-between p-4 border-t border-border bg-bg-elevated">
-          <Text size="2" theme="muted">
-            Drag corners to resize • Drag image to move
-          </Text>
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={handleCancel}
-              className="text-text-secondary hover:text-text-primary"
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleSaveCrop}
-              disabled={!completedCrop}
-              className="min-w-[80px]"
-            >
-              <Check className="w-4 h-4 mr-1.5" />
-              Save
-            </Button>
-          </div>
+        <div className="flex items-center justify-end gap-2 p-3 bg-bg-elevated">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={handleCancel}
+            className="text-text-secondary hover:text-text-primary"
+          >
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleSaveCrop}
+            disabled={!completedCrop}
+          >
+            <Check className="w-4 h-4 mr-1" />
+            Save
+          </Button>
         </div>
       </div>
     );
@@ -229,7 +214,7 @@ export function ThumbnailUpload({ currentUrl, communityName, onSave }: Thumbnail
   // Display mode with hover
   return (
     <div
-      className="relative w-full aspect-video bg-bg-elevated rounded-lg overflow-hidden group cursor-pointer"
+      className="relative w-full aspect-video bg-bg-elevated rounded-[16px] overflow-hidden group "
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
       onClick={() => fileInputRef.current?.click()}
@@ -238,25 +223,20 @@ export function ThumbnailUpload({ currentUrl, communityName, onSave }: Thumbnail
         <img
           src={currentUrl}
           alt={communityName}
-          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+          className="w-full h-full object-cover rounded-[16px] transition-transform duration-300 group-hover:scale-105"
         />
       ) : (
-        <div className="w-full h-full flex flex-col items-center justify-center bg-bg-secondary gap-3">
-          <div className="w-16 h-16 rounded-2xl bg-bg-elevated flex items-center justify-center">
-            <ImageIcon className="w-8 h-8 text-text-muted" />
-          </div>
+        <div className="w-full h-full flex flex-col  items-center justify-center bg-bg-secondary gap-3">
           <Text theme="muted" size="3">Add cover image</Text>
         </div>
       )}
       
       {/* Hover overlay with upload button */}
       {isHovering && (
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center gap-3 transition-all duration-200">
-          <div className="w-14 h-14 rounded-full bg-accent flex items-center justify-center shadow-lg">
-            <Upload className="w-6 h-6 text-white" />
+        <div className="absolute inset-0 rounded-[16px] backdrop-blur-sm flex flex-col items-center justify-center gap-3 transition-all duration-200">
+          <div className="bg-bg-base/50 rounded-lg p-2 cursor-pointer hover:bg-bg-base/70 transition-colors shadow-md">
+            <Text size="3" className="text-white font-medium">Upload Image</Text>
           </div>
-          <Text size="3" className="text-white font-medium">Upload Image</Text>
-          <Text size="2" theme="muted" className="text-white/70">JPG, PNG or WebP • Max 2MB</Text>
         </div>
       )}
       

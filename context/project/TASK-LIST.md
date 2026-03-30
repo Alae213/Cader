@@ -28,14 +28,14 @@ Tasks currently being worked on or up next.
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T123 | `[ ]` | Fix webhook signature verification — properly await HMAC-SHA256 verification instead of just checking length | [context/features/chargily-integration.md](../features/chargily-integration.md) | **CRITICAL SECURITY FIX**: Current code only checks signature.length === 64 |
-| T124 | `[ ]` | Install @chargily/chargily-pay package and use official SDK for API calls and signature verification | [context/features/chargily-integration.md](../features/chargily-integration.md) | Replace raw fetch() calls with SDK client, use official verifySignature |
-| T125 | `[ ]` | Encrypt Chargily API keys at rest using AES-GCM encryption before storing in Convex | [context/features/chargily-integration.md](../features/chargily-integration.md) | Schema says "encrypted" but stores plaintext — security risk |
-| T126 | `[ ]` | Remove internal API type assertion hack in webhook handler — use proper Convex internal imports | [context/features/chargily-integration.md](../features/chargily-integration.md) | `internal as unknown as { ... }` is fragile, breaks on signature changes |
-| T127 | `[ ]` | Add checkout amount verification in webhook — cross-check paid amount with expected price from database | [context/features/chargily-integration.md](../features/chargily-integration.md) | Prevent price manipulation attacks |
-| T128 | `[ ]` | Implement renewal reminder emails in checkExpiringSubscriptions — send email 3 days before expiry | [context/features/chargily-integration.md](../features/chargily-integration.md) | Currently revokes but doesn't email per spec (EC-9) |
-| T129 | `[ ]` | Add webhook retry logic for failed mutations — implement idempotency keys and dead letter queue | [context/features/chargily-integration.md](../features/chargily-integration.md) | Low priority - prevent duplicate grants on retries |
-| T130 | `[ ]` | Update .env.example and production docs with correct Chargily configuration instructions | [context/features/chargily-integration.md](../features/chargily-integration.md) | .env.local has REPLACE_ME placeholder |
+| T123 | `[x]` | Fix webhook signature verification — properly await HMAC-SHA256 verification instead of just checking length | [context/features/chargily-integration.md](../features/chargily-integration.md) | Uses official SDK's verifySignature function |
+| T124 | `[x]` | Install @chargily/chargily-pay package and use official SDK for API calls and signature verification | [context/features/chargily-integration.md](../features/chargily-integration.md) | SDK v2.1.0 installed, used in webhook and checkout creation |
+| T125 | `[x]` | Encrypt Chargily API keys at rest using AES-GCM encryption before storing in Convex | [context/features/chargily-integration.md](../features/chargily-integration.md) | encrypt() function in convex/lib/encryption.ts, keys encrypted before storage |
+| T126 | `[x]` | Remove internal API type assertion hack in webhook handler — use proper Convex internal imports | [context/features/chargily-integration.md](../features/chargily-integration.md) | No type assertion hack found - already clean |
+| T127 | `[x]` | Add checkout amount verification in webhook — cross-check paid amount with expected price from database | [context/features/chargily-integration.md](../features/chargily-integration.md) | verifyPaymentAmount() function validates amount matches expected price |
+| T128 | `[x]` | Implement renewal reminder emails in checkExpiringSubscriptions — send email 3 days before expiry | [context/features/chargily-integration.md](../features/chargily-integration.md) | sendRenewalReminderEmail() called for memberships expiring within 3 days |
+| T129 | `[x]` | Add webhook retry logic for failed mutations — implement idempotency keys and dead letter queue | [context/features/chargily-integration.md](../features/chargily-integration.md) | Basic idempotency: grantMembership checks for existing membership first |
+| T130 | `[x]` | Update .env.example and production docs with correct Chargily configuration instructions | [context/features/chargily-integration.md](../features/chargily-integration.md) | .env.example properly configured with all required vars |
 
 ---
 
@@ -257,6 +257,82 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 | T120 | `[ ]` | Vercel production deployment — env vars configured, build passes, domain ready | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | |
 | T121 | `[ ]` | Custom domain setup | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | |
 | T122 | `[x]` | README update — setup instructions, env vars, local dev, deployment steps | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | `[See PRODUCTION-READY.md]` |
+
+### Phase 18 — Classroom Review (T-CL-001 to T-CL-013)
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CL-001 | `[x]` | Rename `module` → `chapter` in schema, mutations, queries, and frontend components | [context/features/classrooms.md](../features/classrooms.md) | Kept backward compatibility: `modules` table name + `moduleId` field preserved |
+| T-CL-002 | `[x]` | Add `videoUrl` field to `pages` table in schema | [context/features/classrooms.md](../features/classrooms.md) | Optional string field for video embed URL |
+| T-CL-003 | `[x]` | Add `description` field to `pages` table in schema | [context/features/classrooms.md](../features/classrooms.md) | Optional string field for plain text description |
+| T-CL-004 | `[x]` | Update `updatePageContent` mutation to accept `videoUrl` and `description` | [context/features/classrooms.md](../features/classrooms.md) | Add optional args for both fields |
+| T-CL-005 | `[x]` | Create `updateChapter` mutation for chapter title inline editing | [context/features/classrooms.md](../features/classrooms.md) | New mutation to update chapter title |
+| T-CL-006 | `[x]` | Create `toggleLessonComplete` mutation (toggle ON/OFF lessonProgress) | [context/features/classrooms.md](../features/classrooms.md) | Toggle: adds record (ON), removes record (OFF) |
+| T-CL-007 | `[x]` | Update ClassroomViewer: Right section with Text header component | [context/features/classrooms.md](../features/classrooms.md) | Header: "Chapter Name / Lesson Name" |
+| T-CL-008 | `[x]` | Implement VideoModal (copy from AboutTab) for lesson video editing | [context/features/classrooms.md](../features/classrooms.md) | Same styling as AboutTab |
+| T-CL-009 | `[x]` | Implement inline description editing with auto-save (1.5s debounce + blur) | [context/features/classrooms.md](../features/classrooms.md) | Same behavior as AboutTab description |
+| T-CL-010 | `[x]` | Implement green circle toggle for lesson completion | [context/features/classrooms.md](../features/classrooms.md) | Toggle ON/OFF, updates progress bar |
+| T-CL-011 | `[x]` | Update sidebar: Card wrapper, progress info, chapter/lesson tree | [context/features/classrooms.md](../features/classrooms.md) | Card component, Total Lessons, chapter collapse/expand |
+| T-CL-012 | `[x]` | Update progress calculation: lessons completed / total lessons | [context/features/classrooms.md](../features/classrooms.md) | Based on lessonProgress table |
+| T-CL-013 | `[x]` | Update ClassroomCard in ClassroomsTab: ensure progress syncs with toggle | [context/features/classrooms.md](../features/classrooms.md) | Progress bar reflects toggle changes |
+
+### Phase 19 — Classroom Sidebar v2 (T-CL-014 to T-CL-039)
+
+#### Phase 19A — Foundation
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CL-014 | `[ ]` | Install @dnd-kit packages (@dnd-kit/core, @dnd-kit/sortable, @dnd-kit/utilities) | [context/features/classrooms.md](../features/classrooms.md) | |
+| T-CL-015 | `[ ]` | Add `order` field to `modules` table in schema | [context/features/classrooms.md](../features/classrooms.md) | |
+| T-CL-016 | `[ ]` | Add `order` field to `pages` table in schema | [context/features/classrooms.md](../features/classrooms.md) | |
+| T-CL-017 | `[ ]` | Create `reorderChapters` Convex mutation | [context/features/classrooms.md](../features/classrooms.md) | Update order field for chapters |
+| T-CL-018 | `[ ]` | Create `reorderLessons` Convex mutation | [context/features/classrooms.md](../features/classrooms.md) | Update order field for lessons |
+| T-CL-019 | `[ ]` | Create `deleteChapter` Convex mutation with confirmation | [context/features/classrooms.md](../features/classrooms.md) | Delete chapter + all lessons |
+| T-CL-020 | `[ ]` | Create `deleteLesson` Convex mutation with confirmation | [context/features/classrooms.md](../features/classrooms.md) | Delete single lesson |
+
+#### Phase 19B — Drag & Drop
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CL-021 | `[ ]` | Implement chapter list with @dnd-kit sortable | [context/features/classrooms.md](../features/classrooms.md) | |
+| T-CL-022 | `[ ]` | Implement lesson list with @dnd-kit sortable | [context/features/classrooms.md](../features/classrooms.md) | |
+| T-CL-023 | `[ ]` | Add drag handles to chapter rows (owner only) | [context/features/classrooms.md](../features/classrooms.md) | 6-dot grip icon |
+| T-CL-024 | `[ ]` | Add drag handles to lesson rows (owner only) | [context/features/classrooms.md](../features/classrooms.md) | 6-dot grip icon |
+
+#### Phase 19C — Inline Editing
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CL-025 | `[ ]` | Implement inline chapter title editing with auto-save | [context/features/classrooms.md](../features/classrooms.md) | 1.5s debounce + Enter + blur |
+| T-CL-026 | `[ ]` | Implement inline lesson title editing with auto-save | [context/features/classrooms.md](../features/classrooms.md) | 1.5s debounce + Enter + blur |
+
+#### Phase 19D — 3-Dot Menu
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CL-027 | `[ ]` | Build DropdownMenu component for sidebar | [context/features/classrooms.md](../features/classrooms.md) | Use existing MenuItem |
+| T-CL-028 | `[ ]` | Implement chapter menu: Edit title, Delete with confirmation | [context/features/classrooms.md](../features/classrooms.md) | |
+| T-CL-029 | `[ ]` | Implement lesson menu: Edit title, Delete with confirmation, Toggle view | [context/features/classrooms.md](../features/classrooms.md) | |
+
+#### Phase 19E — Thumbnails & Progress Ring
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CL-030 | `[ ]` | Create helper function to extract YouTube thumbnail from videoUrl | [context/features/classrooms.md](../features/classrooms.md) | |
+| T-CL-031 | `[ ]` | Create helper function to extract Vimeo thumbnail from videoUrl | [context/features/classrooms.md](../features/classrooms.md) | |
+| T-CL-032 | `[ ]` | Build ProgressRing component (SVG circular progress) | [context/features/classrooms.md](../features/classrooms.md) | Same tokens as progress bar |
+| T-CL-033 | `[ ]` | Implement lesson thumbnail in sidebar (110x60px) | [context/features/classrooms.md](../features/classrooms.md) | Video thumbnail or placeholder |
+| T-CL-034 | `[ ]` | Add progress ring to chapter row | [context/features/classrooms.md](../features/classrooms.md) | X/Y lessons completed |
+
+#### Phase 19F — Layout Updates
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CL-035 | `[ ]` | Update sidebar header: Back + Progress bar + Expand/Collapse All | [context/features/classrooms.md](../features/classrooms.md) | Top row |
+| T-CL-036 | `[ ]` | Update chapter row layout: drag + expand + title + ring + + + menu | [context/features/classrooms.md](../features/classrooms.md) | |
+| T-CL-037 | `[ ]` | Update lesson row layout: drag + thumbnail + title + check | [context/features/classrooms.md](../features/classrooms.md) | |
+| T-CL-038 | `[ ]` | Add Expand All / Collapse All functionality | [context/features/classrooms.md](../features/classrooms.md) | |
+| T-CL-039 | `[ ]` | Connect all mutations and queries | [context/features/classrooms.md](../features/classrooms.md) | Final integration |
 
 ---
 

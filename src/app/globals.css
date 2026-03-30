@@ -9,15 +9,37 @@
   --font-sans: var(--font-inter);
   --font-mono: var(--font-geist-mono);
 
-  /* ============================================
-     DARK SURFACES (Surface Hierarchy)
+   /* ============================================
+     SHADOWS
      ============================================ */
-  --bg-canvas: #111111;     /* Page root - deepest layer */
-  --bg-base: #222222;       /* Default page background */
+    --card-shadow:
+    0 0 3px 4px #00000025,
+    inset 0 7px 13px 6px #ffffff03,
+    inset 0 1px 1px 0px #ffffff2b,
+    inset 0 0 30px 20px #ffffff07;
+
+    --input-shadow:
+    inset 0 0 30px 2px #ffffff0a,
+    0 0 7px 0 #0000004d,
+    inset 0 -0.5px 1.4px 0.2px #ffffff26;
+
+    --glass-panel-shadow:
+    0px 0px 1px 2px rgba(0, 0, 0, 0.37),
+    0px -5px 13px 0px rgba(255, 255, 255, 0.03),
+    0px 0px 20px 18px rgba(255, 255, 255, 0.02);
+
+
+
+  /* ============================================
+      DARK SURFACES (Surface Hierarchy)
+      ============================================ */
+  --bg-canvas: #111111;      /* Page root - deepest layer */
+  --bg-base: #1a1a1a;       /* Default page background */
   --bg-surface: #2A2A2A;   /* Cards, panels, sidebars */
   --bg-elevated: #313131;   /* Hover states, dropdowns, popovers */
   --bg-overlay: #484848;    /* Modal surfaces, floating panels */
   --bg-glass: rgba(42, 42, 42, 0.8);  /* Frosted glass panels */
+  --bg-glass-panel: rgba(17, 17, 17, 0.8);  /* Frosted glass panels for TopBar/TabNav */
 
   /* ============================================
      TEXT COLORS
@@ -216,6 +238,10 @@
   --color-purple-10: var(--purple-10);
   --color-purple-11: var(--purple-11);
   --color-purple-12: var(--purple-12);
+
+  /* Shadows */
+  --shadow-card-shadow: var(--card-shadow);
+  --shadow-input-shadow: var(--input-shadow);
 }
 
 /* ============================================

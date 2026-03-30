@@ -93,7 +93,7 @@ export default function CommunityPage() {
   // Loading state (while community loads)
   if (community === undefined) {
     return (
-      <div className="min-h-screen bg-bg-canvas">
+      <div className="min-h-screen ">
         <div className="mx-auto max-w-[1200px] px-4 py-6 animate-pulse">
           {/* Header skeleton */}
           <div className="flex items-start gap-4 mb-6">
@@ -122,7 +122,7 @@ export default function CommunityPage() {
   // 404 - Community not found
   if (community === null) {
     return (
-      <div className="min-h-screen bg-bg-canvas flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <Heading size="8" className="text-text-primary">404</Heading>
           <Text size="4" theme="secondary" className="mt-2">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { Link as LinkIcon, ExternalLink, Plus } from "lucide-react";
+import { Link as LinkIcon, Plus, X } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Text } from "@/components/ui/Text";
 import { Button } from "@/components/ui/Button";
@@ -22,23 +22,14 @@ export function LinkInputs({ links = [], isOwner, onSave }: LinkInputsProps) {
   // Initialize input values from props
   useEffect(() => {
     if (!isInitialized) {
-      // Pad with empty strings to always have 3 inputs
-      const padded = [...links];
-      while (padded.length < MAX_LINKS) {
-        padded.push("");
-      }
-      setInputValues(padded.slice(0, MAX_LINKS));
+      setInputValues([...links]);
       setIsInitialized(true);
     }
   }, [links, isInitialized]);
 
   // Get filled links
   const filledLinks = inputValues.filter(l => l.trim() !== "");
-
-  // If no filled links and not owner - don't render
-  if (filledLinks.length === 0 && !isOwner) {
-    return null;
-  }
+  const canAddMore = filledLinks.length < MAX_LINKS;
 
   // Handle single link save
   const handleSaveLink = useCallback((index: number, value: string) => {
@@ -69,67 +60,98 @@ export function LinkInputs({ links = [], isOwner, onSave }: LinkInputsProps) {
     if (e.key === "Enter") {
       e.preventDefault();
       handleSaveLink(index, inputValues[index]);
-    } else if (e.key === "Escape") {
-      // Reset to original value
-      const newValues = [...inputValues];
-      newValues[index] = links[index] || "";
-      setInputValues(newValues);
-      setEditingIndex(null);
     }
-  }, [inputValues, links, handleSaveLink]);
+  }, [inputValues, handleSaveLink]);
 
+  // Add new link
+  const handleAddLink = () => {
+    if (canAddMore) {
+      const newIndex = filledLinks.length;
+      setInputValues([...inputValues, ""]);
+      setEditingIndex(newIndex);
+    }
+  };
+
+  // Remove link
+  const handleRemoveLink = (index: number) => {
+    const newValues = inputValues.filter((_, i) => i !== index);
+    setInputValues(newValues);
+    const filled = newValues.filter(l => l.trim() !== "");
+    onSave(filled);
+  };
+
+  // If no filled links and not owner - don't render
+  if (filledLinks.length === 0 && !isOwner) {
+    return null;
+  }
+
+  // Non-owner: show links
+  if (!isOwner) {
+    return (
+      <div className="flex flex-col gap-1">
+        {filledLinks.map((link, index) => (
+          <a
+            key={index}
+            href={link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 text-sm text-accent hover:underline"
+          >
+            <LinkIcon className="w-3 h-3" />
+            <Text size="2">Link {index + 1}</Text>
+          </a>
+        ))}
+      </div>
+    );
+  }
+
+  // Owner: show inputs or add button
   return (
-    <div className="space-y-2">
-      {/* Show filled links for non-owners */}
-      {!isOwner && filledLinks.length > 0 && (
-        <div className="flex flex-wrap gap-2 justify-center">
-          {inputValues.map((link, index) => {
-            if (!link.trim()) return null;
-            return (
-              <a
-                key={index}
-                href={link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1 text-sm text-accent hover:underline px-2 py-1"
-              >
-                <ExternalLink className="w-3 h-3" />
-                <Text size="2">Link {index + 1}</Text>
-              </a>
-            );
-          })}
+    <div className="flex flex-col gap-2">
+      {/* Show all input values (including empty ones) as editable */}
+      {inputValues.map((link, index) => (
+        <div key={index} className="flex items-center gap-1">
+          {editingIndex === index ? (
+            <Input
+              value={link}
+              onChange={(e) => handleChange(index, e.target.value)}
+              onBlur={() => handleBlur(index)}
+              onKeyDown={(e) => handleKeyDown(e, index)}
+              placeholder="Paste URL..."
+              className="flex-1 text-sm h-8"
+              autoFocus
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setEditingIndex(index)}
+              className="flex-1 flex items-center gap-2 text-left text-sm px-2 py-1 rounded bg-bg-subtle hover:bg-bg-elevated transition-colors text-text-primary"
+            >
+              <LinkIcon className="w-3 h-3 text-text-muted" />
+              <span className="truncate">{link.trim() || `Link ${index + 1}`}</span>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => handleRemoveLink(index)}
+            className="p-1 rounded hover:bg-bg-elevated text-text-muted hover:text-text-primary"
+          >
+            <X className="w-3 h-3" />
+          </button>
         </div>
-      )}
+      ))}
 
-      {/* Owner: show inputs */}
-      {isOwner && (
-        <div className="space-y-2">
-          {inputValues.map((link, index) => (
-            <div key={index} className="flex items-center gap-2">
-              <LinkIcon className="w-4 h-4 text-text-muted flex-shrink-0" />
-              {editingIndex === index ? (
-                <Input
-                  value={link}
-                  onChange={(e) => handleChange(index, e.target.value)}
-                  onBlur={() => handleBlur(index)}
-                  onKeyDown={(e) => handleKeyDown(e, index)}
-                  placeholder="Paste URL..."
-                  className="flex-1 text-sm"
-                  autoFocus
-                />
-              ) : (
-                <button
-                  onClick={() => setEditingIndex(index)}
-                  className={`flex-1 text-left text-sm px-2 py-1 rounded bg-bg-elevated hover:bg-bg-secondary transition-colors ${
-                    link.trim() ? "text-text-primary" : "text-text-muted"
-                  }`}
-                >
-                  {link.trim() || "Add link..."}
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
+      {/* Show add button if can add more */}
+      {canAddMore && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 text-xs"
+          onClick={handleAddLink}
+        >
+          <Plus className="w-3 h-3 mr-1" />
+          Add link
+        </Button>
       )}
     </div>
   );

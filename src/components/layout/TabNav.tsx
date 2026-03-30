@@ -6,6 +6,7 @@ import { Home, Users, FileText, Trophy, BarChart3, Map } from "lucide-react";
 import { Tabs as TabsPrimitive, TabsList as TabsListPrimitive, TabsTrigger as TabsTriggerPrimitive } from "@/components/animate-ui/primitives/animate/tabs";
 import { useTabs } from "@/components/animate-ui/primitives/animate/tabs";
 import { cn } from "@/lib/utils";
+import { Heading, Text } from "@/components/ui/Text";
 
 const STORAGE_KEY_PREFIX = "cader_tab_";
 
@@ -22,6 +23,7 @@ interface TabNavProps {
   isAuthenticated?: boolean;
   activeTab: string;
   onTabChange: (tab: string) => void;
+  variant?: "desktop" | "mobile" | "both";
 }
 
 const publicTabs: Tab[] = [
@@ -124,6 +126,9 @@ function TabTrigger({
   className?: string;
   icon: React.ElementType;
 }) {
+  const { activeValue } = useTabs();
+  const isActive = activeValue === value;
+  
   return (
     <TabsTriggerPrimitive
       value={value}
@@ -142,7 +147,7 @@ function TabTrigger({
     >
       {/* Mobile: Icon + Text (vertical), Desktop: Text only */}
       <Icon className="size-4 sm:size-0" />
-      <span className="text-[13px] sm:text-sm">{children}</span>
+      <Text size="3" theme={isActive ? "default" : "secondary"}>{children}</Text>
     </TabsTriggerPrimitive>
   );
 }
@@ -153,7 +158,8 @@ export function TabNav({
   isMember = false,
   isAuthenticated = false,
   activeTab, 
-  onTabChange
+  onTabChange,
+  variant = "both"
 }: TabNavProps) {
   // Use different tabs based on ownership, membership, and auth status
   let tabs: Tab[];
@@ -176,60 +182,71 @@ export function TabNav({
   return (
     <>
       {/* Desktop: sticky at top */}
-      <div className="sticky top-14 z-30 w-full bg-bg-base hidden sm:block pt-1 gap-2">
-        <div className="mx-auto max-w-5xl">
+      {(variant === "desktop" || variant === "both") && (
+        <div className="sticky top-14 z-30 w-full hidden sm:block pt-1 gap-2">
+          <div className="mx-auto max-w-5xl">
+            <TabsPrimitive 
+              value={activeTab} 
+              onValueChange={handleTabChange}
+            >
+              <TabListWithUnderline 
+                tabs={tabs}
+                className="flex h-auto w-full justify-start gap-3 overflow-x-auto bg-transparent p-0 scrollbar-hide"
+              >
+                {tabs.map((tab) => (
+                  <TabTrigger
+                    key={tab.value}
+                    value={tab.value}
+                    icon={tab.icon}
+                  >
+                    {tab.label}
+                  </TabTrigger>
+                ))}
+              </TabListWithUnderline>
+            </TabsPrimitive>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile: sticky at bottom with icons only */}
+      {(variant === "mobile" || variant === "both") && (
+        <div 
+          className="fixed bottom-0 left-0 right-0 z-30 sm:hidden border-t border-white/[0.06]"
+          style={{
+            background: 'rgba(31, 31, 31, 0.8)',
+            backdropFilter: 'blur(24px)',
+            WebkitBackdropFilter: 'blur(24px)',
+          }}
+        >
           <TabsPrimitive 
             value={activeTab} 
             onValueChange={handleTabChange}
           >
-            <TabListWithUnderline 
-              tabs={tabs}
-              className="flex h-auto w-full justify-start gap-3 overflow-x-auto bg-transparent p-0 scrollbar-hide"
-            >
-              {tabs.map((tab) => (
-                <TabTrigger
-                  key={tab.value}
-                  value={tab.value}
-                  icon={tab.icon}
-                >
-                  {tab.label}
-                </TabTrigger>
-              ))}
-            </TabListWithUnderline>
+            <TabsListPrimitive className="flex h-auto w-full justify-around gap-1 bg-transparent p-2">
+              {tabs.map((tab) => {
+                const Icon = tab.icon;
+                return (
+                  <TabsTriggerPrimitive
+                    key={tab.value}
+                    value={tab.value}
+                    className={cn(
+                      "flex flex-col items-center justify-center gap-1 pr-2 py-2",
+                      "text-xs font-medium whitespace-nowrap",
+                      "transition-colors duration-200 ease-out",
+                      "text-text-secondary hover:text-white",
+                      "data-[state=active]:text-white data-[state=active]:bg-transparent",
+                      "focus-visible:outline-none focus-visible:ring-0",
+                      "rounded-lg",
+                    )}
+                  >
+                    <Icon className="size-5" />
+                  </TabsTriggerPrimitive>
+                );
+              })}
+            </TabsListPrimitive>
           </TabsPrimitive>
         </div>
-      </div>
-
-      {/* Mobile: sticky at bottom with icons only */}
-      <div className="fixed bottom-0 left-0 right-0 z-30 bg-bg-base sm:hidden border-t border-bg-elevated">
-        <TabsPrimitive 
-          value={activeTab} 
-          onValueChange={handleTabChange}
-        >
-          <TabsListPrimitive className="flex h-auto w-full justify-around gap-1 bg-transparent p-2">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <TabsTriggerPrimitive
-                  key={tab.value}
-                  value={tab.value}
-                  className={cn(
-                    "flex flex-col items-center justify-center gap-1 pr-2 py-2",
-                    "text-xs font-medium whitespace-nowrap",
-                    "transition-colors duration-200 ease-out",
-                    "text-text-secondary hover:text-white",
-                    "data-[state=active]:text-white data-[state=active]:bg-transparent",
-                    "focus-visible:outline-none focus-visible:ring-0",
-                    "rounded-lg",
-                  )}
-                >
-                  <Icon className="size-5" />
-                </TabsTriggerPrimitive>
-              );
-            })}
-          </TabsListPrimitive>
-        </TabsPrimitive>
-      </div>
+      )}
     </>
   );
 }

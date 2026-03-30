@@ -24,16 +24,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Cader — Paid Communities for Algerian Creators",
-  description: "Launch paid or free communities, build courses, and accept payments in DZD via Chargily.",
-  icons: {
-    icon: [
-      { url: "/favicon.png", sizes: "32x32", type: "image/png" },
-      { url: "/favicon.png", sizes: "16x16", type: "image/png" },
-    ],
-    shortcut: "/favicon.png",
-    apple: "/favicon.png",
-  },
+  title: "Cader ",
+  description: "Launch paid or free communities, build courses, and accept payments in DZD via Chargily."
 };
 
 export default function RootLayout({
@@ -48,7 +40,7 @@ export default function RootLayout({
           lang="en"
           className={`${instrumentSerif.variable} ${inter.variable} ${geistMono.variable} h-full antialiased`}
         >
-          <body suppressHydrationWarning className="min-h-full flex flex-col bg-bg-canvas text-text-primary">
+          <body suppressHydrationWarning className="h-full flex flex-col text-text-primary">
             {children}
             <Toaster 
               position="bottom-right"
