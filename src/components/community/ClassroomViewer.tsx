@@ -21,7 +21,8 @@ import {
   Check,
   Play,
   Edit3,
-  Save
+  Save,
+  GripVertical
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -682,6 +683,12 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
                       <div className={`flex items-center justify-between py-2 px-2 rounded-lg ${
                         isActive ? "bg-accent/10" : "hover:bg-bg-elevated"
                       }`}>
+                        {/* Drag handle - owner only */}
+                        {isOwner && (
+                          <div className="p-1 cursor-grab text-text-muted hover:text-text-primary mr-1" title="Drag to reorder">
+                            <GripVertical className="w-4 h-4" />
+                          </div>
+                        )}
                         <button
                           onClick={() => toggleModuleCollapse(module._id)}
                           className="flex items-center gap-2 flex-1 text-left"
@@ -719,29 +726,36 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
                       {!isCollapsed && module.pages && module.pages.length > 0 && (
                         <div className="ml-4 space-y-1 mt-1">
                           {module.pages.map((page) => (
-                            <button
-                              key={page._id}
-                              onClick={() => {
-                                setSelectedPageId(page._id);
-                                setIsSidebarOpen(false);
-                                // Focus main content for accessibility
-                                mainContentRef.current?.focus();
-                              }}
-                              aria-current={selectedPageId === page._id ? "page" : undefined}
-                              className={`w-full flex items-center gap-2 text-left px-3 py-2.5 rounded-lg text-sm ${
-                                selectedPageId === page._id
-                                  ? "bg-accent text-white font-medium"
-                                  : "text-text-secondary hover:bg-bg-elevated hover:text-text-primary"
-                              }`}
-                            >
-                              {/* Progress indicator */}
-                              {page.isViewed ? (
-                                <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
-                              ) : (
-                                <div className="w-4 h-4 flex-shrink-0" />
+                            <div key={page._id} className="flex items-center">
+                              {/* Drag handle - owner only */}
+                              {isOwner && (
+                                <div className="p-1 cursor-grab text-text-muted hover:text-text-primary mr-1" title="Drag to reorder">
+                                  <GripVertical className="w-3 h-3" />
+                                </div>
                               )}
-                              <span className="truncate">{page.title}</span>
-                            </button>
+                              <button
+                                onClick={() => {
+                                  setSelectedPageId(page._id);
+                                  setIsSidebarOpen(false);
+                                  // Focus main content for accessibility
+                                  mainContentRef.current?.focus();
+                                }}
+                                aria-current={selectedPageId === page._id ? "page" : undefined}
+                                className={`flex-1 flex items-center gap-2 text-left px-3 py-2.5 rounded-lg text-sm ${
+                                  selectedPageId === page._id
+                                    ? "bg-accent text-white font-medium"
+                                    : "text-text-secondary hover:bg-bg-elevated hover:text-text-primary"
+                                }`}
+                              >
+                                {/* Progress indicator */}
+                                {page.isViewed ? (
+                                  <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
+                                ) : (
+                                  <div className="w-4 h-4 flex-shrink-0" />
+                                )}
+                                <span className="truncate">{page.title}</span>
+                              </button>
+                            </div>
                           ))}
                           {/* Inline input for adding lesson */}
                           {showPageInput === module._id && (
