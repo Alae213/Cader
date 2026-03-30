@@ -136,7 +136,7 @@ export function CommunityShell({
           children
         );
       case "community":
-        return <FeedTab communityId={community.id} />;
+        return <FeedTab communityId={community.id} communitySlug={community.slug} />;
       case "map":
         return <MembersTab communityId={community.id} isOwner={isOwner} isAdmin={isAdmin} />;
       case "classrooms":

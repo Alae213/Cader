@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth, SignInButton } from "@clerk/nextjs";
-import { Edit3 } from "lucide-react";
+import { Edit3, Share2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Heading } from "@/components/ui/Text";
 import { Button } from "@/components/ui/Button";
@@ -31,6 +31,7 @@ interface QuickInfoCardProps {
   streak?: number;
   onJoinClick: () => void;
   onEditClick: () => void;
+  onInviteClick?: () => void;
   onThumbnailChange?: (thumbnailData: string) => void;
   onTaglineChange?: (tagline: string) => void;
   onLinksChange?: (links: string[]) => void;
@@ -43,6 +44,7 @@ export function QuickInfoCard({
   streak = 0,
   onJoinClick,
   onEditClick,
+  onInviteClick,
   onThumbnailChange,
   onTaglineChange,
   onLinksChange,
@@ -129,6 +131,18 @@ export function QuickInfoCard({
           >
             <Edit3 className="w-4 h-4 mr-2" />
             Edit Community
+          </Button>
+        )}
+
+        {/* Invite Friend Button - show for members and owners */}
+        {(isMember || isOwner) && onInviteClick && (
+          <Button
+            className="w-full"
+            variant="secondary"
+            onClick={onInviteClick}
+          >
+            <Share2 className="w-4 h-4 mr-2" />
+            Invite Friends
           </Button>
         )}
       </CardContent>

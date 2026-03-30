@@ -58,9 +58,14 @@ export function PostCard({ post, onClick, onDeleted }: PostCardProps) {
 
   // Mutations
   const toggleUpvote = useMutation(api.functions.feed.toggleUpvote);
+  const votePoll = useMutation(api.functions.feed.votePoll);
   const pinPost = useMutation(api.functions.feed.pinPost);
   const unpinPost = useMutation(api.functions.feed.unpinPost);
   const deletePost = useMutation(api.functions.feed.deletePost);
+
+  // Local state for poll
+  const [localPollOptions, setLocalPollOptions] = useState(post.pollOptions || []);
+  const [hasVoted, setHasVoted] = useState(false);
 
   const formatTimeAgo = (timestamp: number) => {
     const seconds = Math.floor((Date.now() - timestamp) / 1000);
@@ -87,6 +92,39 @@ export function PostCard({ post, onClick, onDeleted }: PostCardProps) {
       setHasUpvoted(result.upvoted);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to upvote");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle poll vote
+  const handlePollVote = async (optionIndex: number) => {
+    if (!userId) {
+      toast.error("You must be signed in to vote");
+      return;
+    }
+
+    if (hasVoted) {
+      toast.error("You have already voted");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await votePoll({ postId: post._id as any, optionIndex });
+      
+      // Update local state to show the vote
+      const updatedOptions = localPollOptions.map((opt, i) => {
+        if (i === optionIndex) {
+          return { ...opt, votes: (opt.votes || 0) + 1 };
+        }
+        return opt;
+      });
+      setLocalPollOptions(updatedOptions);
+      setHasVoted(true);
+      toast.success("Vote recorded!");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to vote");
     } finally {
       setIsLoading(false);
     }
@@ -242,17 +280,42 @@ export function PostCard({ post, onClick, onDeleted }: PostCardProps) {
           )}
 
           {/* Poll */}
-          {post.pollOptions && post.pollOptions.length > 0 && (
+          {localPollOptions && localPollOptions.length > 0 && (
             <div className="space-y-2 mb-3">
-              {post.pollOptions.map((option, i) => (
-                <div 
-                  key={i} 
-                  className="p-3 bg-bg-elevated rounded-lg flex justify-between items-center"
-                >
-                  <Text size="sm">{option.text}</Text>
-                  <Text size="sm" theme="muted">{option.votes} votes</Text>
-                </div>
-              ))}
+              {localPollOptions.map((option, i) => {
+                const totalVotes = localPollOptions.reduce((sum, opt) => sum + (opt.votes || 0), 0);
+                const percentage = totalVotes > 0 ? Math.round(((option.votes || 0) / totalVotes) * 100) : 0;
+                
+                return (
+                  <button
+                    key={i}
+                    onClick={() => handlePollVote(i)}
+                    disabled={hasVoted || isLoading}
+                    className={`w-full p-3 rounded-lg flex justify-between items-center transition-all ${
+                      hasVoted
+                        ? "bg-bg-elevated"
+                        : "bg-bg-elevated hover:bg-bg-muted cursor-pointer"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className={`w-4 h-4 rounded-full border-2 shrink-0 ${
+                        hasVoted ? "border-primary" : "border-border"
+                      }`}>
+                        {hasVoted && (
+                          <div className="w-full h-full rounded-full bg-primary" />
+                        )}
+                      </div>
+                      <Text size="sm">{option.text}</Text>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {hasVoted && (
+                        <Text size="sm" theme="muted">{percentage}%</Text>
+                      )}
+                      <Text size="sm" theme="muted">{option.votes} votes</Text>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>

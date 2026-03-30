@@ -659,3 +659,35 @@ export const listByIds = query({
     return communities;
   },
 });
+
+// Get community by ID with member stats
+export const getById = query({
+  args: { communityId: v.id("communities") },
+  handler: async (ctx, args) => {
+    const community = await ctx.db.get(args.communityId);
+    if (!community) return null;
+    
+    // Get member count
+    const memberships = await ctx.db
+      .query("memberships")
+      .withIndex("by_community_id", (q) => q.eq("communityId", community._id))
+      .collect();
+    
+    const activeMembers = memberships.filter((m: { status: string }) => m.status === "active");
+    
+    // Get owner details
+    const owner = await ctx.db.get(community.ownerId) as { displayName?: string; avatarUrl?: string } | null;
+    
+    // Get online count (active in last 30 minutes)
+    const thirtyMinutesAgo = Date.now() - 30 * 60 * 1000;
+    const onlineCount = activeMembers.filter((m: { updatedAt: number }) => m.updatedAt > thirtyMinutesAgo).length;
+    
+    return {
+      ...community,
+      memberCount: activeMembers.length,
+      onlineCount,
+      ownerName: owner?.displayName || "Unknown",
+      ownerAvatar: owner?.avatarUrl || null,
+    };
+  },
+});

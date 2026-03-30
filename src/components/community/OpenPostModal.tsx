@@ -12,6 +12,7 @@ import { Avatar } from "@/components/shared/Avatar";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { X, ThumbsUp, MessageCircle, Pin, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 interface Post {
   _id: string;
@@ -58,6 +59,10 @@ export function OpenPostModal({ post, open, onOpenChange }: OpenPostModalProps) 
   const { userId } = useAuth();
   const [newComment, setNewComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Poll state
+  const [localPollOptions, setLocalPollOptions] = useState(post?.pollOptions || []);
+  const [hasVoted, setHasVoted] = useState(false);
 
   // Fetch comments for this post
   const commentArgs = post ? { postId: post._id as any } : "skip";
@@ -67,6 +72,41 @@ export function OpenPostModal({ post, open, onOpenChange }: OpenPostModalProps) 
   ) as Comment[] | null;
 
   const createComment = useMutation(api.functions.feed.createComment);
+  const votePoll = useMutation(api.functions.feed.votePoll);
+
+  // Handle poll vote
+  const handlePollVote = async (optionIndex: number) => {
+    if (!post) return;
+    
+    if (!userId) {
+      toast.error("You must be signed in to vote");
+      return;
+    }
+
+    if (hasVoted) {
+      toast.error("You have already voted");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await votePoll({ postId: post._id as any, optionIndex });
+      
+      const updatedOptions = localPollOptions.map((opt, i) => {
+        if (i === optionIndex) {
+          return { ...opt, votes: (opt.votes || 0) + 1 };
+        }
+        return opt;
+      });
+      setLocalPollOptions(updatedOptions);
+      setHasVoted(true);
+      toast.success("Vote recorded!");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to vote");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const formatTimeAgo = (timestamp: number) => {
     const seconds = Math.floor((Date.now() - timestamp) / 1000);
@@ -167,17 +207,42 @@ export function OpenPostModal({ post, open, onOpenChange }: OpenPostModalProps) 
             )}
 
             {/* Poll */}
-            {post.pollOptions && post.pollOptions.length > 0 && (
+            {localPollOptions && localPollOptions.length > 0 && (
               <div className="space-y-2 mt-3">
-                {post.pollOptions.map((option, i) => (
-                  <div 
-                    key={i} 
-                    className="p-3 bg-bg-elevated rounded-lg flex justify-between items-center"
-                  >
-                    <Text size="sm">{option.text}</Text>
-                    <Text size="sm" theme="muted">{option.votes} votes</Text>
-                  </div>
-                ))}
+                {localPollOptions.map((option, i) => {
+                  const totalVotes = localPollOptions.reduce((sum, opt) => sum + (opt.votes || 0), 0);
+                  const percentage = totalVotes > 0 ? Math.round(((option.votes || 0) / totalVotes) * 100) : 0;
+                  
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => handlePollVote(i)}
+                      disabled={hasVoted || isSubmitting}
+                      className={`w-full p-3 rounded-lg flex justify-between items-center transition-all ${
+                        hasVoted
+                          ? "bg-bg-elevated"
+                          : "bg-bg-elevated hover:bg-bg-muted cursor-pointer"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className={`w-4 h-4 rounded-full border-2 shrink-0 ${
+                          hasVoted ? "border-primary" : "border-border"
+                        }`}>
+                          {hasVoted && (
+                            <div className="w-full h-full rounded-full bg-primary" />
+                          )}
+                        </div>
+                        <Text size="sm">{option.text}</Text>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {hasVoted && (
+                          <Text size="sm" theme="muted">{percentage}%</Text>
+                        )}
+                        <Text size="sm" theme="muted">{option.votes} votes</Text>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>

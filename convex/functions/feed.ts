@@ -13,17 +13,19 @@ function isValidVideoUrl(url: string): boolean {
   return !!(youtubeMatch || vimeoMatch || driveMatch);
 }
 
-// List posts for a community (paginated, pinned-first then chronological)
+// List posts for a community (paginated, pinned-first then by sort order)
 export const listPosts = query({
   args: {
     communityId: v.id("communities"),
     categoryId: v.optional(v.id("categories")),
+    sortBy: v.optional(v.union(v.literal("newest"), v.literal("most_liked"), v.literal("most_commented"))),
     limit: v.optional(v.number()),
     cursor: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const limit = args.limit || 20;
     const communityId = args.communityId;
+    const sortBy = args.sortBy || "newest";
 
     // Get all posts for this community
     const postsQuery = ctx.db
@@ -39,11 +41,25 @@ export const listPosts = query({
       );
     }
 
-    // Sort: pinned first, then by createdAt descending
-    posts.sort((a: { isPinned: boolean; createdAt: number }, b: { isPinned: boolean; createdAt: number }) => {
+    // Sort: pinned first, then by selected sort order
+    posts.sort((a: { isPinned: boolean; createdAt: number; upvoteCount: number; commentCount: number }, b: { isPinned: boolean; createdAt: number; upvoteCount: number; commentCount: number }) => {
+      // Pinned posts always come first
       if (a.isPinned && !b.isPinned) return -1;
       if (!a.isPinned && b.isPinned) return 1;
-      return b.createdAt - a.createdAt;
+      
+      // Then sort by selected criteria (non-pinned posts only)
+      if (!a.isPinned && !b.isPinned) {
+        switch (sortBy) {
+          case "most_liked":
+            return b.upvoteCount - a.upvoteCount;
+          case "most_commented":
+            return b.commentCount - a.commentCount;
+          case "newest":
+          default:
+            return b.createdAt - a.createdAt;
+        }
+      }
+      return 0;
     });
 
     // Get author details for each post
@@ -403,6 +419,58 @@ export const toggleUpvote = mutation({
 
       return { upvoted: true, newCount: post.upvoteCount + 1 };
     }
+  },
+});
+
+// Vote on a poll option
+export const votePoll = mutation({
+  args: {
+    postId: v.id("posts"),
+    optionIndex: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("You must be signed in to vote");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const post = await ctx.db.get(args.postId);
+    if (!post) {
+      throw new Error("Post not found");
+    }
+
+    if (post.contentType !== "poll") {
+      throw new Error("This post is not a poll");
+    }
+
+    // Get current poll options
+    const pollOptions = post.pollOptions || [];
+    if (args.optionIndex < 0 || args.optionIndex >= pollOptions.length) {
+      throw new Error("Invalid option");
+    }
+
+    // Update the vote count for the selected option
+    const updatedOptions = pollOptions.map((opt, i) => {
+      if (i === args.optionIndex) {
+        return { ...opt, votes: (opt.votes || 0) + 1 };
+      }
+      return opt;
+    });
+
+    await ctx.db.patch(args.postId, {
+      pollOptions: updatedOptions,
+    });
+
+    return { success: true };
   },
 });
 
