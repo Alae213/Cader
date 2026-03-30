@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/Input";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/Dialog";
+import { ProgressRing } from "@/components/ui/ProgressRing";
+import { getVideoThumbnail } from "@/lib/utils";
 import { 
   ChevronLeft, 
   ChevronDown, 
@@ -22,7 +24,11 @@ import {
   Play,
   Edit3,
   Save,
-  GripVertical
+  GripVertical,
+  MoreHorizontal,
+  Trash2,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -39,7 +45,7 @@ interface ModuleData {
   _id: string;
   title: string;
   order: number;
-  pages: { _id: string; title: string; order: number; isViewed?: boolean }[];
+  pages: { _id: string; title: string; order: number; isViewed?: boolean; videoUrl?: string }[];
 }
 
 const STORAGE_KEY = "classroom_draft_";
@@ -299,6 +305,26 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
   const [moduleInputValue, setModuleInputValue] = useState("");
   const [showPageInput, setShowPageInput] = useState<string | null>(null);
   const [pageInputValue, setPageInputValue] = useState("");
+  
+  // Inline editing state for chapter titles
+  const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
+  const [editingChapterTitle, setEditingChapterTitle] = useState("");
+  const [editingChapterSaving, setEditingChapterSaving] = useState(false);
+  const chapterDebounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Inline editing state for lesson titles
+  const [editingLessonId, setEditingLessonId] = useState<string | null>(null);
+  const [editingLessonTitle, setEditingLessonTitle] = useState("");
+  const [editingLessonSaving, setEditingLessonSaving] = useState(false);
+  const lessonDebounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Menu state for chapters and lessons
+  const [openChapterMenu, setOpenChapterMenu] = useState<string | null>(null);
+  const [openLessonMenu, setOpenLessonMenu] = useState<string | null>(null);
+
+  // Delete confirmation state
+  const [deleteConfirmChapter, setDeleteConfirmChapter] = useState<string | null>(null);
+  const [deleteConfirmLesson, setDeleteConfirmLesson] = useState<string | null>(null);
 
   // Use provided user
   const userId = providedUser?._id;
@@ -325,6 +351,8 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
   const createPage = useMutation(api.functions.classrooms.createPage);
   const updateChapter = useMutation(api.functions.classrooms.updateChapter);
   const toggleLessonComplete = useMutation(api.functions.classrooms.toggleLessonComplete);
+  const deleteModule = useMutation(api.functions.classrooms.deleteModule);
+  const deletePage = useMutation(api.functions.classrooms.deletePage);
 
   // Track if this is the initial load
   const isInitialLoad = useRef(true);
@@ -532,6 +560,144 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
     setModuleInputValue("");
   }, []);
 
+  // Start editing chapter title
+  const startEditingChapter = useCallback((chapterId: string, currentTitle: string) => {
+    setEditingChapterId(chapterId);
+    setEditingChapterTitle(currentTitle);
+  }, []);
+
+  // Save chapter title (with debounce)
+  const saveChapterTitle = useCallback(async (chapterId: string, newTitle: string, immediate = false) => {
+    if (!newTitle.trim()) return;
+    
+    const doSave = async () => {
+      setEditingChapterSaving(true);
+      try {
+        await updateChapter({
+          chapterId: chapterId as Id<"modules">,
+          title: newTitle.trim(),
+        });
+      } catch (err) {
+        toast.error("Failed to update chapter title");
+      } finally {
+        setEditingChapterSaving(false);
+        setEditingChapterId(null);
+      }
+    };
+
+    if (immediate) {
+      if (chapterDebounceRef.current) {
+        clearTimeout(chapterDebounceRef.current);
+      }
+      doSave();
+    } else {
+      if (chapterDebounceRef.current) {
+        clearTimeout(chapterDebounceRef.current);
+      }
+      chapterDebounceRef.current = setTimeout(doSave, 1500);
+    }
+  }, [updateChapter]);
+
+  // Handle chapter title blur (save)
+  const handleChapterTitleBlur = useCallback((chapterId: string) => {
+    if (editingChapterTitle.trim()) {
+      saveChapterTitle(chapterId, editingChapterTitle);
+    }
+  }, [editingChapterTitle, saveChapterTitle]);
+
+  // Handle chapter title key down
+  const handleChapterTitleKeyDown = useCallback((e: React.KeyboardEvent, chapterId: string) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      saveChapterTitle(chapterId, editingChapterTitle, true);
+    } else if (e.key === "Escape") {
+      setEditingChapterId(null);
+    }
+  }, [editingChapterTitle, saveChapterTitle]);
+
+  // Start editing lesson title
+  const startEditingLesson = useCallback((lessonId: string, currentTitle: string) => {
+    setEditingLessonId(lessonId);
+    setEditingLessonTitle(currentTitle);
+  }, []);
+
+  // Save lesson title (with debounce)
+  const saveLessonTitle = useCallback(async (lessonId: string, newTitle: string, immediate = false) => {
+    if (!newTitle.trim()) return;
+    
+    const doSave = async () => {
+      setEditingLessonSaving(true);
+      try {
+        await updatePageContent({
+          pageId: lessonId as Id<"pages">,
+          title: newTitle.trim(),
+        });
+      } catch (err) {
+        toast.error("Failed to update lesson title");
+      } finally {
+        setEditingLessonSaving(false);
+        setEditingLessonId(null);
+      }
+    };
+
+    if (immediate) {
+      if (lessonDebounceRef.current) {
+        clearTimeout(lessonDebounceRef.current);
+      }
+      doSave();
+    } else {
+      if (lessonDebounceRef.current) {
+        clearTimeout(lessonDebounceRef.current);
+      }
+      lessonDebounceRef.current = setTimeout(doSave, 1500);
+    }
+  }, [updatePageContent]);
+
+  // Handle lesson title blur (save)
+  const handleLessonTitleBlur = useCallback((lessonId: string) => {
+    if (editingLessonTitle.trim()) {
+      saveLessonTitle(lessonId, editingLessonTitle, true);
+    }
+  }, [editingLessonTitle, saveLessonTitle]);
+
+  // Handle lesson title key down
+  const handleLessonTitleKeyDown = useCallback((e: React.KeyboardEvent, lessonId: string) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      saveLessonTitle(lessonId, editingLessonTitle, true);
+    } else if (e.key === "Escape") {
+      setEditingLessonId(null);
+    }
+  }, [editingLessonTitle, saveLessonTitle]);
+
+  // Delete chapter handler
+  const handleDeleteChapter = useCallback(async (chapterId: string) => {
+    try {
+      await deleteModule({ moduleId: chapterId as Id<"modules"> });
+      setDeleteConfirmChapter(null);
+      setOpenChapterMenu(null);
+      toast.success("Chapter deleted");
+    } catch (err) {
+      toast.error("Failed to delete chapter");
+    }
+  }, [deleteModule]);
+
+  // Delete lesson handler
+  const handleDeleteLesson = useCallback(async (lessonId: string) => {
+    try {
+      await deletePage({ pageId: lessonId as Id<"pages"> });
+      setDeleteConfirmLesson(null);
+      setOpenLessonMenu(null);
+      // Clear selected page if it was deleted
+      if (selectedPageId === lessonId) {
+        setSelectedPageId(null);
+      }
+      toast.success("Lesson deleted");
+    } catch (err) {
+      toast.error("Failed to delete lesson");
+    }
+  }, [deletePage, selectedPageId]);
+
   // Open input modal for creating page
   const openCreatePageModal = useCallback((moduleId: string) => {
     setError(null);
@@ -627,7 +793,7 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
         lg:w-72
       `}>
         <Card className="h-full">
-          <div className="p-4 border-b border-border">
+          <div className="p-4 border-b border-border space-y-3">
             <div className="flex items-center justify-between">
               <Button 
                 variant="ghost" 
@@ -647,6 +813,45 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
                 <X className="w-5 h-5" />
               </button>
             </div>
+            {/* Progress bar and expand/collapse all */}
+            {/* Calculate overall progress */}
+            {(() => {
+              const allPages = classroomContent?.modules?.flatMap(m => m.pages || []) || [];
+              const totalLessons = allPages.length;
+              const completedLessons = allPages.filter(p => p.isViewed).length;
+              const progress = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+              return (
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 h-2 bg-black/20 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-green-500 rounded-full transition-all duration-300"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                  <Text size="1" theme="muted">
+                    {progress}%
+                  </Text>
+                  {isOwner && modules.length > 0 && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="text-xs h-7 px-2"
+                      onClick={() => {
+                        if (collapsedModules.size === 0) {
+                          // Collapse all
+                          modules.forEach(m => setCollapsedModules(prev => new Set([...prev, m._id])));
+                        } else {
+                          // Expand all
+                          setCollapsedModules(new Set());
+                        }
+                      }}
+                    >
+                      {collapsedModules.size === 0 ? 'Collapse All' : 'Expand All'}
+                    </Button>
+                  )}
+                </div>
+              );
+            })()}
           </div>
 
 
@@ -678,6 +883,11 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
                   const isCollapsed = collapsedModules.has(module._id);
                   const isActive = module.pages?.some(p => p._id === selectedPageId);
                   
+                  // Calculate chapter progress
+                  const totalLessons = module.pages?.length || 0;
+                  const completedLessons = module.pages?.filter(p => p.isViewed).length || 0;
+                  const chapterProgress = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+                  
                   return (
                     <div key={module._id} className="group">
                       <div className={`flex items-center justify-between py-2 px-2 rounded-lg ${
@@ -690,8 +900,8 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
                           </div>
                         )}
                         <button
-                          onClick={() => toggleModuleCollapse(module._id)}
-                          className="flex items-center gap-2 flex-1 text-left"
+                          onClick={() => !isOwner || editingChapterId === module._id ? undefined : toggleModuleCollapse(module._id)}
+                          className={`flex items-center gap-2 flex-1 text-left ${isOwner && editingChapterId !== module._id ? 'cursor-pointer' : ''}`}
                           aria-expanded={!isCollapsed}
                           aria-controls={`module-${module._id}`}
                         >
@@ -704,22 +914,120 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
                           ) : (
                             <div className="w-4" />
                           )}
-                          <Text size="2" theme={isActive ? "default" : "secondary"} className="font-semibold truncate">
-                            {module.title}
-                          </Text>
+                          {isOwner && editingChapterId === module._id ? (
+                            <input
+                              type="text"
+                              value={editingChapterTitle}
+                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditingChapterTitle(e.target.value)}
+                              onBlur={() => handleChapterTitleBlur(module._id)}
+                              onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => handleChapterTitleKeyDown(e, module._id)}
+                              onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                              className="flex-1 bg-bg-elevated border border-accent rounded px-2 py-0.5 text-sm font-semibold focus:outline-none"
+                              autoFocus
+                            />
+                          ) : isOwner ? (
+                            <span 
+                              className="font-semibold truncate cursor-text hover:underline"
+                              onClick={(e: React.MouseEvent) => {
+                                e.stopPropagation();
+                                startEditingChapter(module._id, module.title);
+                              }}
+                            >
+                              <Text size="2" theme={isActive ? "default" : "secondary"}>
+                                {module.title}
+                              </Text>
+                            </span>
+                          ) : (
+                            <Text size="2" theme={isActive ? "default" : "secondary"} className="font-semibold truncate">
+                              {module.title}
+                            </Text>
+                          )}
                           <Text size="1" theme="muted">
                             ({module.pages?.length || 0})
                           </Text>
+                          {/* Progress ring */}
+                          {totalLessons > 0 && (
+                            <div className="ml-2 flex items-center gap-1" title={`${completedLessons}/${totalLessons} completed`}>
+                              <ProgressRing progress={chapterProgress} size={20} strokeWidth={2.5} />
+                              <Text size="1" theme="muted" className="text-[10px]">
+                                {completedLessons}/{totalLessons}
+                              </Text>
+                            </div>
+                          )}
                         </button>
                         {isOwner && (
-                          <button
-                            onClick={() => openCreatePageModal(module._id)}
-                            className="p-1.5 text-text-muted hover:text-accent rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                            aria-label={`Add lesson to ${module.title}`}
-                            title="Add lesson"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                          </button>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => openCreatePageModal(module._id)}
+                              className="p-1.5 text-text-muted hover:text-accent rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                              aria-label={`Add lesson to ${module.title}`}
+                              title="Add lesson"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                            </button>
+                            {/* 3-dot menu for chapter */}
+                            <div className="relative">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenChapterMenu(openChapterMenu === module._id ? null : module._id);
+                                }}
+                                className="p-1.5 text-text-muted hover:text-text-primary rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                                aria-label="Chapter options"
+                              >
+                                <MoreHorizontal className="w-3.5 h-3.5" />
+                              </button>
+                              {openChapterMenu === module._id && (
+                                <div className="absolute right-0 top-8 bg-bg-base border border-border rounded-lg shadow-lg py-1 min-w-[140px] z-20">
+                                  <button 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      startEditingChapter(module._id, module.title);
+                                      setOpenChapterMenu(null);
+                                    }}
+                                    className="w-full px-3 py-2 text-left hover:bg-bg-elevated flex items-center gap-2 text-sm"
+                                  >
+                                    <Edit3 className="w-4 h-4" />
+                                    Edit title
+                                  </button>
+                                  {deleteConfirmChapter === module._id ? (
+                                    <div className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                                      <Text size="1" theme="muted" className="mb-2">Delete "{module.title}"?</Text>
+                                      <div className="flex gap-2">
+                                        <Button 
+                                          size="sm" 
+                                          variant="danger"
+                                          className="flex-1 h-7 text-xs"
+                                          onClick={() => handleDeleteChapter(module._id)}
+                                        >
+                                          Delete
+                                        </Button>
+                                        <Button 
+                                          size="sm" 
+                                          variant="ghost"
+                                          className="flex-1 h-7 text-xs"
+                                          onClick={() => setDeleteConfirmChapter(null)}
+                                        >
+                                          Cancel
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <button 
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setDeleteConfirmChapter(module._id);
+                                      }}
+                                      className="w-full px-3 py-2 text-left hover:bg-bg-elevated flex items-center gap-2 text-sm text-red-500"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                      Delete
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         )}
                       </div>
                       
@@ -735,10 +1043,12 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
                               )}
                               <button
                                 onClick={() => {
-                                  setSelectedPageId(page._id);
-                                  setIsSidebarOpen(false);
-                                  // Focus main content for accessibility
-                                  mainContentRef.current?.focus();
+                                  if (editingLessonId !== page._id) {
+                                    setSelectedPageId(page._id);
+                                    setIsSidebarOpen(false);
+                                    // Focus main content for accessibility
+                                    mainContentRef.current?.focus();
+                                  }
                                 }}
                                 aria-current={selectedPageId === page._id ? "page" : undefined}
                                 className={`flex-1 flex items-center gap-2 text-left px-3 py-2.5 rounded-lg text-sm ${
@@ -747,14 +1057,133 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
                                     : "text-text-secondary hover:bg-bg-elevated hover:text-text-primary"
                                 }`}
                               >
+                                {/* Lesson thumbnail */}
+                                {page.videoUrl ? (
+                                  <img 
+                                    src={getVideoThumbnail(page.videoUrl) || undefined}
+                                    alt=""
+                                    className="w-[55px] h-[30px] object-cover rounded flex-shrink-0"
+                                  />
+                                ) : (
+                                  <div className="w-[55px] h-[30px] bg-black/20 rounded flex-shrink-0 flex items-center justify-center">
+                                    <Play className="w-3 h-3 text-text-muted" />
+                                  </div>
+                                )}
                                 {/* Progress indicator */}
                                 {page.isViewed ? (
                                   <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
                                 ) : (
                                   <div className="w-4 h-4 flex-shrink-0" />
                                 )}
-                                <span className="truncate">{page.title}</span>
+                                {isOwner && editingLessonId === page._id ? (
+                                  <input
+                                    type="text"
+                                    value={editingLessonTitle}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditingLessonTitle(e.target.value)}
+                                    onBlur={() => handleLessonTitleBlur(page._id)}
+                                    onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => handleLessonTitleKeyDown(e, page._id)}
+                                    onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                                    className="flex-1 bg-bg-elevated border border-accent rounded px-2 py-0.5 text-sm focus:outline-none min-w-0"
+                                    autoFocus
+                                  />
+                                ) : isOwner ? (
+                                  <span 
+                                    className="truncate cursor-text hover:underline"
+                                    onClick={(e: React.MouseEvent) => {
+                                      e.stopPropagation();
+                                      startEditingLesson(page._id, page.title);
+                                    }}
+                                  >
+                                    {page.title}
+                                  </span>
+                                ) : (
+                                  <span className="truncate">{page.title}</span>
+                                )}
                               </button>
+                              {/* 3-dot menu for lesson */}
+                              {isOwner && (
+                                <div className="relative">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setOpenLessonMenu(openLessonMenu === page._id ? null : page._id);
+                                    }}
+                                    className="p-1 text-text-muted hover:text-text-primary rounded opacity-0 group-hover:opacity-100 transition-opacity ml-1"
+                                    aria-label="Lesson options"
+                                  >
+                                    <MoreHorizontal className="w-3.5 h-3.5" />
+                                  </button>
+                                  {openLessonMenu === page._id && (
+                                    <div className="absolute right-0 top-8 bg-bg-base border border-border rounded-lg shadow-lg py-1 min-w-[140px] z-20">
+                                      <button 
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          startEditingLesson(page._id, page.title);
+                                          setOpenLessonMenu(null);
+                                        }}
+                                        className="w-full px-3 py-2 text-left hover:bg-bg-elevated flex items-center gap-2 text-sm"
+                                      >
+                                        <Edit3 className="w-4 h-4" />
+                                        Edit title
+                                      </button>
+                                      <button 
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          toggleLessonComplete({ pageId: page._id as Id<"pages"> });
+                                          setOpenLessonMenu(null);
+                                        }}
+                                        className="w-full px-3 py-2 text-left hover:bg-bg-elevated flex items-center gap-2 text-sm"
+                                      >
+                                        {page.isViewed ? (
+                                          <>
+                                            <EyeOff className="w-4 h-4" />
+                                            Mark incomplete
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Eye className="w-4 h-4" />
+                                            Mark complete
+                                          </>
+                                        )}
+                                      </button>
+                                      {deleteConfirmLesson === page._id ? (
+                                        <div className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                                          <Text size="1" theme="muted" className="mb-2">Delete "{page.title}"?</Text>
+                                          <div className="flex gap-2">
+                                            <Button 
+                                              size="sm" 
+                                              variant="danger"
+                                              className="flex-1 h-7 text-xs"
+                                              onClick={() => handleDeleteLesson(page._id)}
+                                            >
+                                              Delete
+                                            </Button>
+                                            <Button 
+                                              size="sm" 
+                                              variant="ghost"
+                                              className="flex-1 h-7 text-xs"
+                                              onClick={() => setDeleteConfirmLesson(null)}
+                                            >
+                                              Cancel
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <button 
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setDeleteConfirmLesson(page._id);
+                                          }}
+                                          className="w-full px-3 py-2 text-left hover:bg-bg-elevated flex items-center gap-2 text-sm text-red-500"
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                          Delete
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           ))}
                           {/* Inline input for adding lesson */}

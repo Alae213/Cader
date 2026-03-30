@@ -434,33 +434,33 @@ Based on ClassroomsTab progress bar:
 ### Phase 19C: Inline Editing
 | Task # | Status | What needs to be done |
 |---|---|---|
-| T-CL-025 | `[ ]` | Implement inline chapter title editing with auto-save |
-| T-CL-026 | `[ ]` | Implement inline lesson title editing with auto-save |
+| T-CL-025 | `[x]` | Implement inline chapter title editing with auto-save |
+| T-CL-026 | `[x]` | Implement inline lesson title editing with auto-save |
 
 ### Phase 19D: 3-Dot Menu
 | Task # | Status | What needs to be done |
 |---|---|---|
-| T-CL-027 | `[ ]` | Build DropdownMenu component for sidebar |
-| T-CL-028 | `[ ]` | Implement chapter menu: Edit title, Delete with confirmation |
-| T-CL-029 | `[ ]` | Implement lesson menu: Edit title, Delete with confirmation, Toggle view |
+| T-CL-027 | `[x]` | Build DropdownMenu component for sidebar |
+| T-CL-028 | `[x]` | Implement chapter menu: Edit title, Delete with confirmation |
+| T-CL-029 | `[x]` | Implement lesson menu: Edit title, Delete with confirmation, Toggle view |
 
 ### Phase 19E: Thumbnails & Progress Ring
 | Task # | Status | What needs to be done |
 |---|---|---|
-| T-CL-030 | `[ ]` | Create helper function to extract YouTube thumbnail from videoUrl |
-| T-CL-031 | `[ ]` | Create helper function to extract Vimeo thumbnail from videoUrl |
-| T-CL-032 | `[ ]` | Build ProgressRing component (SVG circular progress) |
-| T-CL-033 | `[ ]` | Implement lesson thumbnail in sidebar (110x60px) |
-| T-CL-034 | `[ ]` | Add progress ring to chapter row |
+| T-CL-030 | `[x]` | Create helper function to extract YouTube thumbnail from videoUrl |
+| T-CL-031 | `[x]` | Create helper function to extract Vimeo thumbnail from videoUrl |
+| T-CL-032 | `[x]` | Build ProgressRing component (SVG circular progress) |
+| T-CL-033 | `[x]` | Implement lesson thumbnail in sidebar (110x60px) |
+| T-CL-034 | `[x]` | Add progress ring to chapter row |
 
 ### Phase 19F: Layout Updates
 | Task # | Status | What needs to be done |
 |---|---|---|
-| T-CL-035 | `[ ]` | Update sidebar header: Back + Progress bar + Expand/Collapse All |
-| T-CL-036 | `[ ]` | Update chapter row layout: drag + expand + title + ring + + + menu |
-| T-CL-037 | `[ ]` | Update lesson row layout: drag + thumbnail + title + check |
-| T-CL-038 | `[ ]` | Add Expand All / Collapse All functionality |
-| T-CL-039 | `[ ]` | Connect all mutations and queries |
+| T-CL-035 | `[x]` | Update sidebar header: Back + Progress bar + Expand/Collapse All |
+| T-CL-036 | `[x]` | Update chapter row layout: drag + expand + title + ring + + + menu |
+| T-CL-037 | `[x]` | Update lesson row layout: drag + thumbnail + title + check |
+| T-CL-038 | `[x]` | Add Expand All / Collapse All functionality |
+| T-CL-039 | `[x]` | Connect all mutations and queries |
 
 ---
 

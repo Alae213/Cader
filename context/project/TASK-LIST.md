@@ -303,36 +303,36 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T-CL-025 | `[ ]` | Implement inline chapter title editing with auto-save | [context/features/classrooms.md](../features/classrooms.md) | 1.5s debounce + Enter + blur |
-| T-CL-026 | `[ ]` | Implement inline lesson title editing with auto-save | [context/features/classrooms.md](../features/classrooms.md) | 1.5s debounce + Enter + blur |
+| T-CL-025 | `[x]` | Implement inline chapter title editing with auto-save | [context/features/classrooms.md](../features/classrooms.md) | 1.5s debounce + Enter + blur |
+| T-CL-026 | `[x]` | Implement inline lesson title editing with auto-save | [context/features/classrooms.md](../features/classrooms.md) | 1.5s debounce + Enter + blur |
 
 #### Phase 19D — 3-Dot Menu
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T-CL-027 | `[ ]` | Build DropdownMenu component for sidebar | [context/features/classrooms.md](../features/classrooms.md) | Use existing MenuItem |
-| T-CL-028 | `[ ]` | Implement chapter menu: Edit title, Delete with confirmation | [context/features/classrooms.md](../features/classrooms.md) | |
-| T-CL-029 | `[ ]` | Implement lesson menu: Edit title, Delete with confirmation, Toggle view | [context/features/classrooms.md](../features/classrooms.md) | |
+| T-CL-027 | `[x]` | Build DropdownMenu component for sidebar | [context/features/classrooms.md](../features/classrooms.md) | Use inline dropdown (like PostCard) |
+| T-CL-028 | `[x]` | Implement chapter menu: Edit title, Delete with confirmation | [context/features/classrooms.md](../features/classrooms.md) | |
+| T-CL-029 | `[x]` | Implement lesson menu: Edit title, Delete with confirmation, Toggle view | [context/features/classrooms.md](../features/classrooms.md) | |
 
 #### Phase 19E — Thumbnails & Progress Ring
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T-CL-030 | `[ ]` | Create helper function to extract YouTube thumbnail from videoUrl | [context/features/classrooms.md](../features/classrooms.md) | |
-| T-CL-031 | `[ ]` | Create helper function to extract Vimeo thumbnail from videoUrl | [context/features/classrooms.md](../features/classrooms.md) | |
-| T-CL-032 | `[ ]` | Build ProgressRing component (SVG circular progress) | [context/features/classrooms.md](../features/classrooms.md) | Same tokens as progress bar |
-| T-CL-033 | `[ ]` | Implement lesson thumbnail in sidebar (110x60px) | [context/features/classrooms.md](../features/classrooms.md) | Video thumbnail or placeholder |
-| T-CL-034 | `[ ]` | Add progress ring to chapter row | [context/features/classrooms.md](../features/classrooms.md) | X/Y lessons completed |
+| T-CL-030 | `[x]` | Create helper function to extract YouTube thumbnail from videoUrl | [context/features/classrooms.md](../features/classrooms.md) | |
+| T-CL-031 | `[x]` | Create helper function to extract Vimeo thumbnail from videoUrl | [context/features/classrooms.md](../features/classrooms.md) | |
+| T-CL-032 | `[x]` | Build ProgressRing component (SVG circular progress) | [context/features/classrooms.md](../features/classrooms.md) | Same tokens as progress bar |
+| T-CL-033 | `[x]` | Implement lesson thumbnail in sidebar (110x60px) | [context/features/classrooms.md](../features/classrooms.md) | Video thumbnail or placeholder - using 55x30 |
+| T-CL-034 | `[x]` | Add progress ring to chapter row | [context/features/classrooms.md](../features/classrooms.md) | X/Y lessons completed |
 
 #### Phase 19F — Layout Updates
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T-CL-035 | `[ ]` | Update sidebar header: Back + Progress bar + Expand/Collapse All | [context/features/classrooms.md](../features/classrooms.md) | Top row |
-| T-CL-036 | `[ ]` | Update chapter row layout: drag + expand + title + ring + + + menu | [context/features/classrooms.md](../features/classrooms.md) | |
-| T-CL-037 | `[ ]` | Update lesson row layout: drag + thumbnail + title + check | [context/features/classrooms.md](../features/classrooms.md) | |
-| T-CL-038 | `[ ]` | Add Expand All / Collapse All functionality | [context/features/classrooms.md](../features/classrooms.md) | |
-| T-CL-039 | `[ ]` | Connect all mutations and queries | [context/features/classrooms.md](../features/classrooms.md) | Final integration |
+| T-CL-035 | `[x]` | Update sidebar header: Back + Progress bar + Expand/Collapse All | [context/features/classrooms.md](../features/classrooms.md) | Top row |
+| T-CL-036 | `[x]` | Update chapter row layout: drag + expand + title + ring + + + menu | [context/features/classrooms.md](../features/classrooms.md) | |
+| T-CL-037 | `[x]` | Update lesson row layout: drag + thumbnail + title + check | [context/features/classrooms.md](../features/classrooms.md) | |
+| T-CL-038 | `[x]` | Add Expand All / Collapse All functionality | [context/features/classrooms.md](../features/classrooms.md) | |
+| T-CL-039 | `[x]` | Connect all mutations and queries | [context/features/classrooms.md](../features/classrooms.md) | Final integration |
 
 ---
 
