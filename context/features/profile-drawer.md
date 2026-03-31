@@ -39,7 +39,7 @@ someone else's profile; the user viewing their own profile can navigate to Setti
 - Avatar (large)
 - Full display name
 - Level badge (current level in the current community — or global? — open question)
-- Wilaya
+
 
 **Contribution Activity Map:**
 - A GitHub-style grid (weeks × days) showing activity over the past year "https://www.assistant-ui.com/heat-graph",
@@ -76,19 +76,19 @@ someone else's profile; the user viewing their own profile can navigate to Setti
 
 ## MVP vs Full Version
 
-| Aspect | MVP (v1) | Full Version |
-|---|---|---|
-| Activity map data | Post activity or basic engagement | Multi-signal (posts, comments, lessons, upvotes) |
-| Communities list | Names + thumbnails | Click to navigate to that community |
-| Direct message | Not in v1 | "Message" button on other users' profiles |
-| Badges / achievements | Not in v1 | Earned badges displayed on profile |
-| Profile visibility | Always visible to all community members | Privacy settings |
+| Aspect                | MVP (v1)                                         | Full Version                                     |
+| --------------------- | ------------------------------------------------ | ------------------------------------------------ |
+| Activity map data     | Multi-signal (posts, comments, lessons, upvotes) | Multi-signal (posts, comments, lessons, upvotes) |
+| Communities list      | Names + thumbnails                               | Click to navigate to that community              |
+| Direct message        | Not in v1                                        | "Message" button on other users' profiles        |
+| Badges / achievements | Not in v1                                        | Earned badges displayed on profile               |
+| Profile visibility    | Always visible to all community members          | Privacy settings                                 |
 
 ---
 
 ## Security Considerations
 
-- Profile modal only shows non-sensitive fields: name, level, Wilaya, community list, activity map
+- Profile modal only shows non-sensitive fields: name, level, community list, activity map
 - Email and phone number are never shown in the profile modal
 - "Communities I've joined" list is filtered to only show communities — never exposes private community membership to someone outside those communities (TBD: should this list be visible cross-community?)
 - All profile data is fetched with a valid Clerk JWT
@@ -97,13 +97,13 @@ someone else's profile; the user viewing their own profile can navigate to Setti
 
 ## Tasks
 
-| Task # | Status | What needs to be done |
-|---|---|---|
-| T— | `[ ]` | Build Profile modal layout (avatar, name, level, wilaya, activity map, communities) |
-| T— | `[ ]` | Build contribution activity map component (GitHub-style grid, hover tooltip) |
-| T— | `[ ]` | Convex query: `getUserProfile` — returns profile data + communities joined/created |
-| T— | `[ ]` | Convex query: `getUserActivity` — returns daily activity counts for the past year |
-| T— | `[ ]` | Wire "Edit profile" button to open Settings modal at Profile section (self only) |
+| Task # | Status | What needs to be done                                                              |
+| ------ | ------ | ---------------------------------------------------------------------------------- |
+| T—     | `[ ]`  | Build Profile modal layout (avatar, name, level,  activity map, communities)       |
+| T—     | `[ ]`  | Build contribution activity map component (GitHub-style grid, hover tooltip)       |
+| T—     | `[ ]`  | Convex query: `getUserProfile` — returns profile data + communities joined/created |
+| T—     | `[ ]`  | Convex query: `getUserActivity` — returns daily activity counts for the past year  |
+| T—     | `[ ]`  | Wire "Edit profile" button to open Settings modal at Profile section (self only)   |
 
 ---
 

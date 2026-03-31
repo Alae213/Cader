@@ -14,6 +14,7 @@ import { ClassroomsTab } from "@/components/Classrooms";
 import { LeaderboardTab } from "@/components/community/LeaderboardTab";
 import { AnalysisTab } from "@/components/community/AnalysisTab";
 import { ProfileModal } from "@/components/community/ProfileModal";
+import { ProfilePanel } from "@/components/community/ProfilePanel";
 import { SettingsModal } from "@/components/community/SettingsModal";
 import { ExploreModal } from "@/components/community/ExploreModal";
 
@@ -79,6 +80,7 @@ export function CommunityShell({
   
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showProfilePanel, setShowProfilePanel] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showExploreModal, setShowExploreModal] = useState(false);
   const [profileUserId, setProfileUserId] = useState<string>("");
@@ -93,10 +95,9 @@ export function CommunityShell({
     setActiveTab(newTab);
   };
 
-  // Handle profile click - show own profile
+  // Handle profile click - open profile panel (right slider)
   const handleProfileClick = () => {
-    // For now, show settings - could be expanded to show profile
-    setShowSettingsModal(true);
+    setShowProfilePanel(true);
   };
 
   // Handle settings click
@@ -225,6 +226,12 @@ export function CommunityShell({
           {children}
         </main>
       )}
+
+      {/* Profile Panel (right-side slide-out) */}
+      <ProfilePanel 
+        open={showProfilePanel}
+        onOpenChange={setShowProfilePanel}
+      />
 
       {/* Settings Modal */}
       <SettingsModal 

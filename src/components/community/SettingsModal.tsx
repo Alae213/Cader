@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import { useAuth, useUser } from "@clerk/nextjs";
+import { useAuth } from "@clerk/nextjs";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/Dialog";
 import { Heading, Text } from "@/components/ui/Text";
@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Avatar } from "@/components/shared/Avatar";
 import { 
-  User, Shield, CreditCard, AlertTriangle, LogOut, Trash2, 
+  Shield, CreditCard, AlertTriangle, LogOut, Trash2, 
   Loader2, Tags, GripVertical, Plus, X, Pencil
 } from "lucide-react";
 
@@ -19,15 +19,14 @@ interface SettingsModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   communitySlug?: string;
-  initialSection?: "profile" | "admins" | "billing" | "danger" | "account" | "categories";
+  initialSection?: "admins" | "billing" | "danger" | "account" | "categories";
 }
 
-type Section = "profile" | "admins" | "billing" | "danger" | "account" | "categories";
+type Section = "admins" | "billing" | "danger" | "account" | "categories";
 
-export function SettingsModal({ open, onOpenChange, communitySlug, initialSection = "profile" }: SettingsModalProps) {
+export function SettingsModal({ open, onOpenChange, communitySlug, initialSection = "admins" }: SettingsModalProps) {
   const [activeSection, setActiveSection] = useState<Section>(initialSection);
   const { userId: clerkId, signOut } = useAuth();
-  const { user } = useUser();
 
   // Fetch current user
   const currentUser = useQuery(api.functions.users.getUserByClerkId, clerkId ? { clerkId } : "skip");
@@ -45,7 +44,6 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
   );
 
   // Mutations
-  const updateProfile = useMutation(api.functions.users.updateUserProfile);
   const addAdmin = useMutation(api.functions.memberships.addAdmin);
   const removeAdmin = useMutation(api.functions.memberships.removeAdmin);
   const deleteCommunity = useMutation(api.functions.communities.deleteCommunity);
@@ -62,9 +60,6 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
   );
 
   // Local state for forms
-  const [displayName, setDisplayName] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
-  
   const [searchQuery, setSearchQuery] = useState("");
   const [adminToRemove, setAdminToRemove] = useState<string | null>(null);
   
@@ -80,30 +75,10 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
   const [editCategoryColor, setEditCategoryColor] = useState("");
 
   // Set initial values when user loads
-  useEffect(() => {
-    if (currentUser) {
-      setDisplayName(currentUser.displayName || "");
-    }
-  }, [currentUser]);
 
   // Check if user is owner/admin of current community
   const isOwner = community?.ownerId === currentUser?._id;
   const isAdmin = memberships?.some((m) => m && m.userId === currentUser?._id && m.role === "admin") ?? false;
-
-  const handleSaveProfile = async () => {
-    if (!currentUser?._id) return;
-    setIsSaving(true);
-    try {
-      await updateProfile({
-        userId: currentUser._id,
-        displayName,
-      });
-      toast.success("Profile updated successfully");
-    } catch (error) {
-      toast.error("Failed to update profile");
-    }
-    setIsSaving(false);
-  };
 
   const handleAddAdmin = async (membershipId: string) => {
     try {
@@ -195,31 +170,6 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
 
   const renderSection = () => {
     switch (activeSection) {
-      case "profile":
-        return (
-          <div className="space-y-4">
-            <div>
-              <Text size="sm" theme="secondary" className="mb-2">Display Name</Text>
-              <Input
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="Your display name"
-              />
-            </div>
-            <div>
-              <Text size="sm" theme="secondary" className="mb-2">Avatar</Text>
-              <div className="flex items-center gap-4">
-                <Avatar src={user?.imageUrl} name={displayName} size="lg" />
-                <Text size="sm" theme="muted">Avatar is managed by Clerk</Text>
-              </div>
-            </div>
-            <Button onClick={handleSaveProfile} disabled={isSaving} className="w-full">
-              {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Save Changes
-            </Button>
-          </div>
-        );
-
       case "admins":
         if (!isOwner && !isAdmin) {
           return (
@@ -590,7 +540,6 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
   };
 
   const sections: { id: Section; label: string; icon: React.ReactNode; requiresCommunity?: boolean }[] = [
-    { id: "profile", label: "Profile", icon: <User className="h-4 w-4" /> },
     { id: "admins", label: "Admins", icon: <Shield className="h-4 w-4" />, requiresCommunity: true },
     { id: "categories", label: "Categories", icon: <Tags className="h-4 w-4" />, requiresCommunity: true },
     { id: "billing", label: "Billing", icon: <CreditCard className="h-4 w-4" />, requiresCommunity: true },

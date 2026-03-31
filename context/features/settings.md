@@ -1,4 +1,4 @@
-# Feature: Settings
+# Feature: Settings & Profile
 
 > **Status:** `draft`
 > **Phase:** v1
@@ -8,11 +8,9 @@
 
 ## Summary
 
-The Settings modal is a member/owner overlay accessible from the top bar (Profile → Settings).
-It contains sections for personal profile, notification preferences, community admin management,
-platform billing, danger zone, and account actions. Settings are community-context-aware:
-the Admins, Billing, and Danger Zone sections are only visible to the owner/admin of the
-current community.
+**Profile** is a **right-side slide-out panel** (ProfilePanel) accessible from the top bar avatar dropdown (Profile menu item). It handles personal profile editing (display name, avatar).
+
+**Settings** is a **modal overlay** (SettingsModal) accessible from the top bar avatar dropdown (Settings menu item). It contains sections for community admin management, platform billing, danger zone, categories, and account actions. Settings are community-context-aware: the Admins, Billing, Danger Zone, and Categories sections are only visible to the owner/admin of the current community.
 
 ---
 

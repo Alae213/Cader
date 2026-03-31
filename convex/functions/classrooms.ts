@@ -1,6 +1,30 @@
 import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
 
+// Level thresholds - must match leaderboard.ts
+const LEVEL_THRESHOLDS = [0, 20, 60, 140, 280];
+
+function getLevelFromPoints(points: number): number {
+  for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) {
+    if (points >= LEVEL_THRESHOLDS[i]) {
+      return i + 1;
+    }
+  }
+  return 1;
+}
+
+// Derive user level from pointEvents for a given community
+async function getUserLevel(ctx: any, communityId: any, userId: any): Promise<number> {
+  const pointEvents = await ctx.db
+    .query("pointEvents")
+    .withIndex("by_user_id", (q: any) => q.eq("userId", userId))
+    .filter((q: any) => q.eq(q.field("communityId"), communityId))
+    .collect();
+
+  const totalPoints = pointEvents.reduce((sum: number, e: any) => sum + e.points, 0);
+  return Math.max(1, getLevelFromPoints(Math.max(0, totalPoints)));
+}
+
 // List classrooms for a community (with access status for current user)
 export const listClassrooms = query({
   args: {
@@ -56,9 +80,10 @@ export const listClassrooms = query({
         } else if (classroom.accessType === "open") {
           hasAccess = membership?.status === "active";
         } else if (classroom.accessType === "level") {
-          // For level-gated, need to check user's points/level
-          // For MVP, we'll simplify: if they're a member, they can access
-          hasAccess = membership?.status === "active";
+          // Check user's derived level against classroom minLevel
+          const userLevel = membership ? await getUserLevel(ctx, classroom.communityId, membership.userId) : 0;
+          const requiredLevel = classroom.minLevel ?? 1;
+          hasAccess = membership?.status === "active" && userLevel >= requiredLevel;
         } else if (classroom.accessType === "price") {
           const accessRecord = userAccessRecords.find(
             (a) => a.classroomId === classroom._id
@@ -245,7 +270,9 @@ export const getPageContent = query({
       } else if (classroom.accessType === "open") {
         hasAccess = membership?.status === "active";
       } else if (classroom.accessType === "level") {
-        hasAccess = membership?.status === "active";
+        const userLevel = await getUserLevel(ctx, classroom.communityId, args.userId!);
+        const requiredLevel = classroom.minLevel ?? 1;
+        hasAccess = membership?.status === "active" && userLevel >= requiredLevel;
       } else if (classroom.accessType === "price") {
         const accessRecord = await ctx.db
           .query("classroomAccess")

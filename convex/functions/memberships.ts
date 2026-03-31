@@ -63,6 +63,47 @@ export const getMembership = query({
   },
 });
 
+// Get current user's membership status for a community (uses Clerk auth)
+export const getMyMembership = query({
+  args: { 
+    communityId: v.id("communities"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return { isMember: false, isOwner: false, isAdmin: false, role: null as string | null, status: null as string | null };
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+    
+    if (!user) {
+      return { isMember: false, isOwner: false, isAdmin: false, role: null, status: null };
+    }
+
+    const membership = await ctx.db
+      .query("memberships")
+      .withIndex("by_community_and_user", (q) => 
+        q.eq("communityId", args.communityId).eq("userId", user._id)
+      )
+      .first();
+    
+    if (!membership) {
+      return { isMember: false, isOwner: false, isAdmin: false, role: null, status: null };
+    }
+
+    return {
+      isMember: membership.status === "active",
+      isOwner: membership.role === "owner",
+      isAdmin: membership.role === "admin" || membership.role === "owner",
+      role: membership.role,
+      status: membership.status,
+    };
+  },
+});
+
 // Get all memberships for a user
 export const getUserMemberships = query({
   args: { userId: v.id("users") },

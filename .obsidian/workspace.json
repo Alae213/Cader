@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "context/project/PRODUCTION-READY.md",
+                "file": "context/features/profile-drawer.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "PRODUCTION-READY"
+              "title": "profile-drawer"
             }
           }
         ]
@@ -186,13 +186,13 @@
   "active": "8404327ad9f85f27",
   "lastOpenFiles": [
     "context/project/ROADMAP.md",
+    "context/project/TASK-LIST.md",
     "context/project/PRODUCTION-READY.md",
     "convex/seed.ts",
     "src/components/ui/ErrorBoundary.tsx",
     "src/components/community/ExploreModal.tsx",
     "convex/functions/explore.ts",
     "context/project/OVERVIEW.md",
-    "context/project/TASK-LIST.md",
     "convex/functions/categories.ts"
   ]
 }

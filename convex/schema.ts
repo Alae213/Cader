@@ -10,8 +10,10 @@ export default defineSchema({
     avatarUrl: v.optional(v.string()),
     phone: v.optional(v.string()),
     wilaya: v.optional(v.string()), // Deprecated - kept for data migration
+    timezone: v.optional(v.string()), // IANA timezone for streak day boundaries (e.g. "Africa/Algiers")
     createdAt: v.number(),
     updatedAt: v.number(),
+    deletedAt: v.optional(v.number()),
   }).index("by_clerk_id", ["clerkId"])
     .index("by_email", ["email"]),
 
@@ -160,28 +162,51 @@ export default defineSchema({
   pointEvents: defineTable({
     communityId: v.id("communities"),
     userId: v.id("users"),
-    
+
+    // User who triggered the event (for interaction-driven events like upvotes)
+    actorUserId: v.optional(v.id("users")),
+
     eventType: v.union(
+      // Post events
+      v.literal("post_created_awarded"),
+      v.literal("post_created_reversed"),
+      // Comment events
+      v.literal("comment_created_awarded"),
+      v.literal("comment_created_reversed"),
+      // Upvote events
+      v.literal("post_upvote_received"),
+      v.literal("post_upvote_reversed"),
+      v.literal("comment_upvote_received"),
+      v.literal("comment_upvote_reversed"),
+      // Lesson events
+      v.literal("lesson_completed_awarded"),
+      // Streak events
+      v.literal("streak_day_awarded"),
+      v.literal("streak_bonus"),
+      v.literal("streak_reversal"),
+      // Legacy aliases (kept for backward compatibility with existing data)
       v.literal("post"),
       v.literal("comment"),
       v.literal("upvote_received"),
       v.literal("upvote_given"),
       v.literal("lesson_completed"),
-      v.literal("streak_bonus"),
-      v.literal("streak_reversal"),
       v.literal("upvote_reversal"),
       v.literal("post_deletion"),
       v.literal("comment_deletion")
     ),
-    
+
     points: v.number(),
-    sourceType: v.optional(v.union(v.literal("post"), v.literal("comment"))),
+    sourceType: v.optional(v.union(v.literal("post"), v.literal("comment"), v.literal("lesson"), v.literal("streak"))),
     sourceId: v.optional(v.string()), // Can be postId or commentId
-    
+
     createdAt: v.number(),
   }).index("by_community_id", ["communityId"])
     .index("by_user_id", ["userId"])
-    .index("by_created_at", ["createdAt"]),
+    .index("by_created_at", ["createdAt"])
+    // Composite indexes for efficient leaderboard and dedup queries
+    .index("by_community_and_user", ["communityId", "userId"])
+    .index("by_user_event_source", ["userId", "eventType", "sourceId"])
+    .index("by_user_community_created", ["userId", "communityId", "createdAt"]),
 
   // Classrooms - structured courses within a community
   classrooms: defineTable({
@@ -198,7 +223,8 @@ export default defineSchema({
     
     createdAt: v.number(),
     updatedAt: v.number(),
-  }).index("by_community_id", ["communityId"]),
+  }).index("by_community_id", ["communityId"])
+    .index("by_community_and_access", ["communityId", "accessType", "minLevel"]),
 
   // Chapters - folders within a classroom (formerly modules)
   // Note: Keeping 'modules' table name for backward compatibility with existing data

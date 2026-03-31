@@ -28,17 +28,11 @@ Tasks currently being worked on or up next.
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T-CMT-021 | `[x]` | Integrate inline comments into PostCard | [context/features/comments-inline.md](../features/comments-inline.md) | Done - click comment to expand |
-| T-CMT-010 | `[x]` | Build Comment component | [context/features/comments-inline.md](../features/comments-inline.md) | Done |
-| T-CMT-012 | `[x]` | Build CommentInput with @mentions | [context/features/comments-inline.md](../features/comments-inline.md) | Done |
-| T-CMT-004 | `[x]` | toggleCommentUpvote mutation | [context/features/comments-inline.md](../features/comments-inline.md) | Done - with gamification |
-| T-CMT-050 | `[x]` | Pinned posts blue border | [context/features/community-feed.md](../features/community-feed.md) | Done |
-| T-CMT-030 | `[x]` | LevelBadge component [Level X] | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | Done |
-| T-CMT-043 | `[x]` | Parse/render mentions in posts | [context/features/comments-inline.md](../features/comments-inline.md) | Done |
-| T-CMT-044 | `[x]` | Parse/render mentions in comments | [context/features/comments-inline.md](../features/comments-inline.md) | Done |
-| T-CL-FIX-001 | `[x]` | Fix chapter drag & drop | [context/features/classrooms.md](../features/classrooms.md) | Done |
-| T-CL-FIX-011 | `[x]` | Auto-create chapter with "Chapter X" | [context/features/classrooms.md](../features/classrooms.md) | Done |
-| T-CL-FIX-030 | `[x]` | Lesson auto-creation on "+" | [context/features/classrooms.md](../features/classrooms.md) | Done |
+| T-SET-001 | `[~]` | Add body scroll lock to ProfilePanel | [context/features/profile-drawer.md](../features/profile-drawer.md) | P-01: Prevent background scroll when panel is open |
+| T-SET-002 | `[ ]` | Add auth guard on ProfilePanel render | [context/features/profile-drawer.md](../features/profile-drawer.md) | P-02: Don't render for unauthenticated users |
+| T-SET-003 | `[ ]` | Fix updateUserProfile auth bypass | [context/features/settings.md](../features/settings.md) | S-04, B-01: CRITICAL - verify caller owns userId |
+| T-SET-004 | `[ ]` | Implement deleteAccount mutation | [context/features/settings.md](../features/settings.md) | S-01, B-02: GDPR compliance |
+| T-SET-005 | `[ ]` | Fix deleteCommunity cascade | [context/features/settings.md](../features/settings.md) | S-03, B-03: Clean up orphaned data |
 
 ---
 
@@ -207,8 +201,8 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T95 | `[x]` | Build profile modal — avatar (large), display name, level badge, contribution activity map (GitHub-style grid), communities joined/created | [context/features/profile-modal.md](../features/profile-modal.md) | `[Activity: open app + posts + comments + upvotes + lessons]` |
-| T96 | `[x]` | Build `getUserProfile` and `getUserActivity` Convex queries — profile data + communities + daily activity past year | [context/features/profile-modal.md](../features/profile-modal.md) | |
+| T95 | `[x]` | Build profile modal — avatar (large), display name, level badge, contribution activity map (GitHub-style grid), communities joined/created | [context/features/profile-modal.md](profile-drawer.md) | `[Activity: open app + posts + comments + upvotes + lessons]` |
+| T96 | `[x]` | Build `getUserProfile` and `getUserActivity` Convex queries — profile data + communities + daily activity past year | [context/features/profile-modal.md](profile-drawer.md) | |
 | T97 | `[x]` | Build settings modal — Profile section: display name, avatar upload, bio (160 chars), save | [context/features/settings.md](../features/settings.md) | |
 | T98 | `[x]` | Build settings modal — Admins section: list current admins, add/remove member as admin, EC-8 last-admin guard | [context/features/settings.md](../features/settings.md) | |
 | T99 | `[x]` | Build settings modal — Billing section: platform subscription status, member count, subscribe/cancel CTA | [context/features/settings.md](../features/settings.md) | |
@@ -331,67 +325,125 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 
 #### Phase 20A — Analysis & Preparation
 
-| # | Status | Task | Feature | Notes |
-|---|--------|------|---------|-------|
-| T-CL-REF-001 | `[ ]` | Analyze ClassroomViewer.tsx (1562 lines) — identify logical sections for extraction | [context/features/classrooms.md](../features/classrooms.md) | Sidebar, LessonContent, VideoModal, VideoEmbed, etc. |
-| T-CL-REF-002 | `[ ]` | Analyze ClassroomsTab.tsx (601 lines) — identify logical sections for extraction | [context/features/classrooms.md](../features/classrooms.md) | ClassroomCard, ClassroomForm, grid, modal |
-| T-CL-REF-003 | `[ ]` | Create `src/components/Classrooms/` folder structure | [context/features/classrooms.md](../features/classrooms.md) | New directory for all classroom components |
+| #            | Status | Task                                                                                | Feature                                                     | Notes                                                |
+| ------------ | ------ | ----------------------------------------------------------------------------------- | ----------------------------------------------------------- | ---------------------------------------------------- |
+| T-CL-REF-001 | `[x]`  | Analyze ClassroomViewer.tsx (1562 lines) — identify logical sections for extraction | [context/features/classrooms.md](../features/classrooms.md) | Sidebar, LessonContent, VideoModal, VideoEmbed, etc. |
+| T-CL-REF-002 | `[x]`  | Analyze ClassroomsTab.tsx (601 lines) — identify logical sections for extraction    | [context/features/classrooms.md](../features/classrooms.md) | ClassroomCard, ClassroomForm, grid, modal            |
+| T-CL-REF-003 | `[x]`  | Create `src/components/Classrooms/` folder structure                                | [context/features/classrooms.md](../features/classrooms.md) | New directory for all classroom components           |
 
 #### Phase 20B — Extract ClassroomViewer Sub-Components
 
-| # | Status | Task | Feature | Notes |
-|---|--------|------|---------|-------|
-| T-CL-REF-004 | `[ ]` | Extract ClassroomSidebar.tsx — chapter/lesson tree with drag-drop, expand/collapse | [context/features/classrooms.md](../features/classrooms.md) | From ClassroomViewer |
-| T-CL-REF-005 | `[ ]` | Extract LessonContent.tsx — right panel with header, content blocks | [context/features/classrooms.md](../features/classrooms.md) | From ClassroomViewer |
-| T-CL-REF-006 | `[ ]` | Extract VideoModal.tsx — modal for adding/editing video URL | [context/features/classrooms.md](../features/classrooms.md) | From ClassroomViewer |
-| T-CL-REF-007 | `[ ]` | Extract VideoEmbed.tsx — video player component | [context/features/classrooms.md](../features/classrooms.md) | From ClassroomViewer |
-| T-CL-REF-008 | `[ ]` | Extract LessonDescription.tsx — inline-editable description | [context/features/classrooms.md](../features/classrooms.md) | From ClassroomViewer |
-| T-CL-REF-009 | `[ ]` | Extract ModuleItem.tsx — individual chapter component with progress ring | [context/features/classrooms.md](../features/classrooms.md) | From ClassroomViewer |
-| T-CL-REF-010 | `[ ]` | Move ClassroomViewer.tsx to new folder and reduce to ~600 lines | [context/features/classrooms.md](../features/classrooms.md) | Keep main viewer logic |
+| #            | Status | Task                                                                               | Feature                                                     | Notes                  |
+| ------------ | ------ | ---------------------------------------------------------------------------------- | ----------------------------------------------------------- | ---------------------- |
+| T-CL-REF-004 | `[x]`  | Extract ClassroomSidebar.tsx — chapter/lesson tree with drag-drop, expand/collapse | [context/features/classrooms.md](../features/classrooms.md) | From ClassroomViewer   |
+| T-CL-REF-005 | `[x]`  | Extract LessonContent.tsx — right panel with header, content blocks                | [context/features/classrooms.md](../features/classrooms.md) | From ClassroomViewer   |
+| T-CL-REF-006 | `[x]`  | Extract VideoModal.tsx — modal for adding/editing video URL                        | [context/features/classrooms.md](../features/classrooms.md) | From ClassroomViewer   |
+| T-CL-REF-007 | `[x]`  | Extract VideoEmbed.tsx — video player component                                    | [context/features/classrooms.md](../features/classrooms.md) | From ClassroomViewer   |
+| T-CL-REF-008 | `[x]`  | Extract LessonDescription.tsx — inline-editable description                        | [context/features/classrooms.md](../features/classrooms.md) | From ClassroomViewer   |
+| T-CL-REF-009 | `[x]`  | Extract ModuleItem.tsx — individual chapter component with progress ring           | [context/features/classrooms.md](../features/classrooms.md) | From ClassroomViewer   |
+| T-CL-REF-010 | `[x]`  | Move ClassroomViewer.tsx to new folder and reduce to ~600 lines                    | [context/features/classrooms.md](../features/classrooms.md) | Keep main viewer logic |
 
 #### Phase 20C — Extract ClassroomsTab Sub-Components
 
-| # | Status | Task | Feature | Notes |
-|---|--------|------|---------|-------|
-| T-CL-REF-011 | `[ ]` | Extract ClassroomCard.tsx — card for classroom grid with thumbnail + progress | [context/features/classrooms.md](../features/classrooms.md) | From ClassroomsTab |
-| T-CL-REF-012 | `[ ]` | Extract ClassroomForm.tsx — create/edit classroom form | [context/features/classrooms.md](../features/classrooms.md) | From ClassroomsTab |
-| T-CL-REF-013 | `[ ]` | Move ClassroomsTab.tsx to new folder and reduce to ~300 lines | [context/features/classrooms.md](../features/classrooms.md) | Keep grid + modal orchestration |
+| #            | Status | Task                                                                          | Feature                                                     | Notes                           |
+| ------------ | ------ | ----------------------------------------------------------------------------- | ----------------------------------------------------------- | ------------------------------- |
+| T-CL-REF-011 | `[x]`  | Extract ClassroomCard.tsx — card for classroom grid with thumbnail + progress | [context/features/classrooms.md](../features/classrooms.md) | From ClassroomsTab              |
+| T-CL-REF-012 | `[x]`  | Extract ClassroomForm.tsx — create/edit classroom form                        | [context/features/classrooms.md](../features/classrooms.md) | From ClassroomsTab              |
+| T-CL-REF-013 | `[x]`  | Move ClassroomsTab.tsx to new folder and reduce to ~300 lines                 | [context/features/classrooms.md](../features/classrooms.md) | Keep grid + modal orchestration |
 
 #### Phase 20D — Create Barrel Exports
 
-| # | Status | Task | Feature | Notes |
-|---|--------|------|---------|-------|
-| T-CL-REF-014 | `[ ]` | Create `src/components/Classrooms/index.ts` barrel export | [context/features/classrooms.md](../features/classrooms.md) | Export all classroom components |
+| #            | Status | Task                                                      | Feature                                                     | Notes                           |
+| ------------ | ------ | --------------------------------------------------------- | ----------------------------------------------------------- | ------------------------------- |
+| T-CL-REF-014 | `[x]`  | Create `src/components/Classrooms/index.ts` barrel export | [context/features/classrooms.md](../features/classrooms.md) | Export all classroom components |
 
 #### Phase 20E — Update Imports & Integration
 
-| # | Status | Task | Feature | Notes |
-|---|--------|------|---------|-------|
-| T-CL-REF-015 | `[ ]` | Update imports in CommunityShell.tsx — point to new folder | [context/features/classrooms.md](../features/classrooms.md) | Change from community/ to Classrooms/ |
-| T-CL-REF-016 | `[ ]` | Verify ClassroomViewer still works — test chapter selection, progress, video | [context/features/classrooms.md](../features/classrooms.md) | Manual browser test |
-| T-CL-REF-017 | `[ ]` | Verify ClassroomsTab still works — test grid, create, edit | [context/features/classrooms.md](../features/classrooms.md) | Manual browser test |
+| #            | Status | Task                                                                         | Feature                                                     | Notes                                 |
+| ------------ | ------ | ---------------------------------------------------------------------------- | ----------------------------------------------------------- | ------------------------------------- |
+| T-CL-REF-015 | `[x]`  | Update imports in CommunityShell.tsx — point to new folder                   | [context/features/classrooms.md](../features/classrooms.md) | Change from community/ to Classrooms/ |
+| T-CL-REF-016 | `[x]`  | Verify ClassroomViewer still works — test chapter selection, progress, video | [context/features/classrooms.md](../features/classrooms.md) | Manual browser test                   |
+| T-CL-REF-017 | `[x]`  | Verify ClassroomsTab still works — test grid, create, edit                   | [context/features/classrooms.md](../features/classrooms.md) | Manual browser test                   |
 
 #### Phase 20F — ESLint Fixes
 
-| # | Status | Task | Feature | Notes |
-|---|--------|------|---------|-------|
-| T-CL-REF-018 | `[ ]` | Fix React refs accessed during render in menu-item.tsx | [context/features/classrooms.md](../features/classrooms.md) | Critical error |
-| T-CL-REF-019 | `[ ]` | Clean up unused imports in convex/functions/feed.ts | [context/features/classrooms.md](../features/classrooms.md) | limit, mentionMatches |
-| T-CL-REF-020 | `[ ]` | Clean up unused imports in convex/functions/leaderboard.ts | [context/features/classrooms.md](../features/classrooms.md) | limit, yesterdayDay |
-| T-CL-REF-021 | `[ ]` | Clean up unused imports in src/app/[communitySlug]/page.tsx | [context/features/classrooms.md](../features/classrooms.md) | SignInButton, SignUpButton |
-| T-CL-REF-022 | `[ ]` | Clean up unused imports in src/app/api/webhooks/clerk/route.ts | [context/features/classrooms.md](../features/classrooms.md) | verifySignature |
-| T-CL-REF-023 | `[ ]` | Clean up unused imports in src/app/explore/page.tsx | [context/features/classrooms.md](../features/classrooms.md) | Button |
-| T-CL-REF-024 | `[ ]` | Clean up unused imports in src/components/community/AboutTab.tsx | [context/features/classrooms.md](../features/classrooms.md) | Badge |
-| T-CL-REF-025 | `[ ]` | Clean up unused imports in src/components/community/AnalysisTab.tsx | [context/features/classrooms.md](../features/classrooms.md) | communityId |
-| T-CL-REF-026 | `[ ]` | Clean up unused imports in src/components/community/ClassroomViewer.tsx | [context/features/classrooms.md](../features/classrooms.md) | isSaving, isCreatingModule, isCreatingPage, error |
-| T-CL-REF-027 | `[ ]` | Replace `<img>` with Next.js `<Image />` in AboutTab.tsx | [context/features/classrooms.md](../features/classrooms.md) | Performance optimization |
-| T-CL-REF-028 | `[ ]` | Run build to verify no errors | [context/features/classrooms.md](../features/classrooms.md) | npm run build |
-| T-CL-REF-029 | `[ ]` | Run ESLint to verify no errors | [context/features/classrooms.md](../features/classrooms.md) | npm run lint |
-| T-CL-REF-030 | `[ ]` | Final verification — all classroom features work in browser | [context/features/classrooms.md](../features/classrooms.md) | UAT |
+| #            | Status | Task                                                                    | Feature                                                     | Notes                                             |
+| ------------ | ------ | ----------------------------------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------- |
+| T-CL-REF-018 | `[x]`  | Fix React refs accessed during render in menu-item.tsx                  | [context/features/classrooms.md](../features/classrooms.md) | Critical error                                    |
+| T-CL-REF-019 | `[x]`  | Clean up unused imports in convex/functions/feed.ts                     | [context/features/classrooms.md](../features/classrooms.md) | limit, mentionMatches                             |
+| T-CL-REF-020 | `[x]`  | Clean up unused imports in convex/functions/leaderboard.ts              | [context/features/classrooms.md](../features/classrooms.md) | limit, yesterdayDay                               |
+| T-CL-REF-021 | `[x]`  | Clean up unused imports in src/app/[communitySlug]/page.tsx             | [context/features/classrooms.md](../features/classrooms.md) | SignInButton, SignUpButton                        |
+| T-CL-REF-022 | `[x]`  | Clean up unused imports in src/app/api/webhooks/clerk/route.ts          | [context/features/classrooms.md](../features/classrooms.md) | verifySignature                                   |
+| T-CL-REF-023 | `[x]`  | Clean up unused imports in src/app/explore/page.tsx                     | [context/features/classrooms.md](../features/classrooms.md) | Button                                            |
+| T-CL-REF-024 | `[x]`  | Clean up unused imports in src/components/community/AboutTab.tsx        | [context/features/classrooms.md](../features/classrooms.md) | Badge                                             |
+| T-CL-REF-025 | `[x]`  | Clean up unused imports in src/components/community/AnalysisTab.tsx     | [context/features/classrooms.md](../features/classrooms.md) | communityId                                       |
+| T-CL-REF-026 | `[x]`  | Clean up unused imports in src/components/community/ClassroomViewer.tsx | [context/features/classrooms.md](../features/classrooms.md) | isSaving, isCreatingModule, isCreatingPage, error |
+| T-CL-REF-027 | `[x]`  | Replace `<img>` with Next.js `<Image />` in AboutTab.tsx                | [context/features/classrooms.md](../features/classrooms.md) | Performance optimization                          |
+| T-CL-REF-028 | `[x]`  | Run build to verify no errors                                           | [context/features/classrooms.md](../features/classrooms.md) | npm run build                                     |
+| T-CL-REF-029 | `[x]`  | Run ESLint to verify no errors                                          | [context/features/classrooms.md](../features/classrooms.md) | npm run lint                                      |
+| T-CL-REF-030 | `[x]`  | Final verification — all classroom features work in browser             | [context/features/classrooms.md](../features/classrooms.md) | UAT                                               |
 
 ---
 
-## Phase 21 — Inline Comments Redesign (Whop-Inspired)
+## Phase 23 — Settings & Profile Fixes (T-SET-001 to T-SET-XXX)
+
+### Critical Fixes
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-SET-001 | `[ ]` | Add body scroll lock to ProfilePanel (P-01) | [context/features/profile-drawer.md](../features/profile-drawer.md) | Prevent background scroll when panel is open |
+| T-SET-002 | `[ ]` | Add auth guard on ProfilePanel render (P-02) | [context/features/profile-drawer.md](../features/profile-drawer.md) | Don't render for unauthenticated users |
+| T-SET-003 | `[ ]` | Fix updateUserProfile auth bypass - add ownership check (S-04, B-01) | [context/features/settings.md](../features/settings.md) | CRITICAL: verify caller owns the userId |
+| T-SET-004 | `[ ]` | Implement deleteAccount mutation or remove dead button (S-01, B-02) | [context/features/settings.md](../features/settings.md) | GDPR compliance - posts anonymized, remove memberships |
+| T-SET-005 | `[ ]` | Fix deleteCommunity cascade - clean up orphaned data (S-03, B-03) | [context/features/settings.md](../features/settings.md) | Delete posts, comments, categories, classrooms, etc. |
+
+### High-Priority Fixes
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-SET-006 | `[ ]` | Add displayName validation - min 1, max 100 chars (P-03, P-04) | [context/features/profile-drawer.md](../features/profile-drawer.md) | Frontend + backend validation |
+| T-SET-007 | `[ ]` | Add EC-8 last-admin guard to UI - disable button + tooltip (S-05) | [context/features/settings.md](../features/settings.md) | Disable Remove button for last admin |
+| T-SET-008 | `[ ]` | Add category delete confirmation dialog (S-09) | [context/features/settings.md](../features/settings.md) | Immediate delete needs confirmation |
+| T-SET-009 | `[ ]` | Fix SettingsModal default section for non-admin users (S-10) | [context/features/settings.md](../features/settings.md) | Default to "Account" section |
+| T-SET-010 | `[ ]` | Add addAdmin status check - verify target is active member (B-04) | [context/features/settings.md](../features/settings.md) | Don't promote blocked/inactive members |
+| T-SET-011 | `[ ]` | Fix listMembers N+1 queries - use batch queries (B-06) | [context/features/settings.md](../features/settings.md) | Optimize member list fetching |
+| T-SET-012 | `[ ]` | Prevent panel stacking - close ProfilePanel when Settings opens (D-01) | [context/features/profile-drawer.md](../features/profile-drawer.md) | Both panels can be open simultaneously |
+
+### Medium-Priority Fixes
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-SET-013 | `[ ]` | Reset deleteConfirm after delete attempt (S-07) | [context/features/settings.md](../features/settings.md) | Clear form on success/failure |
+| T-SET-014 | `[ ]` | Clean up dead imports in SettingsModal (S-12, S-13) | [context/features/settings.md](../features/settings.md) | useEffect, GripVertical unused |
+| T-SET-015 | `[ ]` | Add accessibility labels to category color picker (S-16) | [context/features/settings.md](../features/settings.md) | aria-label on color buttons |
+| T-SET-016 | `[ ]` | Clean up dead state in CommunityShell (D-04, D-05, S-19, S-20) | [context/features/settings.md](../features/settings.md) | Remove showProfileModal, profileUserId, ProfileModal import |
+
+### Low-Priority Fixes
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-SET-017 | `[ ]` | Add unsaved changes warning to ProfilePanel (P-09) | [context/features/profile-drawer.md](../features/profile-drawer.md) | Prompt before closing with changes |
+| T-SET-018 | `[ ]` | Add loading skeleton to ProfilePanel (P-06) | [context/features/profile-drawer.md](../features/profile-drawer.md) | Show skeleton while user data loads |
+| T-SET-019 | `[ ]` | Handle mobile safe-area insets in ProfilePanel (P-12) | [context/features/profile-drawer.md](../features/profile-drawer.md) | iOS home indicator overlap |
+| T-SET-020 | `[ ]` | Add focus trap to ProfilePanel (P-13) | [context/features/profile-drawer.md](../features/profile-drawer.md) | Tab key shouldn't escape panel |
+
+---
+
+## Phase 24 — Settings & Profile New Features (T-SET-NEW-001 to T-SET-NEW-XXX)
+
+### New Features from Spec
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-SET-NEW-001 | `[x]` | Build ProfilePanel right-side slide-out (already done) | [context/features/profile-drawer.md](../features/profile-drawer.md) | Done - ProfilePanel.tsx created |
+| T-SET-NEW-002 | `[ ]` | Add Notifications section to SettingsModal | [context/features/settings.md](../features/settings.md) | Email/in-app toggles, per-event toggles |
+| T-SET-NEW-003 | `[ ]` | Add Bio field to ProfilePanel (spec says 160 chars) | [context/features/profile-drawer.md](../features/profile-drawer.md) | Update updateUserProfile mutation |
+| T-SET-NEW-004 | `[ ]` | Add Wilaya dropdown to ProfilePanel (58 options) | [context/features/profile-drawer.md](../features/profile-drawer.md) | Restore wilaya field from deprecated |
+| T-SET-NEW-005 | `[ ]` | Wire Billing Subscribe/Cancel buttons to Chargily | [context/features/settings.md](../features/settings.md) | Currently non-functional CTAs |
+| T-SET-NEW-006 | `[ ]` | Add "hold button 5 seconds" to Danger Zone delete | [context/features/settings.md](../features/settings.md) | Spec calls for hold-to-confirm |
+| T-SET-NEW-007 | `[ ]` | Show next billing date in Billing section | [context/features/settings.md](../features/settings.md) | Not currently displayed |
+
+### Phase 21 — Inline Comments Redesign (Whop-Inspired)
 
 ### Phase 21A — Convex Backend
 
@@ -452,11 +504,11 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 
 ### Error Handling
 
-| # | Status | Task | Feature | Notes |
-|---|--------|------|---------|-------|
-| T-CL-FIX-120 | `[x]` | Add error UI for classroomContent query — show error state instead of nothing when query fails | [context/features/classrooms.md](../features/classrooms.md) | Lines 98-103: useQuery can return errors |
-| T-CL-FIX-121 | `[ ]` | Add error UI for pageContent query — pass real error to LessonContent instead of null | [context/features/classrooms.md](../features/classrooms.md) | Lines 105-112: useQuery error handling |
-| T-CL-FIX-122 | `[ ]` | Add error boundary — wrap ClassroomViewer to catch render errors with user-friendly message | [context/features/classrooms.md](../features/classrooms.md) | No error boundary currently |
+| #            | Status | Task                                                                                           | Feature                                                     | Notes                                    |
+| ------------ | ------ | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------- | ---------------------------------------- |
+| T-CL-FIX-120 | `[x]`  | Add error UI for classroomContent query — show error state instead of nothing when query fails | [context/features/classrooms.md](../features/classrooms.md) | Lines 98-103: useQuery can return errors |
+| T-CL-FIX-121 | `[x]`  | Add error UI for pageContent query — pass real error to LessonContent instead of null          | [context/features/classrooms.md](../features/classrooms.md) | Lines 105-112: useQuery error handling   |
+| T-CL-FIX-122 | `[x]`  | Add error boundary — wrap ClassroomViewer to catch render errors with user-friendly message    | [context/features/classrooms.md](../features/classrooms.md) | No error boundary currently              |
 
 ### Input Validation
 
@@ -487,12 +539,12 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 
 ### UX Improvements
 
-| # | Status | Task | Feature | Notes |
-|---|--------|------|---------|-------|
-| T-CL-FIX-160 | `[x]` | Add loading state to delete buttons — disable during mutation to prevent double-clicks | [context/features/classrooms.md](../features/classrooms.md) | Lines 553-558, 573-576: no loading state |
-| T-CL-FIX-161 | `[ ]` | Add loading skeleton for pageContent — show skeleton while page is fetching | [context/features/classrooms.md](../features/classrooms.md) | No loading skeleton in main content |
-| T-CL-FIX-162 | `[ ]` | Add visual feedback on mobile page selection — focus indicator after sidebar selection | [context/features/classrooms.md](../features/classrooms.md) | Line 471-474: focus moves but no feedback |
-| T-CL-FIX-163 | `[ ]` | Add loading state to save button — show spinner while saving lesson content | [context/features/classrooms.md](../features/classrooms.md) | isSaving exists but button state not updated |
+| #            | Status | Task                                                                                   | Feature                                                     | Notes                                        |
+| ------------ | ------ | -------------------------------------------------------------------------------------- | ----------------------------------------------------------- | -------------------------------------------- |
+| T-CL-FIX-160 | `[x]`  | Add loading state to delete buttons — disable during mutation to prevent double-clicks | [context/features/classrooms.md](../features/classrooms.md) | Lines 553-558, 573-576: no loading state     |
+| T-CL-FIX-161 | `[x]`  | Add loading skeleton for pageContent — show skeleton while page is fetching            | [context/features/classrooms.md](../features/classrooms.md) | No loading skeleton in main content          |
+| T-CL-FIX-162 | `[x]`  | Add visual feedback on mobile page selection — focus indicator after sidebar selection | [context/features/classrooms.md](../features/classrooms.md) | Line 471-474: focus moves but no feedback    |
+| T-CL-FIX-163 | `[x]`  | Add loading state to save button — show spinner while saving lesson content            | [context/features/classrooms.md](../features/classrooms.md) | isSaving exists but button state not updated |
 
 ### Accessibility Fixes
 
@@ -512,10 +564,10 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 
 ### Data Consistency
 
-| # | Status | Task | Feature | Notes |
-|---|--------|------|---------|-------|
-| T-CL-FIX-190 | `[ ]] | Fix optimistic completion sync — ensure completion status stays in sync between optimistic and real data | [context/features/classrooms.md](../features/classrooms.md) | Line 428-433: isPageCompleted logic |
-| T-CL-FIX-191 | `[ ]] | Fix optimistic chapters sync — handle case where API returns different order than expected | [context/features/classrooms.md](../features/classrooms.md) | Line 136-141: clear optimistic on change |
+| #            | Status | Task                                                                                                     | Feature                                                     | Notes                                    |
+| ------------ | ------ | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- | ---------------------------------------- |
+| T-CL-FIX-190 | `[]    | Fix optimistic completion sync — ensure completion status stays in sync between optimistic and real data | [context/features/classrooms.md](../features/classrooms.md) | Line 428-433: isPageCompleted logic      |
+| T-CL-FIX-191 | `[ ]]  | Fix optimistic chapters sync — handle case where API returns different order than expected               | [context/features/classrooms.md](../features/classrooms.md) | Line 136-141: clear optimistic on change |
 
 ### Props & Interface Issues
 
@@ -677,71 +729,71 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T-LB-001 | `[ ]` | Add `actorUserId` field to `pointEvents` schema — track who triggered interaction events for audit & anti-abuse | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | schema.ts:160-184 missing this field entirely |
-| T-LB-002 | `[ ]` | Block post self-upvote scoring in `toggleUpvote` — add `post.authorId !== user._id` check before awarding +1 | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | feed.ts:467-475 awards points with no self-check |
-| T-LB-003 | `[ ]` | Block owner/admin upvote scoring — check voter role in `toggleUpvote` and `toggleCommentUpvote`, award 0 points if voter is owner/admin | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | feed.ts:467-475, 576-584 never check voter role |
-| T-LB-004 | `[ ]` | Add reversal event on post deletion — append `-2` point event when post is deleted, also reverse accumulated upvote points | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | feed.ts:778-843 deletes post but creates no reversal |
-| T-LB-005 | `[ ]` | Add reversal event on comment deletion — append `-1` point event when comment is deleted | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | feed.ts:846-901 deletes comment but creates no reversal |
+| T-LB-001 | `[x]` | Add `actorUserId` field to `pointEvents` schema — track who triggered interaction events for audit & anti-abuse | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | schema.ts:160-184 missing this field entirely |
+| T-LB-002 | `[x]` | Block post self-upvote scoring in `toggleUpvote` — add `post.authorId !== user._id` check before awarding +1 | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | feed.ts:467-475 awards points with no self-check |
+| T-LB-003 | `[x]` | Block owner/admin upvote scoring — check voter role in `toggleUpvote` and `toggleCommentUpvote`, award 0 points if voter is owner/admin | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | feed.ts:467-475, 576-584 never check voter role |
+| T-LB-004 | `[x]` | Add reversal event on post deletion — append `-2` point event when post is deleted, also reverse accumulated upvote points | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | feed.ts:778-843 deletes post but creates no reversal |
+| T-LB-005 | `[x]` | Add reversal event on comment deletion — append `-1` point event when comment is deleted | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | feed.ts:846-901 deletes comment but creates no reversal |
 
 ### Phase 24B — Critical Logic Fixes (Batch 2)
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T-LB-006 | `[ ]` | Fix lesson completion to be per-lesson-ever — deduplicate by `(userId, pageId)` not `(userId, classroomId, day)` | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | leaderboard.ts:378-394 checks per day & classroom |
-| T-LB-007 | `[ ]` | Enforce level-based classroom access — check `user.level >= classroom.minLevel` in `getClassroom`, `getClassroomContent`, `getPageContent` | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | classrooms.ts:58-61, 247-248 only checks active status |
-| T-LB-008 | `[ ]` | Create app-open streak mutation — trigger on first app open per day, award +1/+2/+3 by streak day | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | No mutation exists. awardStreakBonus uses any activity |
-| T-LB-009 | `[ ]` | Clamp all point totals to minimum 0 — wrap `Math.max(0, sum)` in getLeaderboard, getUserPoints, and all derivations | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | leaderboard.ts:76, 147 can produce negative totals |
-| T-LB-010 | `[ ]` | Exclude owner/admin from leaderboard ranking — filter out `role === "owner" || role === "admin"` before sorting | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | leaderboard.ts:73-76 includes them with 0 points |
+| T-LB-006 | `[x]` | Fix lesson completion to be per-lesson-ever — deduplicate by `(userId, pageId)` not `(userId, classroomId, day)` | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | leaderboard.ts:378-394 checks per day & classroom |
+| T-LB-007 | `[x]` | Enforce level-based classroom access — check `user.level >= classroom.minLevel` in `getClassroom`, `getClassroomContent`, `getPageContent` | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | classrooms.ts:58-61, 247-248 only checks active status |
+| T-LB-008 | `[x]` | Create app-open streak mutation — trigger on first app open per day, award +1/+2/+3 by streak day | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | No mutation exists. awardStreakBonus uses any activity |
+| T-LB-009 | `[x]` | Clamp all point totals to minimum 0 — wrap `Math.max(0, sum)` in getLeaderboard, getUserPoints, and all derivations | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | leaderboard.ts:76, 147 can produce negative totals |
+| T-LB-010 | `[x]` | Exclude owner/admin from leaderboard ranking — filter out `role === "owner" || role === "admin"` before sorting | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | leaderboard.ts:73-76 includes them with 0 points |
 
 ### Phase 24C — Leaderboard Quality (Batch 3)
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T-LB-011 | `[ ]` | Implement tiebreaker in leaderboard sort — most recent point earned first, then alphabetical by display name | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | leaderboard.ts:92 sorts only by points |
-| T-LB-012 | `[ ]` | Add viewer's pinned row — always show current user's row below Top N list if not already visible | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | LeaderboardTab.tsx missing pinned row logic |
-| T-LB-013 | `[ ]` | Fix `getLeaderboard` to use `limit` parameter — truncate results after sorting instead of returning all members | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | leaderboard.ts:34 limit is a no-op |
-| T-LB-014 | `[ ]` | Align event type names with spec — rename to `post_created_awarded`, `post_created_reversed`, `comment_created_awarded`, `post_upvote_received`, `post_upvote_reversed`, etc. | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | schema.ts:164-175 uses short names, can't distinguish post vs comment upvotes |
-| T-LB-015 | `[ ]` | Fix lesson dedup to use `pageId` as sourceId — pass actual lesson/page ID not classroomId | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | leaderboard.ts:389 uses classroomId, 401-407 doesn't set sourceId |
+| T-LB-011 | `[x]` | Implement tiebreaker in leaderboard sort — most recent point earned first, then alphabetical by display name | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | leaderboard.ts:92 sorts only by points |
+| T-LB-012 | `[x]` | Add viewer's pinned row — always show current user's row below Top N list if not already visible | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | LeaderboardTab.tsx missing pinned row logic |
+| T-LB-013 | `[x]` | Fix `getLeaderboard` to use `limit` parameter — truncate results after sorting instead of returning all members | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | leaderboard.ts:34 limit is a no-op |
+| T-LB-014 | `[x]` | Align event type names with spec — rename to `post_created_awarded`, `post_created_reversed`, `comment_created_awarded`, `post_upvote_received`, `post_upvote_reversed`, etc. | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | schema.ts:164-175 uses short names, can't distinguish post vs comment upvotes |
+| T-LB-015 | `[x]` | Fix lesson dedup to use `pageId` as sourceId — pass actual lesson/page ID not classroomId | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | leaderboard.ts:389 uses classroomId, 401-407 doesn't set sourceId |
 
 ### Phase 24D — Timing & Delays (Batch 4)
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T-LB-016 | `[ ]` | Implement 10-minute visibility delay for post point awards — schedule award or check visibility before awarding +2 | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | leaderboard.ts:247-255 awards instantly |
-| T-LB-017 | `[ ]` | Implement 2-minute visibility delay for comment point awards — same pattern as post delay | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | leaderboard.ts:303 awards instantly after length check |
-| T-LB-018 | `[ ]` | Fix streak bonus values — Days 1-3: +1, Days 4-6: +2, Day 7+: +3 (not Day 1: +1, Day 2: +2, Day 3+: +3) | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | leaderboard.ts:468 formula is wrong |
-| T-LB-019 | `[ ]` | Fix streak to track app opens not any activity — create separate `recordAppOpen` mutation for streak tracking | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | leaderboard.ts:161-173 counts any point event |
-| T-LB-020 | `[ ]` | Add timezone handling for streak day boundaries — use member's saved timezone, fallback to UTC | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | No timezone field on user/membership schema |
+| T-LB-016 | `[x]` | Implement 10-minute visibility delay for post point awards — schedule award or check visibility before awarding +2 | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | leaderboard.ts:247-255 awards instantly |
+| T-LB-017 | `[x]` | Implement 2-minute visibility delay for comment point awards — same pattern as post delay | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | leaderboard.ts:303 awards instantly after length check |
+| T-LB-018 | `[x]` | Fix streak bonus values — Days 1-3: +1, Days 4-6: +2, Day 7+: +3 (not Day 1: +1, Day 2: +2, Day 3+: +3) | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | leaderboard.ts:468 formula is wrong |
+| T-LB-019 | `[x]` | Fix streak to track app opens not any activity — create separate `recordAppOpen` mutation for streak tracking | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | leaderboard.ts:161-173 counts any point event |
+| T-LB-020 | `[x]` | Add timezone handling for streak day boundaries — use member's saved timezone, fallback to UTC | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | No timezone field on user/membership schema |
 
 ### Phase 24E — Schema & Performance (Batch 5)
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T-LB-021 | `[ ]` | Add composite indexes on `pointEvents` — `(communityId, userId)`, `(userId, eventType, sourceId)`, `(userId, communityId, createdAt)` | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | schema.ts:182-184 only has single-field indexes |
-| T-LB-022 | `[ ]` | Expand `sourceType` enum to include `"lesson"` and `"streak"` — allow filtering non-post/comment events | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | schema.ts:178 only allows "post" or "comment" |
-| T-LB-023 | `[ ]` | Optimize `getLeaderboard` — use Convex aggregation or incremental counters instead of O(N) in-memory queries | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | leaderboard.ts:45-87 loads all members + events |
-| T-LB-024 | `[ ]` | Create scheduler configuration for streak bonus — set up cron job or scheduled Convex function | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | Mutation exists but no scheduler configured |
-| T-LB-025 | `[ ]` | Add reversal events for upvote points on bulk post delete — when post deleted, also reverse all accumulated upvote points | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | feed.ts:819-826 deletes upvotes but no reversal events |
+| T-LB-021 | `[x]` | Add composite indexes on `pointEvents` — `(communityId, userId)`, `(userId, eventType, sourceId)`, `(userId, communityId, createdAt)` | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | schema.ts:182-184 only has single-field indexes |
+| T-LB-022 | `[x]` | Expand `sourceType` enum to include `"lesson"` and `"streak"` — allow filtering non-post/comment events | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | schema.ts:178 only allows "post" or "comment" |
+| T-LB-023 | `[x]` | Optimize `getLeaderboard` — use Convex aggregation or incremental counters instead of O(N) in-memory queries | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | leaderboard.ts:45-87 loads all members + events |
+| T-LB-024 | `[x]` | Create scheduler configuration for streak bonus — set up cron job or scheduled Convex function | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | Mutation exists but no scheduler configured |
+| T-LB-025 | `[x]` | Add reversal events for upvote points on bulk post delete — when post deleted, also reverse all accumulated upvote points | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | feed.ts:819-826 deletes upvotes but no reversal events |
 
 ### Phase 24F — UI Polish (Batch 6)
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T-LB-026 | `[ ]` | Standardize level badge to `[Level X]` format on leaderboard — replace `<Badge>L{level}</Badge>` with `<LevelBadge>` component | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | LeaderboardTab.tsx:141-143 uses generic Badge |
-| T-LB-027 | `[ ]` | Add required UX copy — "Level is based on all-time points" and "Leaderboard rank changes based on selected time filter" | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | LeaderboardTab.tsx missing both strings |
-| T-LB-028 | `[ ]` | Fix progress panel — horizontal stepped progress bar, "Max level reached" state at Level 5, "X points to Level Y" label | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | LeaderboardTab.tsx:198-261 uses circular badge + linear bar |
-| T-LB-029 | `[ ]` | Create MembersTab component with level badges on member rows | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | Component doesn't exist yet |
-| T-LB-030 | `[ ]` | Create ProfileCard/Modal component with level badge | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | Component doesn't exist yet |
+| T-LB-026 | `[x]` | Standardize level badge to `[Level X]` format on leaderboard — replace `<Badge>L{level}</Badge>` with `<LevelBadge>` component | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | LeaderboardTab.tsx:141-143 uses generic Badge |
+| T-LB-027 | `[x]` | Add required UX copy — "Level is based on all-time points" and "Leaderboard rank changes based on selected time filter" | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | LeaderboardTab.tsx missing both strings |
+| T-LB-028 | `[x]` | Fix progress panel — horizontal stepped progress bar, "Max level reached" state at Level 5, "X points to Level Y" label | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | LeaderboardTab.tsx:198-261 uses circular badge + linear bar |
+| T-LB-029 | `[>]` | Create MembersTab component with level badges | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | Component doesn't exist yet — deferred to separate feature |
+| T-LB-030 | `[>]` | Create ProfileCard/Modal component with level badge | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | Component doesn't exist yet — deferred to separate feature |
 
 ### Phase 24G — Cleanup (Batch 7)
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T-LB-031 | `[ ]` | Remove unused `upvote_given` event type from schema | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | schema.ts:168 not in spec |
-| T-LB-032 | `[ ]` | Fix `commentId` parameter type in `awardCommentPoints` — change from `v.string()` to `v.id("comments")` | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | leaderboard.ts:265 type mismatch |
-| T-LB-033 | `[ ]` | Fix `classroomId` parameter type in `awardLessonPoints` — change from `v.string()` to proper lesson/page ID type | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | leaderboard.ts:343 type mismatch |
-| T-LB-034 | `[ ]` | Add index on `classrooms.minLevel` for level-based filtering | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | schema.ts:201 no index |
-| T-LB-035 | `[ ]` | Handle banned/soft-deleted users exclusion from leaderboard — filter out users with deleted/banned status | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | getLeaderboard only checks membership status |
+| T-LB-031 | `[>]` | Remove unused `upvote_given` event type from schema | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | schema.ts:168 not in spec — deferred to avoid migration risk |
+| T-LB-032 | `[x]` | Fix `commentId` parameter type in `awardCommentPoints` — change from `v.string()` to `v.id("comments")` | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | leaderboard.ts:265 type mismatch |
+| T-LB-033 | `[x]` | Fix `classroomId` parameter type in `awardLessonPoints` — change from `v.string()` to proper lesson/page ID type | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | leaderboard.ts:343 type mismatch |
+| T-LB-034 | `[x]` | Add index on `classrooms.minLevel` for level-based filtering | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | schema.ts:201 no index |
+| T-LB-035 | `[x]` | Handle banned/soft-deleted users exclusion from leaderboard — filter out users with deleted/banned status | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | getLeaderboard only checks membership status |
 
 ---
 

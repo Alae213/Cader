@@ -10,6 +10,7 @@ import { Avatar } from "@/components/shared/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { LevelBadge } from "@/components/Feed/LevelBadge";
 
 interface LeaderboardTabProps {
   communityId: string;
@@ -28,24 +29,24 @@ export function LeaderboardTab({ communityId }: LeaderboardTabProps) {
     { communityId: communityId as Id<"communities"> }
   );
 
-  // Get leaderboard
-  const leaderboard = useQuery(
+  // Get current user's database ID for pinned row
+  const currentUserId = currentUserPoints?.userId;
+
+  // Get leaderboard — now returns { top, pinned }
+  const leaderboardData = useQuery(
     api.functions.leaderboard.getLeaderboard,
     {
       communityId: communityId as Id<"communities">,
       timeFilter,
       limit: showMore ? 20 : 10,
+      viewerUserId: currentUserId,
     }
   );
 
-  // Determine user's rank if they're on the leaderboard
-  const userRank = leaderboard?.find(
-    (entry) => entry.userId === currentUserPoints?.userId
-  )?.rank;
+  const displayLeaderboard = leaderboardData?.top || [];
+  const pinnedRow = leaderboardData?.pinned || null;
 
-  const displayLeaderboard = leaderboard?.slice(0, showMore ? 20 : 10) || [];
-
-  if (!leaderboard || !currentUserPoints) {
+  if (!leaderboardData || !currentUserPoints) {
     return (
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
@@ -138,9 +139,7 @@ export function LeaderboardTab({ communityId }: LeaderboardTabProps) {
                     <Text size="2" className="font-medium text-text-primary truncate">
                       {entry.displayName}
                     </Text>
-                    <Badge variant="secondary" className="text-[10px]">
-                      L{entry.level}
-                    </Badge>
+                    <LevelBadge level={entry.level} size="sm" />
                     {entry.role === "owner" && (
                       <Badge variant="accent" className="text-[10px]">
                         Owner
@@ -168,14 +167,52 @@ export function LeaderboardTab({ communityId }: LeaderboardTabProps) {
           </div>
 
           {/* Show more button */}
-          {leaderboard.length > 10 && (
+          {(displayLeaderboard.length >= 10 || pinnedRow) && (
             <Button
               variant="ghost"
               className="w-full"
               onClick={() => setShowMore(!showMore)}
             >
-              {showMore ? "Show less" : `Show more (${leaderboard.length - 10} more)`}
+              {showMore ? "Show less" : "Show more"}
             </Button>
+          )}
+
+          {/* Pinned row — viewer's own row if not in top N */}
+          {pinnedRow && (
+            <div className="mt-4 pt-4 border-t border-border">
+              <Text size="1" theme="muted" className="mb-2 block text-center">
+                Your position
+              </Text>
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-accent/10 border border-accent/30">
+                <div className="w-8 text-center">
+                  <Text size="3" theme="muted" className="font-bold">
+                    #{pinnedRow.rank}
+                  </Text>
+                </div>
+                <Avatar
+                  src={pinnedRow.avatarUrl}
+                  name={pinnedRow.displayName}
+                  fallback={pinnedRow.displayName.substring(0, 2).toUpperCase()}
+                  className="w-10 h-10"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <Text size="2" className="font-medium text-text-primary truncate">
+                      {pinnedRow.displayName}
+                    </Text>
+                    <LevelBadge level={pinnedRow.level} size="sm" />
+                  </div>
+                </div>
+                <div className="text-right">
+                  <Text size="3" className="font-bold text-accent">
+                    {pinnedRow.totalPoints}
+                  </Text>
+                  <Text size="1" theme="muted">
+                    pts
+                  </Text>
+                </div>
+              </div>
+            </div>
           )}
         </div>
 
@@ -196,20 +233,7 @@ export function LeaderboardTab({ communityId }: LeaderboardTabProps) {
               <div className="space-y-4">
                 {/* Level badge */}
                 <div className="flex items-center justify-center">
-                  <div className="relative">
-                    <div className="w-20 h-20 rounded-full bg-accent flex items-center justify-center">
-                      <span className="text-3xl font-bold text-white">
-                        L{currentUserPoints.level}
-                      </span>
-                    </div>
-                    {currentUserPoints.level < 5 && (
-                      <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-bg-surface rounded-full flex items-center justify-center border-2 border-accent">
-                        <Text size="1" className="font-bold text-accent">
-                          🔥
-                        </Text>
-                      </div>
-                    )}
-                  </div>
+                  <LevelBadge level={currentUserPoints.level} size="md" />
                 </div>
 
                 {/* Points */}
@@ -222,52 +246,81 @@ export function LeaderboardTab({ communityId }: LeaderboardTabProps) {
                   </Text>
                 </div>
 
-                {/* Streak */}
-                <div className="flex items-center justify-center gap-2">
-                  <span className="text-xl">🔥</span>
-                  <Text size="2" className="font-medium">
-                    {currentUserPoints.streak} day streak
+                {/* Stepped progress bar across 5 levels */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((lvl) => {
+                      const isCompleted = currentUserPoints.level > lvl;
+                      const isCurrent = currentUserPoints.level === lvl;
+                      return (
+                        <div key={lvl} className="flex-1 flex flex-col items-center gap-1">
+                          <div className="w-full h-2 rounded-full overflow-hidden bg-bg-elevated">
+                            <div
+                              className={`h-full rounded-full transition-all ${
+                                isCompleted
+                                  ? "bg-accent"
+                                  : isCurrent
+                                  ? "bg-accent"
+                                  : "bg-bg-elevated"
+                              }`}
+                              style={{
+                                width: isCompleted
+                                  ? "100%"
+                                  : isCurrent
+                                  ? `${Math.min(
+                                      100,
+                                      (currentUserPoints.totalPoints /
+                                        (currentUserPoints.nextLevelPoints || 1)) *
+                                        100
+                                    )}%`
+                                  : "0%",
+                              }}
+                            />
+                          </div>
+                          <Text
+                            size="1"
+                            className={`font-medium ${
+                              isCompleted || isCurrent
+                                ? "text-accent"
+                                : "text-text-muted"
+                            }`}
+                          >
+                            {lvl}
+                          </Text>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {currentUserPoints.level < 5 ? (
+                    <Text size="1" theme="muted" className="text-center">
+                      {currentUserPoints.pointsToNextLevel} points to Level{" "}
+                      {currentUserPoints.level + 1}
+                    </Text>
+                  ) : (
+                    <Text size="1" className="text-center text-accent font-medium">
+                      Max level reached
+                    </Text>
+                  )}
+                </div>
+
+                {/* Required UX copy */}
+                <div className="pt-3 border-t border-border space-y-1">
+                  <Text size="1" theme="muted">
+                    Level is based on all-time points.
+                  </Text>
+                  <Text size="1" theme="muted">
+                    Leaderboard rank changes based on the selected time filter.
                   </Text>
                 </div>
 
-                {/* Next level progress */}
-                {currentUserPoints.nextLevelPoints && (
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <Text size="1" theme="muted">
-                        Next level
-                      </Text>
-                      <Text size="1" className="font-medium">
-                        {currentUserPoints.nextLevelPoints} pts
-                      </Text>
-                    </div>
-                    <div className="h-2 bg-bg-elevated rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-accent rounded-full transition-all"
-                        style={{
-                          width: `${Math.min(
-                            100,
-                            (currentUserPoints.totalPoints /
-                              currentUserPoints.nextLevelPoints) *
-                              100
-                          )}%`,
-                        }}
-                      />
-                    </div>
-                    <Text size="1" theme="muted" className="text-center">
-                      {currentUserPoints.pointsToNextLevel} points to next level
-                    </Text>
-                  </div>
-                )}
-
                 {/* Current rank */}
-                {userRank && (
-                  <div className="pt-4 border-t border-border">
+                {(pinnedRow?.rank || displayLeaderboard.find(e => e.userId === currentUserId)?.rank) && (
+                  <div className="pt-3 border-t border-border">
                     <Text size="2" theme="muted" className="text-center">
                       Your rank
                     </Text>
                     <Text size="4" className="font-bold text-center text-accent">
-                      #{userRank}
+                      #{pinnedRow?.rank || displayLeaderboard.find(e => e.userId === currentUserId)?.rank}
                     </Text>
                   </div>
                 )}

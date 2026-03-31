@@ -36,7 +36,7 @@ The minimum set of features for a creator to launch a paid community and a stude
 
 **Modals**
 - [ ] Onboarding modal (name + phone + Chargily checkout for paid, webhook-gated)
-- [ ] Profile modal (avatar, activity map, communities)
+- [ ] Profile Drawer (avatar, activity map, communities)
 - [ ] Settings modal (profile, notifications, admins, billing, danger zone, account)
 - [ ] Create new community modal (reused from landing)
 - [ ] Explore modal (community directory)

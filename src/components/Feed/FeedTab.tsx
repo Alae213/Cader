@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useAuth, useUser } from "@clerk/nextjs";
@@ -15,8 +15,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody } from "@/
 import { PostCard } from "./PostCard";
 import { QuickInfoCard } from "@/components/community/QuickInfoCard";
 import { 
-  Users, 
-  Zap, 
   ArrowUpDown, 
   Clock, 
   Heart, 
@@ -29,10 +27,10 @@ import {
   Plus,
   ImagePlus,
   ChevronDown,
-  Share2,
   Copy,
   Check
 } from "lucide-react";
+import { Id } from "../../../convex/_generated/dataModel";
 
 interface FeedTabProps {
   communityId: string;
@@ -67,23 +65,6 @@ export interface Post {
   createdAt: number;
 }
 
-// Community type for QuickInfoCard
-interface CommunityData {
-  _id: string;
-  name: string;
-  slug: string;
-  tagline?: string;
-  description?: string;
-  logoUrl?: string;
-  links?: string[];
-  pricingType: string;
-  priceDzd?: number;
-  memberCount: number;
-  onlineCount?: number;
-  ownerName?: string;
-  ownerAvatar?: string | null;
-}
-
 // Category type
 interface Category {
   _id: string;
@@ -113,9 +94,11 @@ function InviteFriendModal({
   communitySlug: string;
 }) {
   const [copied, setCopied] = useState(false);
-  const inviteLink = typeof window !== 'undefined' 
-    ? `${window.location.origin}/${communitySlug}` 
-    : `/${communitySlug}`;
+  // Fix #12: Use env var for base URL, fallback to window.location.origin
+  const baseUrl = typeof window !== 'undefined'
+    ? (process.env.NEXT_PUBLIC_APP_URL || window.location.origin)
+    : (process.env.NEXT_PUBLIC_APP_URL || '');
+  const inviteLink = baseUrl ? `${baseUrl}/${communitySlug}` : `/${communitySlug}`;
 
   const handleCopy = async () => {
     try {
@@ -168,32 +151,46 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
   const { userId } = useAuth();
   const { user } = useUser();
   
+  // Cast string IDs to Convex Id types
+  const communityIdTyped = communityId as Id<"communities">;
+
   // State
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [selectedSort, setSelectedSort] = useState<SortOption>("newest");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
+  const sortDropdownRef = useRef<HTMLDivElement>(null);
   
-  // Inline composer state
-  const [showComposer, setShowComposer] = useState(false);
+  // Pagination state
+  const [cursor, setCursor] = useState<number | undefined>(undefined);
+  const [allPosts, setAllPosts] = useState<Post[]>([]);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  
+  // Inline composer state — setShowComposer is used to track expanded state
+  const setShowComposer = useState(false)[1];
   const [composerExpanded, setComposerExpanded] = useState(false);
   const composerRef = useRef<HTMLDivElement>(null);
   
   // Composer form state
   const [postType, setPostType] = useState<"text" | "image" | "video" | "gif" | "poll">("text");
   const [content, setContent] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  // Fix #10: Renamed for clarity — this is the category assigned to the post being composed
+  // (separate from selectedCategoryId which is the feed filter)
+  const [composerCategoryId, setComposerCategoryId] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   
   // Additional fields for different post types
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [isUploadingImages, setIsUploadingImages] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 }); // Fix #15
   const [videoUrl, setVideoUrl] = useState("");
   const [gifUrl, setGifUrl] = useState("");
   
   // Poll fields
   const [pollQuestion, setPollQuestion] = useState("");
   const [pollOptions, setPollOptions] = useState(["", ""]);
+  const [pollEndDate, setPollEndDate] = useState(""); // ISO datetime-local string
 
   // Invite modal state
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -201,85 +198,212 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
   // File input ref for image upload
   const imageInputRef = useRef<HTMLInputElement>(null);
 
+  // Refs for click-outside handler (Fix #3: avoid stale closures)
+  const composerExpandedRef = useRef(composerExpanded);
+  const contentRef = useRef(content);
+  const imageUrlsRef = useRef(imageUrls);
+  const videoUrlRef = useRef(videoUrl);
+  const gifUrlRef = useRef(gifUrl);
+  const pollQuestionRef = useRef(pollQuestion);
+  const pollOptionsRef = useRef(pollOptions);
+  const pollEndDateRef = useRef(pollEndDate);
+
+  // Keep refs in sync
+  useEffect(() => { composerExpandedRef.current = composerExpanded; }, [composerExpanded]);
+  useEffect(() => { contentRef.current = content; }, [content]);
+  useEffect(() => { imageUrlsRef.current = imageUrls; }, [imageUrls]);
+  useEffect(() => { videoUrlRef.current = videoUrl; }, [videoUrl]);
+  useEffect(() => { gifUrlRef.current = gifUrl; }, [gifUrl]);
+  useEffect(() => { pollQuestionRef.current = pollQuestion; }, [pollQuestion]);
+  useEffect(() => { pollOptionsRef.current = pollOptions; }, [pollOptions]);
+  useEffect(() => { pollEndDateRef.current = pollEndDate; }, [pollEndDate]);
+
   // Mutations
   const createPost = useMutation(api.functions.feed.createPost);
   
-  // Fetch posts with sorting
-  const posts = useQuery(
+  // Fetch posts with pagination (Fix #1)
+  const postsResult = useQuery(
     api.functions.feed.listPosts, 
     { 
-      communityId: communityId as any,
-      categoryId: selectedCategoryId ? selectedCategoryId as any : undefined,
-      sortBy: selectedSort
+      communityId: communityIdTyped,
+      categoryId: selectedCategoryId ? selectedCategoryId as Id<"categories"> : undefined,
+      sortBy: selectedSort,
+      limit: 20,
+      cursor: cursor,
     }
-  ) || [];
-  
+  );
+
+  // Accumulate posts across pages
+  useEffect(() => {
+    if (postsResult) {
+      if (cursor === undefined) {
+        // First page — replace all
+        setAllPosts(postsResult.page as Post[]);
+      } else {
+        // Subsequent page — append
+        setAllPosts(prev => [...prev, ...(postsResult.page as Post[])]);
+      }
+      setHasMore(!postsResult.isDone);
+      setIsLoadingMore(false);
+    }
+  }, [postsResult, cursor]);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCursor(undefined);
+    setAllPosts([]);
+    setHasMore(true);
+  }, [selectedCategoryId, selectedSort]);
+
+  // Load more handler
+  const loadMore = useCallback(() => {
+    if (hasMore && !isLoadingMore && postsResult && !postsResult.isDone) {
+      setIsLoadingMore(true);
+      setCursor(postsResult.continueCursor);
+    }
+  }, [hasMore, isLoadingMore, postsResult]);
+
   // Fetch categories
   const categories = useQuery(
     api.functions.categories.listCategories,
-    { communityId: communityId as any }
+    { communityId: communityIdTyped }
   ) || [];
 
   // Fetch community data for QuickInfoCard
   const communityData = useQuery(
     api.functions.communities.getById,
-    { communityId: communityId as any }
+    { communityId: communityIdTyped }
   );
 
   // Fetch community stats for streak
   const communityStats = useQuery(
     api.functions.communities.getCommunityStats, 
-    { communityId: communityId as any }
+    { communityId: communityIdTyped }
   );
 
-  // Check if user is member/owner (simplified)
+  // Fix #5: Real membership check (not just "is authenticated")
+  const membership = useQuery(
+    api.functions.memberships.getMyMembership,
+    { communityId: communityIdTyped }
+  );
+
+  // Derive roles from actual membership data
   const isOwner = useMemo(() => {
-    return communityData?.ownerId === userId;
-  }, [communityData?.ownerId, userId]);
+    return membership?.isOwner ?? false;
+  }, [membership?.isOwner]);
 
   const isAdmin = useMemo(() => {
-    return isOwner;
-  }, [isOwner]);
+    return membership?.isAdmin ?? false;
+  }, [membership?.isAdmin]);
 
   const isMember = useMemo(() => {
-    return !!userId;
-  }, [userId]);
+    return membership?.isMember ?? false;
+  }, [membership?.isMember]);
 
-  // Handle click outside composer
+  // Handle click outside composer (Fix #3: use refs to avoid stale closures)
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (composerRef.current && !composerRef.current.contains(event.target as Node)) {
-        // Check all post types before closing
-        const hasContent = content.trim() || 
-          imageUrls.length > 0 || 
-          videoUrl.trim() || 
-          gifUrl.trim() || 
-          pollQuestion.trim() || 
-          pollOptions.some(o => o.trim());
+        // Check all post types before closing using refs (stable references)
+        const hasContent = contentRef.current.trim() || 
+          imageUrlsRef.current.length > 0 || 
+          videoUrlRef.current.trim() || 
+          gifUrlRef.current.trim() || 
+          pollQuestionRef.current.trim() || 
+          pollOptionsRef.current.some(o => o.trim());
         
-        if (composerExpanded && !hasContent) {
+        if (composerExpandedRef.current && !hasContent) {
           setComposerExpanded(false);
           setShowComposer(false);
         }
+      }
+
+      // Fix #4: Close sort dropdown when clicking outside
+      if (sortDropdownRef.current && !sortDropdownRef.current.contains(event.target as Node)) {
+        setShowSortDropdown(false);
       }
     }
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [composerExpanded, content, imageUrls, videoUrl, gifUrl, pollQuestion, pollOptions]);
+  }, [composerExpanded]); // Only re-register when composerExpanded changes, not on every keystroke
 
   // Reset composer when closing
   const resetComposer = () => {
     setContent("");
-    setSelectedCategory("");
+    setComposerCategoryId("");
     setImageUrls([]);
     setVideoUrl("");
     setGifUrl("");
     setPollQuestion("");
     setPollOptions(["", ""]);
+    setPollEndDate("");
+    setUploadProgress({ current: 0, total: 0 });
     setPostType("text");
     setError("");
+    // Fix #11: Clear draft from localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(`feed-draft-${communityId}`);
+    }
   };
+
+  // Fix #11: Draft persistence — save to localStorage on every change
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!composerExpanded) return; // Only persist when composer is open
+
+    const draft = {
+      postType,
+      content,
+      composerCategoryId,
+      imageUrls,
+      videoUrl,
+      gifUrl,
+      pollQuestion,
+      pollOptions,
+      pollEndDate,
+      savedAt: Date.now(),
+    };
+
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem(`feed-draft-${communityId}`, JSON.stringify(draft));
+      } catch {
+        // localStorage may be full or unavailable — silently fail
+      }
+    }, 300); // Debounce writes
+
+    return () => clearTimeout(timer);
+  }, [postType, content, composerCategoryId, imageUrls, videoUrl, gifUrl, pollQuestion, pollOptions, pollEndDate, composerExpanded, communityId]);
+
+  // Fix #11: Restore draft from localStorage on mount
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const saved = localStorage.getItem(`feed-draft-${communityId}`);
+      if (!saved) return;
+
+      const draft = JSON.parse(saved);
+      // Only restore drafts less than 24 hours old
+      if (Date.now() - draft.savedAt > 24 * 60 * 60 * 1000) {
+        localStorage.removeItem(`feed-draft-${communityId}`);
+        return;
+      }
+
+      // Restore draft state
+      if (draft.postType) setPostType(draft.postType);
+      if (draft.content) setContent(draft.content);
+      if (draft.composerCategoryId) setComposerCategoryId(draft.composerCategoryId);
+      if (draft.imageUrls?.length) setImageUrls(draft.imageUrls);
+      if (draft.videoUrl) setVideoUrl(draft.videoUrl);
+      if (draft.gifUrl) setGifUrl(draft.gifUrl);
+      if (draft.pollQuestion) setPollQuestion(draft.pollQuestion);
+      if (draft.pollOptions?.length >= 2) setPollOptions(draft.pollOptions);
+      if (draft.pollEndDate) setPollEndDate(draft.pollEndDate);
+    } catch {
+      // Corrupted draft — ignore
+    }
+  }, [communityId]);
 
   // Compress image and convert to base64
   const compressImage = (file: File, maxWidth: number = 1200, quality: number = 0.7): Promise<string> => {
@@ -328,41 +452,52 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
 
     setError("");
     setIsUploadingImages(true);
+    setUploadProgress({ current: 0, total: files.length }); // Fix #15
 
     try {
       // Process each file
+      let index = 0;
       for (const file of Array.from(files)) {
         // Validate file type
         if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.type)) {
           setError("Invalid format. Use JPG, PNG, WebP, or GIF.");
+          index++;
+          setUploadProgress(prev => ({ ...prev, current: index }));
           continue;
         }
 
         // Validate file size (max 10MB original)
         if (file.size > 10 * 1024 * 1024) {
           setError("File too large. Maximum size is 10MB.");
+          index++;
+          setUploadProgress(prev => ({ ...prev, current: index }));
           continue;
         }
 
-        try {
-          // Compress image before storing (target ~500KB for safety under 1MB Convex limit)
-          const compressed = await compressImage(file, 1200, 0.6);
-          
-          // Check compressed size (base64 is ~33% larger than original)
-          const base64Size = Math.round((compressed.length * 3) / 4);
-          if (base64Size > 900 * 1024) {
-            // Try with more compression
-            const moreCompressed = await compressImage(file, 800, 0.4);
-            setImageUrls(prev => [...prev, moreCompressed]);
-          } else {
-            setImageUrls(prev => [...prev, compressed]);
+          try {
+            // Compress image before storing (target ~500KB for safety under 1MB Convex limit)
+            const compressed = await compressImage(file, 1200, 0.6);
+            
+            // Fix #2: Check the base64 string length directly (not decoded size)
+            // Convex's 1MB limit applies to the stored string, and base64 is ~33% larger than binary
+            // Target: compressed base64 string < 700KB to leave headroom for other post data
+            const base64StringSize = compressed.length; // Each char = 1 byte in JS string
+            if (base64StringSize > 700 * 1024) {
+              // Try with more compression
+              const moreCompressed = await compressImage(file, 800, 0.4);
+              setImageUrls(prev => [...prev, moreCompressed]);
+            } else {
+              setImageUrls(prev => [...prev, compressed]);
+            }
+          } catch {
+            setError("Failed to process image");
           }
-        } catch {
-          setError("Failed to process image");
-        }
+          index++;
+          setUploadProgress(prev => ({ ...prev, current: index }));
       }
     } finally {
       setIsUploadingImages(false);
+      setUploadProgress({ current: 0, total: 0 }); // Fix #15: reset progress
     }
 
     // Reset input
@@ -378,23 +513,32 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
 
   // Validate video URL format
   const isValidVideoUrl = (url: string): boolean => {
-    if (!url) return true; // Empty is allowed
+    if (!url) return true; // Empty is allowed (optional)
     const youtubeMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
     const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
     const driveMatch = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
     return !!(youtubeMatch || vimeoMatch || driveMatch);
   };
 
-  // Validate GIF URL format (basic)
+  // Validate GIF URL format (Fix #9: check for .gif extension or known GIF hosts)
   const isValidGifUrl = (url: string): boolean => {
     if (!url) return false;
-    // Basic URL format check
-    return url.startsWith("http://") || url.startsWith("https://");
+    try {
+      new URL(url); // Must be a valid URL
+    } catch {
+      return false;
+    }
+    // Check for .gif extension (case-insensitive, ignoring query params)
+    const urlWithoutQuery = url.split('?')[0].toLowerCase();
+    if (urlWithoutQuery.endsWith('.gif')) return true;
+    // Known GIF hosts that may serve GIFs without .gif extension
+    const gifHosts = ['giphy.com', 'tenor.com', 'gfycat.com', 'imgur.com'];
+    return gifHosts.some(host => url.includes(host));
   };
 
   // Handle composer submit
   const handleComposerSubmit = async () => {
-    if (!userId) return;
+    if (!userId || !isMember) return;
 
     // Validate based on post type
     if (postType === "text" && !content.trim()) {
@@ -439,17 +583,63 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
         setError("Please add at least 2 options");
         return;
       }
+      // Fix #7: Check for duplicate poll options
+      const uniqueOptions = new Set(validOptions.map(o => o.trim().toLowerCase()));
+      if (uniqueOptions.size < validOptions.length) {
+        setError("Poll options must be unique");
+        return;
+      }
+      // Fix #6: Validate poll end date is in the future
+      if (pollEndDate) {
+        const endDate = new Date(pollEndDate);
+        if (endDate.getTime() <= Date.now()) {
+          setError("Poll end date must be in the future");
+          return;
+        }
+      }
     }
 
     setIsLoading(true);
     setError("");
 
+    // Fix #8: Build optimistic post for instant UI feedback
+    const optimisticId = `optimistic-${Date.now()}`;
+    const optimisticPost: Post = {
+      _id: optimisticId,
+      communityId,
+      authorId: userId!,
+      author: {
+        _id: userId!,
+        displayName: user?.fullName || user?.username || "You",
+        avatarUrl: user?.imageUrl || null,
+      },
+      categoryId: composerCategoryId || undefined,
+      category: composerCategoryId
+        ? categories.find((c: Category) => c._id === composerCategoryId) || null
+        : null,
+      content: postType === "poll" ? pollQuestion.trim() : content.trim(),
+      contentType: postType,
+      mediaUrls: postType === "image" ? imageUrls : postType === "gif" ? [gifUrl] : undefined,
+      videoUrl: postType === "video" ? videoUrl : undefined,
+      pollOptions: postType === "poll"
+        ? pollOptions.filter(o => o.trim()).map(text => ({ text: text.trim(), votes: 0 }))
+        : undefined,
+      pollEndDate: postType === "poll" && pollEndDate ? new Date(pollEndDate).getTime() : undefined,
+      isPinned: false,
+      upvoteCount: 0,
+      commentCount: 0,
+      createdAt: Date.now(),
+    };
+
+    // Prepend optimistic post to feed
+    setAllPosts(prev => [optimisticPost, ...prev]);
+
     try {
-      const postData: any = {
-        communityId,
+      const postData: Parameters<typeof createPost>[0] = {
+        communityId: communityIdTyped,
         content: content.trim(),
         contentType: postType,
-        categoryId: selectedCategory || undefined,
+        categoryId: composerCategoryId ? composerCategoryId as Id<"categories"> : undefined,
       };
 
       // Add type-specific data
@@ -467,6 +657,10 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
           .filter(o => o.trim())
           .map(text => ({ text: text.trim(), votes: 0 }));
         postData.content = pollQuestion;
+        // Fix #6: Include poll end date if set
+        if (pollEndDate) {
+          postData.pollEndDate = new Date(pollEndDate).getTime();
+        }
       }
 
       await createPost(postData);
@@ -475,8 +669,28 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
       setComposerExpanded(false);
       setShowComposer(false);
       resetComposer();
+      // Reset pagination to show the new post at the top
+      setCursor(undefined);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create post");
+      // Rollback: remove optimistic post on failure
+      setAllPosts(prev => prev.filter(p => p._id !== optimisticId));
+      // Fix #13: Distinguish error types for better messaging
+      if (err instanceof Error) {
+        const msg = err.message.toLowerCase();
+        if (msg.includes("network") || msg.includes("fetch") || msg.includes("connection")) {
+          setError("Network error. Check your connection and try again.");
+        } else if (msg.includes("must be signed in") || msg.includes("unauthorized")) {
+          setError("Please sign in to post.");
+        } else if (msg.includes("member")) {
+          setError("You must be a member of this community to post.");
+        } else if (msg.includes("onboarding")) {
+          setError("Please complete your profile setup first.");
+        } else {
+          setError(err.message);
+        }
+      } else {
+        setError("Something went wrong. Please try again.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -507,14 +721,14 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
     setPollOptions(newOptions);
   };
 
-  // Separate pinned and regular posts
-  const pinnedPosts = posts.filter((post: Post) => post.isPinned);
-  const regularPosts = posts.filter((post: Post) => !post.isPinned);
+  // Separate pinned and regular posts from accumulated posts
+  const pinnedPosts = allPosts.filter((post: Post) => post.isPinned);
+  const regularPosts = allPosts.filter((post: Post) => !post.isPinned);
 
   // Find current sort option index
-  const currentSortIndex = SORT_OPTIONS.findIndex(o => o.value === selectedSort);
+  // currentSortIndex removed — no longer needed after dropdown refactor
 
-  if (!posts) {
+  if (postsResult === undefined) {
     return (
       <div className="flex gap-6 flex-col lg:flex-row">
         {/* Main feed skeleton */}
@@ -536,7 +750,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
       {/* Main Feed Column - Full width */}
       <div className="flex-1 min-w-0 w-full max-w-3xl">
               {/* Post Composer - First */}
-        {userId && (
+        {isMember && (
           <div className="rounded-2xl p-5 mb-3 bg-bg-elevated" ref={composerRef}>
               {!composerExpanded ? (
                 <button
@@ -692,7 +906,11 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
                         {isUploadingImages ? (
                           <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
                             <div className="animate-spin w-8 h-8 mx-auto border-2 border-primary border-t-transparent rounded-full mb-2" />
-                            <Text size="sm" theme="muted">Compressing images...</Text>
+                            <Text size="sm" theme="muted">
+                              {uploadProgress.total > 1
+                                ? `Processing image ${uploadProgress.current} of ${uploadProgress.total}...`
+                                : "Compressing image..."}
+                            </Text>
                           </div>
                         ) : (
                           <div 
@@ -824,6 +1042,18 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
                             </button>
                           )}
                         </div>
+                        {/* Fix #6: Poll end date/time picker */}
+                        <div className="space-y-2">
+                          <Text size="sm" fontWeight="medium">End date (optional)</Text>
+                          <Input
+                            type="datetime-local"
+                            value={pollEndDate}
+                            onChange={(e) => setPollEndDate(e.target.value)}
+                            min={new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 16)}
+                            className="max-w-xs"
+                          />
+                          <Text size="2" theme="muted">Leave empty for no expiration</Text>
+                        </div>
                       </div>
                     )}
 
@@ -836,16 +1066,16 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
                             <button
                               key={cat._id}
                               type="button"
-                              onClick={() => setSelectedCategory(
-                                selectedCategory === cat._id ? "" : cat._id
+                              onClick={() => setComposerCategoryId(
+                                composerCategoryId === cat._id ? "" : cat._id
                               )}
                               className={`px-3 py-1 rounded-full text-sm transition-colors ${
-                                selectedCategory === cat._id
+                                composerCategoryId === cat._id
                                   ? "text-white"
                                   : "bg-bg-elevated hover:bg-bg-muted"
                               }`}
                               style={{ 
-                                backgroundColor: selectedCategory === cat._id ? cat.color : undefined 
+                                backgroundColor: composerCategoryId === cat._id ? cat.color : undefined 
                               }}
                             >
                               {cat.name}
@@ -940,7 +1170,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
             {/* Sort Dropdown Menu */}
             {showSortDropdown && (
               <div className="absolute right-0 top-full mt-1 z-[100] rounded-lg bg-bg-elevated p-1">
-                {SORT_OPTIONS.map((option, index) => (
+                {SORT_OPTIONS.map((option) => (
                   <button
                     key={option.value}
                     onClick={() => {
@@ -966,7 +1196,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
         </div>
 
         {/* Feed - Third */}
-        {posts.length === 0 ? (
+        {allPosts.length === 0 ? (
           <div className="rounded-2xl p-12 text-center bg-bg-elevated">
             <Heading size="h4" className="mb-2">No posts yet</Heading>
             <Text theme="muted">Be the first to post in this community!</Text>
@@ -1002,6 +1232,20 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
                 isAdmin={isAdmin}
               />
             ))}
+
+            {/* Load More Button (Fix #1: pagination) */}
+            {hasMore && (
+              <div className="flex justify-center pt-4">
+                <Button
+                  onClick={loadMore}
+                  disabled={isLoadingMore}
+                  variant="secondary"
+                  size="sm"
+                >
+                  {isLoadingMore ? "Loading..." : "Load more posts"}
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>

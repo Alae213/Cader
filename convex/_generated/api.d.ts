@@ -18,6 +18,7 @@ import type * as functions_leaderboard from "../functions/leaderboard.js";
 import type * as functions_memberships from "../functions/memberships.js";
 import type * as functions_notifications from "../functions/notifications.js";
 import type * as functions_payments from "../functions/payments.js";
+import type * as functions_scheduler from "../functions/scheduler.js";
 import type * as functions_users from "../functions/users.js";
 import type * as lib_chargily from "../lib/chargily.js";
 import type * as lib_email from "../lib/email.js";
@@ -41,6 +42,7 @@ declare const fullApi: ApiFromModules<{
   "functions/memberships": typeof functions_memberships;
   "functions/notifications": typeof functions_notifications;
   "functions/payments": typeof functions_payments;
+  "functions/scheduler": typeof functions_scheduler;
   "functions/users": typeof functions_users;
   "lib/chargily": typeof lib_chargily;
   "lib/email": typeof lib_email;

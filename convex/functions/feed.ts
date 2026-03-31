@@ -62,9 +62,15 @@ export const listPosts = query({
       return 0;
     });
 
-    // Get author details for each post
+    // Apply pagination slicing
+    const cursor = args.cursor ?? 0;
+    const page = posts.slice(cursor, cursor + limit);
+    const isDone = cursor + limit >= posts.length;
+    const continueCursor = cursor + limit;
+
+    // Get author details for each post in the current page only
     const postsWithAuthors = await Promise.all(
-      posts.map(async (post) => {
+      page.map(async (post) => {
         const author = await ctx.db.get(post.authorId);
         let category = null;
         if (post.categoryId) {
@@ -86,7 +92,12 @@ export const listPosts = query({
       })
     );
 
-    return postsWithAuthors;
+    return {
+      page: postsWithAuthors,
+      isDone,
+      continueCursor,
+      totalCount: posts.length,
+    };
   },
 });
 
@@ -437,16 +448,30 @@ export const toggleUpvote = mutation({
         updatedAt: now,
       });
 
-      // Write a -1 point event (reverse the upvote)
-      await ctx.db.insert("pointEvents", {
-        communityId: post.communityId,
-        userId: post.authorId,
-        eventType: "upvote_reversal",
-        points: -1,
-        sourceType: "post",
-        sourceId: args.postId,
-        createdAt: now,
-      });
+      // Write a -1 point event (reverse the upvote) — only if original award was valid
+      // (not self-upvote, not owner/admin voter)
+      const voterMembership = await ctx.db
+        .query("memberships")
+        .withIndex("by_community_and_user", (q) =>
+          q.eq("communityId", post.communityId).eq("userId", user._id)
+        )
+        .first();
+      const isVoterOwnerOrAdmin = voterMembership &&
+        (voterMembership.role === "owner" || voterMembership.role === "admin");
+      const isSelfUpvote = post.authorId === user._id;
+
+      if (!isSelfUpvote && !isVoterOwnerOrAdmin) {
+        await ctx.db.insert("pointEvents", {
+          communityId: post.communityId,
+          userId: post.authorId,
+          actorUserId: user._id,
+          eventType: "post_upvote_reversed",
+          points: -1,
+          sourceType: "post",
+          sourceId: args.postId,
+          createdAt: now,
+        });
+      }
 
       return { upvoted: false, newCount: Math.max(0, post.upvoteCount - 1) };
     } else {
@@ -463,16 +488,22 @@ export const toggleUpvote = mutation({
         updatedAt: now,
       });
 
-      // Write a +1 point event to post author
-      await ctx.db.insert("pointEvents", {
-        communityId: post.communityId,
-        userId: post.authorId,
-        eventType: "upvote_received",
-        points: 1,
-        sourceType: "post",
-        sourceId: args.postId,
-        createdAt: now,
-      });
+      // Write a +1 point event to post author — only if not self-upvote and voter is not owner/admin
+      const isSelfUpvote = post.authorId === user._id;
+      const isVoterOwnerOrAdmin = membership.role === "owner" || membership.role === "admin";
+
+      if (!isSelfUpvote && !isVoterOwnerOrAdmin) {
+        await ctx.db.insert("pointEvents", {
+          communityId: post.communityId,
+          userId: post.authorId,
+          actorUserId: user._id,
+          eventType: "post_upvote_received",
+          points: 1,
+          sourceType: "post",
+          sourceId: args.postId,
+          createdAt: now,
+        });
+      }
 
       return { upvoted: true, newCount: post.upvoteCount + 1 };
     }
@@ -545,16 +576,22 @@ export const toggleCommentUpvote = mutation({
         updatedAt: now,
       });
 
-      // Write a -1 point event (reverse the upvote)
-      await ctx.db.insert("pointEvents", {
-        communityId: post.communityId,
-        userId: comment.authorId,
-        eventType: "upvote_reversal",
-        points: -1,
-        sourceType: "comment",
-        sourceId: args.commentId,
-        createdAt: now,
-      });
+      // Write a -1 point event (reverse the upvote) — only if original award was valid
+      const isVoterOwnerOrAdmin = membership.role === "owner" || membership.role === "admin";
+      const isSelfUpvote = comment.authorId === user._id;
+
+      if (!isSelfUpvote && !isVoterOwnerOrAdmin) {
+        await ctx.db.insert("pointEvents", {
+          communityId: post.communityId,
+          userId: comment.authorId,
+          actorUserId: user._id,
+          eventType: "comment_upvote_reversed",
+          points: -1,
+          sourceType: "comment",
+          sourceId: args.commentId,
+          createdAt: now,
+        });
+      }
 
       return { upvoted: false, newCount: Math.max(0, (comment.upvoteCount ?? 0) - 1) };
     } else {
@@ -571,12 +608,16 @@ export const toggleCommentUpvote = mutation({
         updatedAt: now,
       });
 
-      // Write a +1 point event to comment author (if not self-upvote)
-      if (comment.authorId !== user._id) {
+      // Write a +1 point event to comment author — only if not self-upvote and voter is not owner/admin
+      const isSelfUpvote = comment.authorId === user._id;
+      const isVoterOwnerOrAdmin = membership.role === "owner" || membership.role === "admin";
+
+      if (!isSelfUpvote && !isVoterOwnerOrAdmin) {
         await ctx.db.insert("pointEvents", {
           communityId: post.communityId,
           userId: comment.authorId,
-          eventType: "upvote_received",
+          actorUserId: user._id,
+          eventType: "comment_upvote_received",
           points: 1,
           sourceType: "comment",
           sourceId: args.commentId,
@@ -815,23 +856,72 @@ export const deletePost = mutation({
       throw new Error("You can only delete your own posts or posts from this community");
     }
 
-    // Delete all upvotes for this post
+    const now = Date.now();
+
+    // Delete all upvotes for this post and create reversal events for each
     const upvotes = await ctx.db
       .query("upvotes")
       .withIndex("by_post_id", (q) => q.eq("postId", args.postId))
       .collect();
 
     for (const upvote of upvotes) {
+      // Check if this upvote originally awarded points
+      // (not self-upvote, not owner/admin voter)
+      const voterMembership = await ctx.db
+        .query("memberships")
+        .withIndex("by_community_and_user", (q) =>
+          q.eq("communityId", post.communityId).eq("userId", upvote.userId)
+        )
+        .first();
+      const isVoterOwnerOrAdmin = voterMembership &&
+        (voterMembership.role === "owner" || voterMembership.role === "admin");
+      const isSelfUpvote = post.authorId === upvote.userId;
+
+      if (!isSelfUpvote && !isVoterOwnerOrAdmin) {
+        await ctx.db.insert("pointEvents", {
+          communityId: post.communityId,
+          userId: post.authorId,
+          actorUserId: upvote.userId,
+          eventType: "post_upvote_reversed",
+          points: -1,
+          sourceType: "post",
+          sourceId: args.postId,
+          createdAt: now,
+        });
+      }
+
       await ctx.db.delete(upvote._id);
     }
 
-    // Delete all comments for this post
+    // Reverse the +2 post creation points
+    await ctx.db.insert("pointEvents", {
+      communityId: post.communityId,
+      userId: post.authorId,
+      eventType: "post_created_reversed",
+      points: -2,
+      sourceType: "post",
+      sourceId: args.postId,
+      createdAt: now,
+    });
+
+    // Delete all comments for this post and reverse their creation points
     const comments = await ctx.db
       .query("comments")
       .withIndex("by_post_id", (q) => q.eq("postId", args.postId))
       .collect();
 
     for (const comment of comments) {
+      // Reverse the +1 comment creation points
+      await ctx.db.insert("pointEvents", {
+        communityId: post.communityId,
+        userId: comment.authorId,
+        eventType: "comment_created_reversed",
+        points: -1,
+        sourceType: "comment",
+        sourceId: comment._id,
+        createdAt: now,
+      });
+
       await ctx.db.delete(comment._id);
     }
 
@@ -887,6 +977,17 @@ export const deleteComment = mutation({
     if (!isAuthor && !isAdmin) {
       throw new Error("You can only delete your own comments or comments from this community");
     }
+
+    // Reverse the +1 comment creation points
+    await ctx.db.insert("pointEvents", {
+      communityId: post.communityId,
+      userId: comment.authorId,
+      eventType: "comment_created_reversed",
+      points: -1,
+      sourceType: "comment",
+      sourceId: args.commentId,
+      createdAt: Date.now(),
+    });
 
     // Update post comment count
     await ctx.db.patch(post._id, {
