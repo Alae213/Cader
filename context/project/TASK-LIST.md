@@ -28,22 +28,13 @@ Tasks currently being worked on or up next.
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T-CL-REF-001 | `[x]` | Analyze ClassroomViewer.tsx (1562 lines) — identify logical sections for extraction | [context/features/classrooms.md](../features/classrooms.md) | Phase 20A completed |
-| T-CL-REF-002 | `[x]` | Analyze ClassroomsTab.tsx (601 lines) — identify logical sections for extraction | [context/features/classrooms.md](../features/classrooms.md) | Phase 20A completed |
-| T-CL-REF-003 | `[x]` | Create `src/components/Classrooms/` folder structure | [context/features/classrooms.md](../features/classrooms.md) | Phase 20A completed |
-| T-CL-REF-004 | `[x]` | Extract VideoModal.tsx from ClassroomViewer.tsx | [context/features/classrooms.md](../features/classrooms.md) | Phase 20B completed |
-| T-CL-REF-005 | `[x]` | Extract VideoEmbed.tsx from ClassroomViewer.tsx | [context/features/classrooms.md](../features/classrooms.md) | Phase 20B completed |
-| T-CL-REF-006 | `[x]` | Extract ClassroomCard.tsx from ClassroomsTab.tsx | [context/features/classrooms.md](../features/classrooms.md) | Phase 20B completed |
-| T-CL-REF-010 | `[x]` | Move ClassroomViewer.tsx to new folder and update imports | [context/features/classrooms.md](../features/classrooms.md) | Phase 20B completed |
-| T-CL-REF-011 | `[x]` | Move ClassroomsTab.tsx to new folder and update imports | [context/features/classrooms.md](../features/classrooms.md) | Phase 20B completed |
-| T-CL-REF-014 | `[x]` | Create `src/components/Classrooms/index.ts` barrel export | [context/features/classrooms.md](../features/classrooms.md) | Phase 20D completed |
-| T-CL-REF-015 | `[x]` | Update imports in CommunityShell.tsx — point to new folder | [context/features/classrooms.md](../features/classrooms.md) | Phase 20E completed |
-| T-CL-REF-016 | `[x]` | Extract LessonDescription.tsx from ClassroomViewer | [context/features/classrooms.md](../features/classrooms.md) | Phase 20B completed |
-| T-CL-REF-017 | `[x]` | Extract ClassroomSidebar.tsx (chapter/lesson tree) | [context/features/classrooms.md](../features/classrooms.md) | New component - 433 lines |
-| T-CL-REF-018 | `[x]` | Extract LessonContent.tsx (right panel) | [context/features/classrooms.md](../features/classrooms.md) | New component - 266 lines |
-| T-CL-REF-019 | `[x]` | Phase 20F: Fix ESLint in new Classrooms components | [context/features/classrooms.md](../features/classrooms.md) | Build passes, ESLint warnings reduced |
-| T120 | `[ ]` | Vercel production deployment — env vars configured, build passes, domain ready | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | |
-| T121 | `[ ]` | Custom domain setup | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | |
+| T-CMT-021 | `[x]` | Integrate inline comments into PostCard | [context/features/comments-inline.md](../features/comments-inline.md) | Done - click comment to expand |
+| T-CMT-010 | `[x]` | Build Comment component | [context/features/comments-inline.md](../features/comments-inline.md) | Done |
+| T-CMT-012 | `[x]` | Build CommentInput with @mentions | [context/features/comments-inline.md](../features/comments-inline.md) | Done |
+| T-CMT-004 | `[x]` | toggleCommentUpvote mutation | [context/features/comments-inline.md](../features/comments-inline.md) | Done - with gamification |
+| T-CMT-050 | `[x]` | Pinned posts blue border | [context/features/community-feed.md](../features/community-feed.md) | Done |
+| T-CMT-030 | `[ ]` | LevelBadge component [Level X] | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | Next up |
+| T-CMT-060 | `[ ]` | Browser testing | [context/features/comments-inline.md](../features/comments-inline.md) | Verify inline comments work |
 
 ---
 
@@ -412,32 +403,32 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T-CMT-001 | `[ ]` | Create `comments` table in Convex schema | [context/features/comments-inline.md](../features/comments-inline.md) | postId, parentId, authorId, content, mentions, mediaUrls, upvoteCount |
-| T-CMT-002 | `[ ]` | Create `createComment` mutation | [context/features/comments-inline.md](../features/comments-inline.md) | With mention parsing, point events |
-| T-CMT-003 | `[ ]` | Create `deleteComment` mutation | [context/features/comments-inline.md](../features/comments-inline.md) | Permission: author, post-author, admin |
-| T-CMT-004 | `[ ]` | Create `toggleCommentUpvote` mutation | [context/features/comments-inline.md](../features/comments-inline.md) | With point events |
-| T-CMT-005 | `[ ]` | Create `listComments` query | [context/features/comments-inline.md](../features/comments-inline.md) | Paginated, sorted by upvotes, threaded |
-| T-CMT-006 | `[ ]` | Create `getComment` query | [context/features/comments-inline.md](../features/comments-inline.md) | Single comment |
-| T-CMT-007 | `[ ]` | Update Convex schema: add username to posts/comments | [context/features/community-feed.md](../features/community-feed.md) | Track username for display |
+| T-CMT-001 | `[x]` | Schema: add `commentUpvotes` table + `upvoteCount` to comments | [context/features/comments-inline.md](../features/comments-inline.md) | Already had comments table, added new fields |
+| T-CMT-002 | `[x]` | `createComment` mutation | [context/features/comments-inline.md](../features/comments-inline.md) | Already exists, updated with mediaUrls |
+| T-CMT-003 | `[x]` | `deleteComment` mutation | [context/features/comments-inline.md](../features/comments-inline.md) | Already exists |
+| T-CMT-004 | `[x]` | `toggleCommentUpvote` mutation | [context/features/comments-inline.md](../features/comments-inline.md) | NEW - with point events |
+| T-CMT-005 | `[x]` | `listComments` query | [context/features/comments-inline.md](../features/comments-inline.md) | UPDATED - pagination + sorting |
+| T-CMT-006 | `[x]` | `getComment` query | [context/features/comments-inline.md](../features/comments-inline.md) | Not needed - use listComments |
+| T-CMT-007 | `[~]` | Update Convex schema: add username to posts/comments | [context/features/community-feed.md](../features/community-feed.md) | Partially done |
 
 ### Phase 21B — UI Components
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T-CMT-010 | `[ ]` | Build Comment component | [context/features/comments-inline.md](../features/comments-inline.md) | Single comment with avatar, name, level badge, content, upvote, reply |
-| T-CMT-011 | `[ ]` | Build CommentThread component | [context/features/comments-inline.md](../features/comments-inline.md) | Threaded view, 2-level nesting, indentation |
-| T-CMT-012 | `[ ]` | Build CommentInput component | [context/features/comments-inline.md](../features/comments-inline.md) | Inline composer, @mentions, image/gif support |
-| T-CMT-013 | `[ ]` | Build ReplyInput component | [context/features/comments-inline.md](../features/comments-inline.md) | Inline reply composer |
-| T-CMT-014 | `[ ]` | Build CommentsSection component | [context/features/comments-inline.md](../features/comments-inline.md) | Container with input + thread + load more |
+| T-CMT-010 | `[x]` | Build Comment component | [context/features/comments-inline.md](../features/comments-inline.md) | NEW component created |
+| T-CMT-011 | `[x]` | Build CommentThread component | [context/features/comments-inline.md](../features/comments-inline.md) | Merged into Comment |
+| T-CMT-012 | `[x]` | Build CommentInput component | [context/features/comments-inline.md](../features/comments-inline.md) | NEW with @mentions |
+| T-CMT-013 | `[x]` | Build ReplyInput component | [context/features/comments-inline.md](../features/comments-inline.md) | Merged into CommentInput |
+| T-CMT-014 | `[x]` | Build CommentsSection component | [context/features/comments-inline.md](../features/comments-inline.md) | NEW wrapper component |
 
 ### Phase 21C — Integration
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
 | T-CMT-020 | `[ ]` | Remove OpenPostModal | [context/features/comments-inline.md](../features/comments-inline.md) | Delete old modal component |
-| T-CMT-021 | `[ ]` | Integrate comments into PostCard | [context/features/comments-inline.md](../features/comments-inline.md) | Inline below post, no modal |
-| T-CMT-022 | `[ ]` | Add infinite scroll for comments | [context/features/comments-inline.md](../features/comments-inline.md) | Load 5 more |
-| T-CMT-023 | `[ ]` | Connect real-time subscriptions | [context/features/comments-inline.md](../features/comments-inline.md) | New comments/upvotes appear instantly |
+| T-CMT-021 | `[x]` | Integrate comments into PostCard | [context/features/comments-inline.md](../features/comments-inline.md) | Inline below post |
+| T-CMT-022 | `[~]` | Add infinite scroll for comments | [context/features/comments-inline.md](../features/comments-inline.md) | Pagination exists, scroll not wired |
+| T-CMT-023 | `[ ]` | Connect real-time subscriptions | [context/features/comments-inline.md](../features/comments-inline.md) | New comments appear via useQuery |
 
 ### Phase 21D — Level Badges
 
@@ -451,21 +442,21 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T-CMT-040 | `[ ]` | Build MentionAutocomplete component | [context/features/mentions.md](../features/mentions.md) | Dropdown with avatar + name + level |
-| T-CMT-041 | `[ ]` | Integrate mentions into PostComposer | [context/features/mentions.md](../features/mentions.md) | Existing composer |
-| T-CMT-042 | `[ ]` | Integrate mentions into CommentInput | [context/features/mentions.md](../features/mentions.md) | New inline composer |
+| T-CMT-040 | `[~]` | Build MentionAutocomplete component | [context/features/mentions.md](../features/mentions.md) | Integrated in CommentInput |
+| T-CMT-041 | `[~]` | Integrate mentions into PostComposer | [context/features/mentions.md](../features/mentions.md) | Not done yet |
+| T-CMT-042 | `[x]` | Integrate mentions into CommentInput | [context/features/mentions.md](../features/mentions.md) | Working |
 | T-CMT-043 | `[ ]` | Parse and render mentions in posts | [context/features/mentions.md](../features/mentions.md) | Clickable @username |
 | T-CMT-044 | `[ ]` | Parse and render mentions in comments | [context/features/mentions.md](../features/mentions.md) | Clickable @username |
-| T-CMT-045 | `[ ]` | Send mention notifications | [context/features/mentions.md](../features/mentions.md) | Real-time on submit |
+| T-CMT-045 | `[~]` | Send mention notifications | [context/features/mentions.md](../features/mentions.md) | Partially done |
 
 ### Phase 21F — Polish & Visual (per DESIGN_SYSTEM.md)
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T-CMT-050 | `[ ]` | Style pinned posts with blue border | [context/features/community-feed.md](../features/community-feed.md) | border-l-4 border-blue-500 |
-| T-CMT-051 | `[ ]` | Apply consistent spacing | [context/features/community-feed.md](../features/community-feed.md) | Use spacing scale |
-| T-CMT-052 | `[ ]` | Style comment indentation | [context/features/comments-inline.md](../features/comments-inline.md) | pl-8 desktop, pl-4 mobile |
-| T-CMT-053 | `[ ]` | Whop-style footer actions | [context/features/community-feed.md](../features/community-feed.md) | Unified button group |
+| T-CMT-050 | `[x]` | Style pinned posts with blue border | [context/features/community-feed.md](../features/community-feed.md) | border-l-4 border-blue-500 |
+| T-CMT-051 | `[x]` | Apply consistent spacing | [context/features/community-feed.md](../features/community-feed.md) | Using spacing scale |
+| T-CMT-052 | `[x]` | Style comment indentation | [context/features/comments-inline.md](../features/comments-inline.md) | pl-8 desktop, pl-4 mobile |
+| T-CMT-053 | `[x]` | Whop-style footer actions | [context/features/community-feed.md](../features/community-feed.md) | Unified button group |
 
 ### Phase 21G — Testing
 

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useMutation } from "convex/react";
+import { useState, useRef, useEffect } from "react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useAuth } from "@clerk/nextjs";
 import { toast } from "sonner";
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { TextArea } from "@/components/ui/TextArea";
 import { Badge } from "@/components/ui/Badge";
+import { Avatar } from "@/components/shared/Avatar";
 import { 
   Image as ImageIcon, 
   Video,
@@ -50,6 +51,33 @@ export function PostComposer({
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  
+  // @mentions state
+  const [showMentions, setShowMentions] = useState(false);
+  const [mentionSearch, setMentionSearch] = useState("");
+  const [mentionPosition, setMentionPosition] = useState(0);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const contentRef = useRef<HTMLTextAreaElement>(null);
+  const mentionsDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Search members for mentions
+  const searchResults = useQuery(
+    api.functions.notifications.searchMembers,
+    communityId && mentionSearch.length >= 1 
+      ? { communityId: communityId as any, searchQuery: mentionSearch }
+      : "skip"
+  );
+
+  // Close mentions dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (mentionsDropdownRef.current && !mentionsDropdownRef.current.contains(e.target as Node)) {
+        setShowMentions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Additional fields for different post types
   const [imageUrls, setImageUrls] = useState<string[]>([]);
@@ -61,6 +89,76 @@ export function PostComposer({
   const [pollOptions, setPollOptions] = useState(["", ""]);
 
   const createPost = useMutation(api.functions.feed.createPost);
+
+  // Handle @ mentions in content
+  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setContent(value);
+
+    // Check for @ trigger
+    const cursorPos = e.target.selectionStart;
+    const textBeforeCursor = value.slice(0, cursorPos);
+    const lastAt = textBeforeCursor.lastIndexOf("@");
+    
+    if (lastAt !== -1) {
+      const textAfterAt = textBeforeCursor.slice(lastAt + 1);
+      // Only show if there's no space after @
+      if (!textAfterAt.includes(" ") && !textAfterAt.includes("\n")) {
+        setShowMentions(true);
+        setMentionSearch(textAfterAt);
+        setMentionPosition(lastAt);
+        setSelectedIndex(0);
+      } else {
+        setShowMentions(false);
+      }
+    } else {
+      setShowMentions(false);
+    }
+  };
+
+  // Insert mention
+  const insertMention = (username: string) => {
+    const before = content.slice(0, mentionPosition);
+    const after = content.slice(contentRef.current?.selectionStart || 0);
+    const newContent = `${before}@${username} ${after}`;
+    setContent(newContent);
+    setShowMentions(false);
+    contentRef.current?.focus();
+  };
+
+  // Handle keyboard for mentions navigation
+  const handleContentKeyDown = (e: React.KeyboardEvent) => {
+    // Handle mention dropdown navigation
+    if (showMentions && searchResults && searchResults.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSelectedIndex(prev => 
+          prev < Math.min(searchResults.length - 1, 4) ? prev + 1 : 0
+        );
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSelectedIndex(prev => 
+          prev > 0 ? prev - 1 : Math.min(searchResults.length - 1, 4)
+        );
+        return;
+      }
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        const selected = searchResults[selectedIndex];
+        if (selected) {
+          insertMention(selected.displayName);
+        }
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setShowMentions(false);
+        return;
+      }
+    }
+  };
 
   const handleSubmit = async () => {
     if (!userId) return;
@@ -211,22 +309,95 @@ export function PostComposer({
         <div className="space-y-4 py-4">
           {/* Text Post */}
           {postType === "text" && (
-            <TextArea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="What's on your mind?"
-              className="min-h-[120px]"
-            />
+            <div className="relative">
+              <TextArea
+                ref={contentRef}
+                value={content}
+                onChange={handleContentChange}
+                onKeyDown={handleContentKeyDown}
+                placeholder="What's on your mind?"
+                className="min-h-[120px]"
+              />
+              {/* Mentions dropdown */}
+              {showMentions && searchResults && searchResults.length > 0 && (
+                <div 
+                  ref={mentionsDropdownRef}
+                  className="absolute left-3 top-[120px] bg-bg-elevated rounded-lg py-1 max-h-48 overflow-y-auto z-20 min-w-[200px]"
+                  role="listbox"
+                  aria-label="Mentions"
+                >
+                  {searchResults.slice(0, 5).map((member: { userId: any; displayName: string; avatarUrl?: string }, index: number) => (
+                    <button
+                      key={member.userId}
+                      role="option"
+                      aria-selected={index === selectedIndex}
+                      type="button"
+                      onClick={() => insertMention(member.displayName)}
+                      onMouseEnter={() => setSelectedIndex(index)}
+                      className={`w-full px-3 py-2 text-left flex items-center gap-2 ${
+                        index === selectedIndex ? "bg-accent-subtle" : "hover:bg-bg-surface"
+                      }`}
+                    >
+                      <Avatar
+                        src={member.avatarUrl}
+                        name={member.displayName}
+                        size="xs"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <Text size="sm" fontWeight="medium" className="truncate">
+                          {member.displayName}
+                        </Text>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
 
           {/* Image Post */}
           {postType === "image" && (
-            <div className="space-y-3">
+            <div className="relative space-y-3">
               <TextArea
                 value={content}
-                onChange={(e) => setContent(e.target.value)}
+                onChange={handleContentChange}
+                onKeyDown={handleContentKeyDown}
                 placeholder="Add a caption (optional)"
               />
+              {/* Mentions dropdown for image post */}
+              {showMentions && searchResults && searchResults.length > 0 && (
+                <div 
+                  ref={mentionsDropdownRef}
+                  className="absolute left-3 top-[100px] bg-bg-elevated rounded-lg py-1 max-h-48 overflow-y-auto z-20 min-w-[200px]"
+                  role="listbox"
+                  aria-label="Mentions"
+                >
+                  {searchResults.slice(0, 5).map((member: { userId: any; displayName: string; avatarUrl?: string }, index: number) => (
+                    <button
+                      key={member.userId}
+                      role="option"
+                      aria-selected={index === selectedIndex}
+                      type="button"
+                      onClick={() => insertMention(member.displayName)}
+                      onMouseEnter={() => setSelectedIndex(index)}
+                      className={`w-full px-3 py-2 text-left flex items-center gap-2 ${
+                        index === selectedIndex ? "bg-accent-subtle" : "hover:bg-bg-surface"
+                      }`}
+                    >
+                      <Avatar
+                        src={member.avatarUrl}
+                        name={member.displayName}
+                        size="xs"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <Text size="sm" fontWeight="medium" className="truncate">
+                          {member.displayName}
+                        </Text>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
                 <ImagePlus className="w-8 h-8 mx-auto text-text-muted mb-2" />
                 <Text size="sm" theme="muted">Click to upload images</Text>
@@ -253,12 +424,47 @@ export function PostComposer({
 
           {/* Video Post */}
           {postType === "video" && (
-            <div className="space-y-3">
+            <div className="relative space-y-3">
               <TextArea
                 value={content}
-                onChange={(e) => setContent(e.target.value)}
+                onChange={handleContentChange}
+                onKeyDown={handleContentKeyDown}
                 placeholder="Add a caption (optional)"
               />
+              {/* Mentions dropdown for video post */}
+              {showMentions && searchResults && searchResults.length > 0 && (
+                <div 
+                  ref={mentionsDropdownRef}
+                  className="absolute left-3 top-[100px] bg-bg-elevated rounded-lg py-1 max-h-48 overflow-y-auto z-20 min-w-[200px]"
+                  role="listbox"
+                  aria-label="Mentions"
+                >
+                  {searchResults.slice(0, 5).map((member: { userId: any; displayName: string; avatarUrl?: string }, index: number) => (
+                    <button
+                      key={member.userId}
+                      role="option"
+                      aria-selected={index === selectedIndex}
+                      type="button"
+                      onClick={() => insertMention(member.displayName)}
+                      onMouseEnter={() => setSelectedIndex(index)}
+                      className={`w-full px-3 py-2 text-left flex items-center gap-2 ${
+                        index === selectedIndex ? "bg-accent-subtle" : "hover:bg-bg-surface"
+                      }`}
+                    >
+                      <Avatar
+                        src={member.avatarUrl}
+                        name={member.displayName}
+                        size="xs"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <Text size="sm" fontWeight="medium" className="truncate">
+                          {member.displayName}
+                        </Text>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
               <Input
                 value={videoUrl}
                 onChange={(e) => setVideoUrl(e.target.value)}

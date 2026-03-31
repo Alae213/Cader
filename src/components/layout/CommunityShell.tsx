@@ -9,7 +9,7 @@ import { TabNav, getInitialTab } from "./TabNav";
 
 // Tab content components
 import { AboutTab } from "@/components/community/AboutTab";
-import { FeedTab } from "@/components/community/FeedTab";
+import { FeedTab } from "@/components/Feed/FeedTab";
 import { MembersTab } from "@/components/community/MembersTab";
 import { ClassroomsTab } from "@/components/Classrooms";
 import { LeaderboardTab } from "@/components/community/LeaderboardTab";

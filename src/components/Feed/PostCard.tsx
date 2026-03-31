@@ -18,10 +18,13 @@ import {
   Video,
   BarChart3
 } from "lucide-react";
+import { CommentsSection } from "./CommentsSection";
+import { LevelBadge } from "./LevelBadge";
 
 interface PostCardProps {
   post: {
     _id: string;
+    communityId?: string;
     author?: {
       _id: string;
       displayName: string;
@@ -44,13 +47,17 @@ interface PostCardProps {
     createdAt: number;
     authorId?: string;
   };
+  communityId?: string;
+  currentUserId?: string | null;
+  isAdmin?: boolean;
   onClick?: () => void;
   onDeleted?: () => void;
 }
 
-export function PostCard({ post, onClick, onDeleted }: PostCardProps) {
+export function PostCard({ post, communityId, currentUserId, isAdmin = false, onClick, onDeleted }: PostCardProps) {
   const { userId } = useAuth();
   const [showMenu, setShowMenu] = useState(false);
+  const [showComments, setShowComments] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [localUpvoteCount, setLocalUpvoteCount] = useState(post.upvoteCount);
   const [hasUpvoted, setHasUpvoted] = useState(false);
@@ -60,6 +67,14 @@ export function PostCard({ post, onClick, onDeleted }: PostCardProps) {
   const votePoll = useMutation(api.functions.feed.votePoll);
   const pinPost = useMutation(api.functions.feed.pinPost);
   const unpinPost = useMutation(api.functions.feed.unpinPost);
+
+  // Get author's level
+  const authorLevel = useQuery(
+    api.functions.leaderboard.getUserLevel,
+    communityId && post.authorId 
+      ? { communityId: communityId as any, userId: post.authorId as any }
+      : "skip"
+  );
   const deletePost = useMutation(api.functions.feed.deletePost);
 
   // Local state for poll
@@ -223,8 +238,11 @@ export function PostCard({ post, onClick, onDeleted }: PostCardProps) {
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
               <Text fontWeight="semibold">{post.author?.displayName || "User"}</Text>
+              {authorLevel && authorLevel > 1 && (
+                <LevelBadge level={authorLevel} />
+              )}
               {post.isPinned && (
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400">
                   <Pin className="w-3 h-3" />
                   <Text size="2" fontWeight="medium">Pinned</Text>
                 </span>
@@ -244,7 +262,7 @@ export function PostCard({ post, onClick, onDeleted }: PostCardProps) {
             </button>
             
             {showMenu && (
-              <div className="absolute right-0 top-full mt-1 bg-bg-base rounded-xl shadow-sm border border-border py-1 min-w-[140px] z-10">
+              <div className="absolute right-0 top-full mt-1 bg-bg-elevated rounded-xl py-1 min-w-[140px] z-10">
                 <button 
                   onClick={handleDelete}
                   className="w-full px-4 py-2.5 text-left hover:bg-bg-elevated flex items-center gap-3 text-red-500"
@@ -407,7 +425,14 @@ export function PostCard({ post, onClick, onDeleted }: PostCardProps) {
             <Text size="sm" fontWeight="medium" className="tabular-nums">{localUpvoteCount}</Text>
           </button>
           
-          <button className="flex items-center gap-2 px-4 py-2 rounded-xl hover:bg-bg-muted text-text-secondary transition-colors">
+          <button 
+            onClick={() => setShowComments(!showComments)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-colors ${
+              showComments 
+                ? "bg-accent/10 text-accent" 
+                : "hover:bg-bg-muted text-text-secondary"
+            }`}
+          >
             <MessageCircle className="w-4 h-4" />
             <Text size="sm" fontWeight="medium" className="tabular-nums">{post.commentCount}</Text>
           </button>
@@ -420,6 +445,17 @@ export function PostCard({ post, onClick, onDeleted }: PostCardProps) {
             <Text size="sm" fontWeight="medium">Share</Text>
           </button>
         </div>
+
+        {/* Inline Comments Section */}
+        {showComments && communityId && (
+          <CommentsSection
+            postId={post._id}
+            postAuthorId={post.authorId || ""}
+            communityId={communityId}
+            currentUserId={currentUserId}
+            isAdmin={isAdmin}
+          />
+        )}
       </div>
     </div>
   );

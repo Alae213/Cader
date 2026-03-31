@@ -13,8 +13,7 @@ import { Input } from "@/components/ui/Input";
 import { TextArea } from "@/components/ui/TextArea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody } from "@/components/ui/Dialog";
 import { PostCard } from "./PostCard";
-import { OpenPostModal } from "./OpenPostModal";
-import { QuickInfoCard } from "./QuickInfoCard";
+import { QuickInfoCard } from "@/components/community/QuickInfoCard";
 import { 
   Users, 
   Zap, 
@@ -173,7 +172,6 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [selectedSort, setSelectedSort] = useState<SortOption>("newest");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
-  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   
   // Inline composer state
   const [showComposer, setShowComposer] = useState(false);
@@ -236,8 +234,12 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
 
   // Check if user is member/owner (simplified)
   const isOwner = useMemo(() => {
-    return false;
-  }, []);
+    return communityData?.ownerId === userId;
+  }, [communityData?.ownerId, userId]);
+
+  const isAdmin = useMemo(() => {
+    return isOwner;
+  }, [isOwner]);
 
   const isMember = useMemo(() => {
     return !!userId;
@@ -937,7 +939,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
             
             {/* Sort Dropdown Menu */}
             {showSortDropdown && (
-              <div className="absolute right-0 top-full mt-1 z-[100] shadow-lg rounded-lg bg-bg-base border border-border p-1">
+              <div className="absolute right-0 top-full mt-1 z-[100] rounded-lg bg-bg-elevated p-1">
                 {SORT_OPTIONS.map((option, index) => (
                   <button
                     key={option.value}
@@ -977,8 +979,10 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
                 {pinnedPosts.map((post: Post) => (
                   <PostCard
                     key={post._id}
-                    post={post}
-                    onClick={() => setSelectedPost(post)}
+                    post={{ ...post, communityId }}
+                    communityId={communityId}
+                    currentUserId={userId}
+                    isAdmin={isAdmin}
                   />
                 ))}
                 {/* Divider if there are regular posts */}
@@ -992,8 +996,10 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
             {regularPosts.map((post: Post) => (
               <PostCard
                 key={post._id}
-                post={post}
-                onClick={() => setSelectedPost(post)}
+                post={{ ...post, communityId }}
+                communityId={communityId}
+                currentUserId={userId}
+                isAdmin={isAdmin}
               />
             ))}
           </div>
@@ -1035,14 +1041,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
             <Skeleton className="h-64" />
           )}
         </div>
-      </div>
-
-      {/* Open Post Modal - Keep as is */}
-      <OpenPostModal
-        post={selectedPost}
-        open={!!selectedPost}
-        onOpenChange={(open) => !open && setSelectedPost(null)}
-      />
+        </div>
 
       {/* Invite Friend Modal */}
       <InviteFriendModal

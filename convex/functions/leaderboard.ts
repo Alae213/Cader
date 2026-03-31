@@ -480,3 +480,25 @@ export const awardStreakBonus = mutation({
     return { processed: memberships.length };
   },
 });
+
+// Get a user's level in a community based on all-time points
+export const getUserLevel = query({
+  args: {
+    communityId: v.id("communities"),
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    // Get all point events for this user in this community
+    const pointEvents = await ctx.db
+      .query("pointEvents")
+      .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
+      .filter((q) => q.eq(q.field("communityId"), args.communityId))
+      .collect();
+
+    // Calculate total points
+    const totalPoints = pointEvents.reduce((sum, event) => sum + event.points, 0);
+    
+    // Return level (clamped to minimum 1)
+    return Math.max(1, getLevelFromPoints(totalPoints));
+  },
+});

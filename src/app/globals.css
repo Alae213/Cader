@@ -242,6 +242,7 @@
   /* Shadows */
   --shadow-card-shadow: var(--card-shadow);
   --shadow-input-shadow: var(--input-shadow);
+  --shadow-dropdown: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 /* ============================================

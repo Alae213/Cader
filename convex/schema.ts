@@ -128,6 +128,9 @@ export default defineSchema({
     
     content: v.string(),
     mentions: v.optional(v.array(v.id("users"))),
+    mediaUrls: v.optional(v.array(v.string())),
+    
+    upvoteCount: v.optional(v.number()),
     
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -143,6 +146,15 @@ export default defineSchema({
   }).index("by_post_id", ["postId"])
     .index("by_user_id", ["userId"])
     .index("by_post_and_user", ["postId", "userId"]),
+
+  // Comment Upvotes - one per user per comment
+  commentUpvotes: defineTable({
+    commentId: v.id("comments"),
+    userId: v.id("users"),
+    createdAt: v.number(),
+  }).index("by_comment_id", ["commentId"])
+    .index("by_user_id", ["userId"])
+    .index("by_comment_and_user", ["commentId", "userId"]),
 
   // Point events - append-only log for gamification
   pointEvents: defineTable({

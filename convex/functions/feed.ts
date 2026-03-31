@@ -202,6 +202,7 @@ export const createComment = mutation({
     postId: v.id("posts"),
     content: v.string(),
     parentCommentId: v.optional(v.id("comments")),
+    mediaUrls: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     // Get authenticated user
@@ -265,6 +266,8 @@ export const createComment = mutation({
       // Note: mentions should be Id<"users">[] but using string[] for MVP
       // This is a schema mismatch that needs to be fixed in schema
       mentions: mentionMatches.map((m: string) => m.slice(1)) as unknown as Id<"users">[],
+      mediaUrls: args.mediaUrls || [],
+      upvoteCount: 0,
       createdAt: now,
       updatedAt: now,
     });
@@ -279,26 +282,62 @@ export const createComment = mutation({
   },
 });
 
-// Get comments for a post (threaded)
+// Get comments for a post (threaded, paginated, sorted by upvotes)
 export const listComments = query({
-  args: { postId: v.id("posts") },
+  args: {
+    postId: v.id("posts"),
+    cursor: v.optional(v.string()),
+    limit: v.optional(v.number()),
+    sortBy: v.optional(v.union(v.literal("top"), v.literal("newest"))),
+  },
   handler: async (ctx, args) => {
-    const comments = await ctx.db
+    const limit = args.limit || 5;
+    const sortBy = args.sortBy || "top";
+
+    // Get current user for upvote status
+    const identity = await ctx.auth.getUserIdentity();
+    let currentUserId = null;
+    if (identity) {
+      const currentUser = await ctx.db
+        .query("users")
+        .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+        .first();
+      currentUserId = currentUser?._id;
+    }
+
+    // Get all comments for this post
+    let commentQuery = ctx.db
       .query("comments")
-      .withIndex("by_post_id", (q) => q.eq("postId", args.postId))
-      .collect();
+      .withIndex("by_post_id", (q) => q.eq("postId", args.postId));
+
+    const allComments = await commentQuery.collect();
 
     // Get author details for each comment
     const commentsWithAuthors = await Promise.all(
-      comments.map(async (comment) => {
+      allComments.map(async (comment) => {
         const author = await ctx.db.get(comment.authorId);
+        
+        // Check if current user has upvoted this comment
+        let hasUpvoted = false;
+        if (currentUserId) {
+          const upvote = await ctx.db
+            .query("commentUpvotes")
+            .withIndex("by_comment_and_user", (q) =>
+              q.eq("commentId", comment._id).eq("userId", currentUserId)
+            )
+            .first();
+          hasUpvoted = !!upvote;
+        }
+
         return {
           ...comment,
           author: author ? {
             _id: author._id,
             displayName: author.displayName,
             avatarUrl: author.avatarUrl,
+            username: (author as any).username,
           } : null,
+          hasUpvoted,
         };
       })
     );
@@ -307,16 +346,35 @@ export const listComments = query({
     const topLevel = commentsWithAuthors.filter((c) => !c.parentCommentId);
     const replies = commentsWithAuthors.filter((c) => !!c.parentCommentId);
 
+    // Sort top-level comments
+    if (sortBy === "top") {
+      topLevel.sort((a, b) => b.upvoteCount - a.upvoteCount || b.createdAt - a.createdAt);
+    } else {
+      topLevel.sort((a, b) => b.createdAt - a.createdAt);
+    }
+
+    // Sort replies by upvotes
+    replies.sort((a, b) => b.upvoteCount - a.upvoteCount || b.createdAt - a.createdAt);
+
+    // Apply pagination to top-level comments
+    const cursorNum = args.cursor ? parseInt(args.cursor, 10) : 0;
+    const paginatedTopLevel = topLevel.slice(cursorNum, cursorNum + limit);
+    
     // Attach replies to their parents
-    const threadedComments = topLevel.map((comment) => ({
+    const threadedComments = paginatedTopLevel.map((comment) => ({
       ...comment,
       replies: replies.filter((r) => r.parentCommentId === comment._id),
     }));
 
-    // Sort by createdAt (newest first)
-    threadedComments.sort((a, b) => b.createdAt - a.createdAt);
+    // Check if there are more comments
+    const hasMore = cursorNum + limit < topLevel.length;
+    const nextCursor = hasMore ? String(cursorNum + limit) : undefined;
 
-    return threadedComments;
+    return {
+      comments: threadedComments,
+      nextCursor,
+      totalCount: topLevel.length,
+    };
   },
 });
 
@@ -418,6 +476,116 @@ export const toggleUpvote = mutation({
       });
 
       return { upvoted: true, newCount: post.upvoteCount + 1 };
+    }
+  },
+});
+
+// Toggle upvote on a comment (idempotent)
+export const toggleCommentUpvote = mutation({
+  args: {
+    commentId: v.id("comments"),
+  },
+  handler: async (ctx, args) => {
+    // Get authenticated user
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("You must be signed in to upvote");
+    }
+
+    // Get the user from our database
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Get the comment
+    const comment = await ctx.db.get(args.commentId);
+    if (!comment) {
+      throw new Error("Comment not found");
+    }
+
+    // Get the post to find the community
+    const post = await ctx.db.get(comment.postId);
+    if (!post) {
+      throw new Error("Post not found");
+    }
+
+    // Check if user is a member of this community
+    const membership = await ctx.db
+      .query("memberships")
+      .withIndex("by_community_and_user", (q) =>
+        q.eq("communityId", post.communityId).eq("userId", user._id)
+      )
+      .first();
+
+    if (!membership || membership.status !== "active") {
+      throw new Error("You must be a member to upvote");
+    }
+
+    // Check if user already upvoted this comment
+    const existingUpvote = await ctx.db
+      .query("commentUpvotes")
+      .withIndex("by_comment_and_user", (q) =>
+        q.eq("commentId", args.commentId).eq("userId", user._id)
+      )
+      .first();
+
+    const now = Date.now();
+
+    if (existingUpvote) {
+      // Remove upvote (toggle off)
+      await ctx.db.delete(existingUpvote._id);
+      
+      // Update comment upvote count
+      await ctx.db.patch(args.commentId, {
+        upvoteCount: Math.max(0, comment.upvoteCount - 1),
+        updatedAt: now,
+      });
+
+      // Write a -1 point event (reverse the upvote)
+      await ctx.db.insert("pointEvents", {
+        communityId: post.communityId,
+        userId: comment.authorId,
+        eventType: "upvote_reversal",
+        points: -1,
+        sourceType: "comment",
+        sourceId: args.commentId,
+        createdAt: now,
+      });
+
+      return { upvoted: false, newCount: Math.max(0, comment.upvoteCount - 1) };
+    } else {
+      // Add upvote (toggle on)
+      await ctx.db.insert("commentUpvotes", {
+        commentId: args.commentId,
+        userId: user._id,
+        createdAt: now,
+      });
+
+      // Update comment upvote count
+      await ctx.db.patch(args.commentId, {
+        upvoteCount: comment.upvoteCount + 1,
+        updatedAt: now,
+      });
+
+      // Write a +1 point event to comment author (if not self-upvote)
+      if (comment.authorId !== user._id) {
+        await ctx.db.insert("pointEvents", {
+          communityId: post.communityId,
+          userId: comment.authorId,
+          eventType: "upvote_received",
+          points: 1,
+          sourceType: "comment",
+          sourceId: args.commentId,
+          createdAt: now,
+        });
+      }
+
+      return { upvoted: true, newCount: comment.upvoteCount + 1 };
     }
   },
 });
