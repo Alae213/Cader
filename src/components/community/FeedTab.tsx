@@ -138,7 +138,7 @@ function InviteFriendModal({
         <DialogBody>
           <div className="space-y-4">
             <Text theme="muted" size="sm">
-              Share "{communityName}" with your friends and grow the community!
+              Share &quot;{communityName}&quot; with your friends and grow the community!
             </Text>
             
             <div className="flex gap-2">
@@ -555,7 +555,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
                       </Text>
                     </div>
                   )}
-                  <Text theme="muted" className="line-clamp-1">What's on your mind?</Text>
+                  <Text theme="muted" className="line-clamp-1">What&apos;s on your mind?</Text>
                 </button>
               ) : (
                 <div className="space-y-4">
