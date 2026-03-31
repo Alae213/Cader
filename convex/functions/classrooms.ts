@@ -141,7 +141,7 @@ export const getClassroomContent = query({
         pages.sort((a, b) => a.order - b.order);
 
         // Get viewed pages for this user
-        let viewedPageIds: Set<string> = new Set();
+        const viewedPageIds: Set<string> = new Set();
         if (args.userId) {
           const progressRecords = await ctx.db
             .query("lessonProgress")
@@ -171,7 +171,7 @@ export const getClassroomContent = query({
     // Check access if user provided
     let hasAccess = false;
     if (args.userId) {
-      const community = await ctx.db.get(classroom.communityId);
+      await ctx.db.get(classroom.communityId); // Verify community exists
       const membership = await ctx.db
         .query("memberships")
         .withIndex("by_community_and_user", (q) =>
@@ -222,10 +222,10 @@ export const getPageContent = query({
     const page = await ctx.db.get(args.pageId);
     if (!page) return null;
 
-    const module = await ctx.db.get(page.moduleId);
-    if (!module) return null;
+    const moduleData = await ctx.db.get(page.moduleId);
+    if (!moduleData) return null;
 
-    const classroom = await ctx.db.get(module.classroomId);
+    const classroom = await ctx.db.get(moduleData.classroomId);
     if (!classroom) return null;
 
     // Check access if user provided
@@ -270,12 +270,12 @@ export const getPageContent = query({
     if (args.userId && hasAccess) {
       const progressRecord = await ctx.db
         .query("lessonProgress")
-        .withIndex("by_classroom_and_user", (q) =>
-          q.eq("classroomId", classroom._id).eq("userId", args.userId!)
+        .withIndex("by_user_and_page", (q) =>
+          q.eq("userId", args.userId!).eq("pageId", args.pageId)
         )
         .first();
       // Check if this page is in the progress
-      isViewed = progressRecord?.pageId === args.pageId;
+      isViewed = !!progressRecord;
     }
 
     return {
@@ -288,7 +288,7 @@ export const getPageContent = query({
       moduleId: page.moduleId,
       createdAt: page.createdAt,
       updatedAt: page.updatedAt,
-      moduleTitle: module.title,
+      moduleTitle: moduleData.title,
       classroomTitle: classroom.title,
       classroomId: classroom._id,
       hasAccess,
@@ -322,12 +322,12 @@ export const markPageViewed = mutation({
       throw new Error("Page not found");
     }
 
-    const module = await ctx.db.get(page.moduleId);
-    if (!module) {
+    const moduleData = await ctx.db.get(page.moduleId);
+    if (!moduleData) {
       throw new Error("Module not found");
     }
 
-    const classroom = await ctx.db.get(module.classroomId);
+    const classroom = await ctx.db.get(moduleData.classroomId);
     if (!classroom) {
       throw new Error("Classroom not found");
     }
@@ -505,7 +505,7 @@ export const updateClassroom = mutation({
       throw new Error("Only the community owner can update classrooms");
     }
 
-    const updateData: Record<string, any> = {
+    const updateData: Record<string, unknown> = {
       updatedAt: Date.now(),
     };
 
@@ -678,12 +678,12 @@ export const createPage = mutation({
       throw new Error("User not found");
     }
 
-    const module = await ctx.db.get(args.moduleId);
-    if (!module) {
+    const moduleData = await ctx.db.get(args.moduleId);
+    if (!moduleData) {
       throw new Error("Module not found");
     }
 
-    const classroom = await ctx.db.get(module.classroomId);
+    const classroom = await ctx.db.get(moduleData.classroomId);
     if (!classroom) {
       throw new Error("Classroom not found");
     }
@@ -701,7 +701,7 @@ export const createPage = mutation({
     // Get current max order
     const existingPages = await ctx.db
       .query("pages")
-      .withIndex("by_module_id", (q) => q.eq("moduleId", module._id))
+      .withIndex("by_module_id", (q) => q.eq("moduleId", moduleData._id))
       .collect();
 
     const maxOrder = existingPages.reduce((max, p: { order: number }) => Math.max(max, p.order), 0);
@@ -749,12 +749,12 @@ export const updatePageContent = mutation({
       throw new Error("Page not found");
     }
 
-    const module = await ctx.db.get(page.moduleId);
-    if (!module) {
+    const moduleData = await ctx.db.get(page.moduleId);
+    if (!moduleData) {
       throw new Error("Module not found");
     }
 
-    const classroom = await ctx.db.get(module.classroomId);
+    const classroom = await ctx.db.get(moduleData.classroomId);
     if (!classroom) {
       throw new Error("Classroom not found");
     }
@@ -769,7 +769,7 @@ export const updatePageContent = mutation({
       throw new Error("Only the community owner can edit pages");
     }
 
-    const updateData: Record<string, any> = {
+    const updateData: Record<string, unknown> = {
       updatedAt: Date.now(),
     };
 
@@ -866,39 +866,27 @@ export const toggleLessonComplete = mutation({
 
     const classroomId = chapter.classroomId;
 
-    // Check if already completed
+    // Check if this specific page is already completed by this user
     const existingProgress = await ctx.db
       .query("lessonProgress")
-      .withIndex("by_classroom_and_user", (q) =>
-        q.eq("classroomId", classroomId).eq("userId", user._id)
+      .withIndex("by_user_and_page", (q) =>
+        q.eq("userId", user._id).eq("pageId", args.pageId)
       )
       .first();
 
-    // Check if this specific page is completed
-    const isCompleted = existingProgress?.pageId === args.pageId;
+    const isCompleted = !!existingProgress;
 
     if (isCompleted) {
       // Toggle OFF: remove the progress record
-      if (existingProgress) {
-        await ctx.db.delete(existingProgress._id);
-      }
+      await ctx.db.delete(existingProgress._id);
     } else {
-      // Toggle ON: add/update the progress record
-      if (existingProgress) {
-        // Update existing record to point to this page
-        await ctx.db.patch(existingProgress._id, {
-          pageId: args.pageId,
-          completedAt: Date.now(),
-        });
-      } else {
-        // Create new progress record
-        await ctx.db.insert("lessonProgress", {
-          classroomId,
-          userId: user._id,
-          pageId: args.pageId,
-          completedAt: Date.now(),
-        });
-      }
+      // Toggle ON: create new progress record
+      await ctx.db.insert("lessonProgress", {
+        classroomId,
+        userId: user._id,
+        pageId: args.pageId,
+        completedAt: Date.now(),
+      });
     }
 
     return { pageId: args.pageId, isCompleted: !isCompleted };
@@ -925,12 +913,12 @@ export const deleteModule = mutation({
       throw new Error("User not found");
     }
 
-    const module = await ctx.db.get(args.moduleId);
-    if (!module) {
+    const moduleData = await ctx.db.get(args.moduleId);
+    if (!moduleData) {
       throw new Error("Module not found");
     }
 
-    const classroom = await ctx.db.get(module.classroomId);
+    const classroom = await ctx.db.get(moduleData.classroomId);
     if (!classroom) {
       throw new Error("Classroom not found");
     }
@@ -948,7 +936,7 @@ export const deleteModule = mutation({
     // Delete all pages in this module
     const pages = await ctx.db
       .query("pages")
-      .withIndex("by_module_id", (q) => q.eq("moduleId", module._id))
+      .withIndex("by_module_id", (q) => q.eq("moduleId", moduleData._id))
       .collect();
 
     for (const page of pages) {
@@ -987,12 +975,12 @@ export const deletePage = mutation({
       throw new Error("Page not found");
     }
 
-    const module = await ctx.db.get(page.moduleId);
-    if (!module) {
+    const moduleData = await ctx.db.get(page.moduleId);
+    if (!moduleData) {
       throw new Error("Module not found");
     }
 
-    const classroom = await ctx.db.get(module.classroomId);
+    const classroom = await ctx.db.get(moduleData.classroomId);
     if (!classroom) {
       throw new Error("Classroom not found");
     }
@@ -1086,12 +1074,12 @@ export const reorderLessons = mutation({
       throw new Error("User not found");
     }
 
-    const module = await ctx.db.get(args.moduleId);
-    if (!module) {
+    const moduleData = await ctx.db.get(args.moduleId);
+    if (!moduleData) {
       throw new Error("Chapter not found");
     }
 
-    const classroom = await ctx.db.get(module.classroomId);
+    const classroom = await ctx.db.get(moduleData.classroomId);
     if (!classroom) {
       throw new Error("Classroom not found");
     }

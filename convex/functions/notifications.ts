@@ -202,14 +202,16 @@ export const markAllNotificationsRead = mutation({
 });
 
 // Create a notification (internal function, called from other mutations)
-async function createNotification(
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function _createNotification(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ctx: any,
-  recipientId: any,
-  senderId: any,
-  type: any,
+  recipientId: string,
+  senderId: string | null,
+  type: string,
   message: string,
-  referenceType?: any,
-  referenceId?: any
+  referenceType?: string,
+  referenceId?: string
 ) {
   return await ctx.db.insert("notifications", {
     recipientId,

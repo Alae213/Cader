@@ -161,7 +161,7 @@ export const getUserActivity = query({
     const posts = await postsQuery.collect();
 
     // Get comments by user
-    let commentsQuery = ctx.db
+    const commentsQuery = ctx.db
       .query("comments")
       .withIndex("by_author_id", (q) => q.eq("authorId", args.userId))
       .filter((q) => q.gte(q.field("createdAt"), oneYearAgo));

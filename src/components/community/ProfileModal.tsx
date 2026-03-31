@@ -62,7 +62,7 @@ export function ProfileModal({ userId, open, onOpenChange, onEditProfile }: Prof
     });
 
     // Generate weeks starting from one year ago
-    let currentDate = new Date(oneYearAgo);
+    const currentDate = new Date(oneYearAgo);
     // Adjust to start from Sunday
     const dayOfWeek = currentDate.getDay();
     currentDate.setDate(currentDate.getDate() - dayOfWeek);

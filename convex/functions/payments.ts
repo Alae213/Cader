@@ -46,10 +46,10 @@ export const validateChargilyKeys = mutation({
       });
       
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        const errorData = await response.json().catch(() => ({ message: "" }));
         return {
           valid: false,
-          error: (errorData as any).message || `API returned ${response.status}`,
+          error: errorData.message || `API returned ${response.status}`,
         };
       }
       
@@ -151,11 +151,11 @@ export const createChargilyCheckout = mutation({
     });
     
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error((errorData as any).message || `Chargily API error: ${response.status}`);
+      const errorData = await response.json().catch(() => ({ message: "" }));
+      throw new Error(errorData.message || `Chargily API error: ${response.status}`);
     }
     
-    const checkout = await response.json() as any;
+    const checkout = await response.json() as { checkout_url: string; id: string };
     
     return {
       checkoutUrl: checkout.checkout_url,

@@ -18,7 +18,7 @@ export interface CheckoutParams {
   description: string;
   successUrl: string;
   failureUrl: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   patient?: {
     email: string;
     first_name: string;
@@ -50,7 +50,15 @@ export async function createChargilyCheckout(params: CheckoutParams): Promise<Ch
     mode: params.mode,
   });
 
-  const checkoutData: any = {
+  const checkoutData: {
+    amount: number;
+    currency: string;
+    description: string;
+    success_url: string;
+    failure_url: string;
+    metadata: Record<string, unknown>;
+    patient?: { email: string; first_name: string; last_name: string };
+  } = {
     amount: params.amount,
     currency: params.currency,
     description: params.description,
@@ -88,10 +96,10 @@ export async function validateChargilyKeys(params: ValidateKeysParams): Promise<
     });
     
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
+      const errorData = await response.json().catch(() => ({ message: "" }));
       return {
         valid: false,
-        error: (errorData as any).message || `API returned ${response.status}`,
+        error: errorData.message || `API returned ${response.status}`,
       };
     }
     

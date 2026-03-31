@@ -7,7 +7,7 @@ import { useAuth, useUser } from "@clerk/nextjs";
 import { toast } from "sonner";
 import { Heading, Text } from "@/components/ui/Text";
 import { Button } from "@/components/ui/Button";
-import { Card, CardContent } from "@/components/ui/Card";
+// Card and CardContent removed - using borderless design
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Input } from "@/components/ui/Input";
 import { TextArea } from "@/components/ui/TextArea";
@@ -535,8 +535,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
       <div className="flex-1 min-w-0 w-full max-w-3xl">
               {/* Post Composer - First */}
         {userId && (
-          <Card className="mb-4" ref={composerRef}>
-            <CardContent className="p-4">
+          <div className="rounded-2xl p-5 mb-3 bg-bg-elevated" ref={composerRef}>
               {!composerExpanded ? (
                 <button
                   onClick={handleExpandComposer}
@@ -885,8 +884,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
                   </div>
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
         )}
 
         {/* Category Filter and Sort Row - Second */}
@@ -967,14 +965,12 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
 
         {/* Feed - Third */}
         {posts.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <Heading size="h4" className="mb-2">No posts yet</Heading>
-              <Text theme="muted">Be the first to post in this community!</Text>
-            </CardContent>
-          </Card>
+          <div className="rounded-2xl p-12 text-center bg-bg-elevated">
+            <Heading size="h4" className="mb-2">No posts yet</Heading>
+            <Text theme="muted">Be the first to post in this community!</Text>
+          </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {/* Pinned Posts (not affected by sorting) */}
             {pinnedPosts.length > 0 && (
               <>
@@ -987,7 +983,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
                 ))}
                 {/* Divider if there are regular posts */}
                 {regularPosts.length > 0 && (
-                  <div className="border-t border-border my-4" />
+                  <div className="h-px bg-border" />
                 )}
               </>
             )}

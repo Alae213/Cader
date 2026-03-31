@@ -9,8 +9,11 @@ import { Heading, Text } from "@/components/ui/Text";
 import { Input } from "@/components/ui/Input";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Card, CardContent } from "@/components/ui/Card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/Dialog";
 import { ProgressRing } from "@/components/ui/ProgressRing";
+import { ClassroomSidebar } from "./ClassroomSidebar";
+import { LessonContent } from "./LessonContent";
+import { VideoEmbed } from "./VideoEmbed";
+import { LessonDescription } from "./LessonDescription";
 import { getVideoThumbnail } from "@/lib/utils";
 import { 
   ChevronLeft, 
@@ -23,7 +26,6 @@ import {
   Check,
   Play,
   Edit3,
-  Save,
   GripVertical,
   MoreHorizontal,
   Trash2,
@@ -31,6 +33,22 @@ import {
   EyeOff
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { SortableChapter } from "../community/SortableItems";
 
 interface ClassroomViewerProps {
   classroomId: string;
@@ -49,230 +67,6 @@ interface ModuleData {
 }
 
 const STORAGE_KEY = "classroom_draft_";
-
-// Video URL validation and embed conversion
-function getEmbedUrl(videoUrl: string): string | null {
-  if (!videoUrl) return null;
-  
-  const ytMatch = videoUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
-  if (ytMatch) {
-    return `https://www.youtube.com/embed/${ytMatch[1]}`;
-  }
-  
-  const vimeoMatch = videoUrl.match(/vimeo\.com\/(\d+)/);
-  if (vimeoMatch) {
-    return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
-  }
-  
-  const driveMatch = videoUrl.match(/drive\.google\.com\/file\/d\/([^/]+)/);
-  if (driveMatch) {
-    return `https://drive.google.com/file/d/${driveMatch[1]}/preview`;
-  }
-  
-  return null;
-}
-
-function getVideoPlatform(videoUrl: string): string | null {
-  if (!videoUrl) return null;
-  if (videoUrl.includes("youtube.com") || videoUrl.includes("youtu.be")) return "YouTube";
-  if (videoUrl.includes("vimeo.com")) return "Vimeo";
-  if (videoUrl.includes("drive.google.com")) return "Google Drive";
-  return null;
-}
-
-// Video Modal Component
-function VideoModal({
-  open,
-  onOpenChange,
-  url,
-  onSave,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  url?: string;
-  onSave: (url: string) => void;
-}) {
-  const [inputValue, setInputValue] = useState(url || "");
-  const [error, setError] = useState("");
-  
-  useEffect(() => {
-    if (open) {
-      setInputValue(url || "");
-      setError("");
-    }
-  }, [open, url]);
-
-  const embedUrl = getEmbedUrl(inputValue);
-  const platform = getVideoPlatform(inputValue);
-  const isValid = inputValue === "" || embedUrl !== null;
-
-  const handleSave = () => {
-    if (!inputValue.trim()) {
-      onSave("");
-      onOpenChange(false);
-      return;
-    }
-    
-    if (!embedUrl) {
-      setError("Invalid URL. Use YouTube, Vimeo, or Google Drive links.");
-      return;
-    }
-    
-    onSave(inputValue);
-    onOpenChange(false);
-    toast.success("Video updated");
-  };
-
-  const handleRemove = () => {
-    onSave("");
-    onOpenChange(false);
-    toast.success("Video removed");
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogTitle>Add Video</DialogTitle>
-        
-        <div className="space-y-4">
-          <div>
-            <Input
-              value={inputValue}
-              onChange={(e) => {
-                setInputValue(e.target.value);
-                setError("");
-              }}
-              placeholder="Paste YouTube, Vimeo, or Google Drive link"
-              className={!isValid ? "border-red-500" : ""}
-            />
-            {error && <Text size="2" theme="error" className="mt-1">{error}</Text>}
-          </div>
-
-          {embedUrl && (
-            <div className="relative aspect-video rounded-lg overflow-hidden bg-bg-elevated">
-              <iframe
-                title="Video preview"
-                src={embedUrl}
-                className="absolute inset-0 w-full h-full"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-            </div>
-          )}
-
-          {inputValue && platform && embedUrl && (
-            <Text size="2" theme="secondary">
-              Platform: {platform}
-            </Text>
-          )}
-
-          {inputValue && !embedUrl && (
-            <Text size="2" theme="error">
-              Invalid video URL
-            </Text>
-          )}
-        </div>
-
-        <div className="flex justify-between mt-4">
-          {url && (
-            <Button variant="ghost" onClick={handleRemove}>
-              <X className="w-4 h-4 mr-1" /> Remove
-            </Button>
-          )}
-          <div className="flex gap-2 ml-auto">
-            <Button variant="ghost" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave}>
-              <Check className="w-4 h-4 mr-1" /> Save
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// Video Embed Component
-function VideoEmbed({ 
-  url, 
-  onChange,
-  isOwner,
-  modalOpen,
-  onModalOpenChange,
-}: { 
-  url?: string; 
-  onChange?: (url: string) => void;
-  isOwner: boolean;
-  modalOpen?: boolean;
-  onModalOpenChange?: (open: boolean) => void;
-}) {
-  const embedUrl = url ? getEmbedUrl(url) : null;
-
-  if (embedUrl) {
-    return (
-      <>
-        <div className="relative aspect-video rounded-[16px] overflow-hidden bg-bg-elevated">
-          <iframe
-            title="Lesson video"
-            src={embedUrl}
-            className="absolute inset-0 w-full h-full"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-          />
-          {isOwner && (
-            <Button
-              size="sm"
-              variant="secondary"
-              className="absolute top-2 right-2"
-              onClick={() => onModalOpenChange?.(true)}
-            >
-              <Edit3 className="w-4 h-4 mr-1" /> Edit
-            </Button>
-          )}
-        </div>
-        {isOwner && modalOpen !== undefined && (
-          <VideoModal
-            open={modalOpen}
-            onOpenChange={onModalOpenChange!}
-            url={url}
-            onSave={onChange!}
-          />
-        )}
-      </>
-    );
-  }
-
-  if (isOwner) {
-    return (
-      <>
-        <div 
-          className="aspect-video rounded-[16px] bg-bg-elevated border-2 border-dashed border-border flex items-center justify-center cursor-pointer hover:border-accent"
-          onClick={() => onModalOpenChange?.(true)}
-        >
-          <div className="text-center">
-            <Play className="w-12 h-12 mx-auto text-text-muted mb-2" />
-            <Text theme="secondary">Add a video for this lesson</Text>
-          </div>
-        </div>
-        {modalOpen !== undefined && (
-          <VideoModal
-            open={modalOpen}
-            onOpenChange={onModalOpenChange!}
-            url={url}
-            onSave={onChange!}
-          />
-        )}
-      </>
-    );
-  }
-
-  return (
-    <div className="aspect-video rounded-[16px] bg-bg-elevated flex items-center justify-center">
-      <Text theme="muted">No video for this lesson.</Text>
-    </div>
-  );
-}
 
 export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: providedUser }: ClassroomViewerProps) {
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
@@ -353,6 +147,18 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
   const toggleLessonComplete = useMutation(api.functions.classrooms.toggleLessonComplete);
   const deleteModule = useMutation(api.functions.classrooms.deleteModule);
   const deletePage = useMutation(api.functions.classrooms.deletePage);
+  const reorderChapters = useMutation(api.functions.classrooms.reorderChapters);
+  const reorderLessons = useMutation(api.functions.classrooms.reorderLessons);
+
+  // DnD sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   // Track if this is the initial load
   const isInitialLoad = useRef(true);
@@ -774,18 +580,110 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
 
   const modules = classroomContent?.modules || [];
 
+  // Handle chapter reordering - moved after modules definition
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const handleChapterDragEnd = useCallback(async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    
+    const oldIndex = modules.findIndex(m => m._id === active.id);
+    const newIndex = modules.findIndex(m => m._id === over.id);
+    
+    if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+      const reordered = arrayMove(modules, oldIndex, newIndex);
+      const chapterOrders = reordered.map((m, index) => ({
+        chapterId: m._id as Id<"modules">,
+        order: index,
+      }));
+      
+      try {
+        await reorderChapters({ 
+          classroomId: classroomId as Id<"classrooms">,
+          chapterOrders 
+        });
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to reorder");
+      }
+    }
+  }, [modules, classroomId, reorderChapters]);
+
   return (
     <div className="flex h-full gap-4">
-      {/* Mobile sidebar overlay */}
-      {isSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={() => setIsSidebarOpen(false)}
-          aria-hidden="true"
-        />
-      )}
-      
-      {/* Sidebar - Card with fixed width */}
+      <ClassroomSidebar
+        classroomContent={classroomContent}
+        modules={modules}
+        selectedPageId={selectedPageId}
+        isOwner={isOwner}
+        isSidebarOpen={isSidebarOpen}
+        collapsedModules={collapsedModules}
+        editingChapterId={editingChapterId}
+        editingChapterTitle={editingChapterTitle}
+        openChapterMenu={openChapterMenu}
+        deleteConfirmChapter={deleteConfirmChapter}
+        showPageInput={showPageInput}
+        pageInputValue={pageInputValue}
+        editingLessonId={editingLessonId}
+        editingLessonTitle={editingLessonTitle}
+        openLessonMenu={openLessonMenu}
+        deleteConfirmLesson={deleteConfirmLesson}
+        showModuleInput={showModuleInput}
+        moduleInputValue={moduleInputValue}
+        isCreatingModule={isCreatingModule}
+        isCreatingPage={isCreatingPage}
+        onBack={onBack}
+        onCloseSidebar={() => setIsSidebarOpen(false)}
+        onToggleCollapse={toggleModuleCollapse}
+        onSelectPage={(pageId) => {
+          setSelectedPageId(pageId);
+          setIsSidebarOpen(false);
+          mainContentRef.current?.focus();
+        }}
+        onStartEditingChapter={startEditingChapter}
+        onSetEditingChapterTitle={setEditingChapterTitle}
+        onChapterTitleBlur={handleChapterTitleBlur}
+        onChapterTitleKeyDown={handleChapterTitleKeyDown}
+        onSetOpenChapterMenu={setOpenChapterMenu}
+        onSetDeleteConfirmChapter={setDeleteConfirmChapter}
+        onDeleteChapter={handleDeleteChapter}
+        onStartEditingLesson={startEditingLesson}
+        onSetEditingLessonTitle={setEditingLessonTitle}
+        onLessonTitleBlur={handleLessonTitleBlur}
+        onLessonTitleKeyDown={handleLessonTitleKeyDown}
+        onSetOpenLessonMenu={setOpenLessonMenu}
+        onSetDeleteConfirmLesson={setDeleteConfirmLesson}
+        onDeleteLesson={handleDeleteLesson}
+        onToggleLessonComplete={async (args: { pageId: string }) => {
+          if (selectedPageId) {
+            await toggleLessonComplete({ pageId: selectedPageId as Id<"pages"> });
+          }
+        }}
+        onSetShowPageInput={setShowPageInput}
+        onSetPageInputValue={setPageInputValue}
+        onCreatePage={async (moduleId: string, title: string) => {
+          if (!title.trim()) return;
+          setIsCreatingPage(true);
+          setError(null);
+          try {
+            await createPage({
+              moduleId: moduleId as Id<"modules">,
+              title,
+            });
+          } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : "Failed to create lesson";
+            setError(errorMessage);
+          } finally {
+            setIsCreatingPage(false);
+          }
+        }}
+        onPageInputCancel={handlePageInputCancel}
+        onOpenCreatePageModal={openCreatePageModal}
+        onOpenCreateModuleModal={openCreateModuleModal}
+        onModuleInputSubmit={handleModuleInputSubmit}
+        onModuleInputCancel={handleModuleInputCancel}
+        onModuleInputChange={setModuleInputValue}
+        onChapterDragEnd={handleChapterDragEnd}
+      />
+
       <div className={`
         fixed lg:relative z-50 lg:z-auto
         w-80 h-full
@@ -877,6 +775,68 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
                   </Button>
                 )}
               </div>
+            ) : isOwner && modules.length > 0 ? (
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleChapterDragEnd}
+              >
+                <SortableContext
+                  items={modules.map(m => m._id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-2">
+                    {modules.map((module: ModuleData) => (
+                      <SortableChapter
+                        key={module._id}
+                        module={module}
+                        isCollapsed={collapsedModules.has(module._id)}
+                        isActive={!!module.pages?.some(p => p._id === selectedPageId)}
+                        chapterProgress={(() => {
+                          const total = module.pages?.length || 0;
+                          const completed = module.pages?.filter(p => p.isViewed).length || 0;
+                          return total > 0 ? Math.round((completed / total) * 100) : 0;
+                        })()}
+                        selectedPageId={selectedPageId}
+                        isOwner={isOwner}
+                        collapsedModules={collapsedModules}
+                        editingChapterId={editingChapterId}
+                        editingChapterTitle={editingChapterTitle}
+                        openChapterMenu={openChapterMenu}
+                        deleteConfirmChapter={deleteConfirmChapter}
+                        showPageInput={showPageInput}
+                        pageInputValue={pageInputValue}
+                        editingLessonId={editingLessonId}
+                        editingLessonTitle={editingLessonTitle}
+                        openLessonMenu={openLessonMenu}
+                        deleteConfirmLesson={deleteConfirmLesson}
+                        toggleModuleCollapse={toggleModuleCollapse}
+                        startEditingChapter={startEditingChapter}
+                        setEditingChapterTitle={setEditingChapterTitle}
+                        handleChapterTitleBlur={handleChapterTitleBlur}
+                        handleChapterTitleKeyDown={handleChapterTitleKeyDown}
+                        setOpenChapterMenu={setOpenChapterMenu}
+                        setDeleteConfirmChapter={setDeleteConfirmChapter}
+                        handleDeleteChapter={handleDeleteChapter}
+                        setSelectedPageId={setSelectedPageId}
+                        startEditingLesson={startEditingLesson}
+                        setEditingLessonTitle={setEditingLessonTitle}
+                        handleLessonTitleBlur={handleLessonTitleBlur}
+                        handleLessonTitleKeyDown={handleLessonTitleKeyDown}
+                        setOpenLessonMenu={setOpenLessonMenu}
+                        setDeleteConfirmLesson={setDeleteConfirmLesson}
+                        handleDeleteLesson={handleDeleteLesson}
+                        toggleLessonComplete={toggleLessonComplete}
+                        setShowPageInput={setShowPageInput}
+                        setPageInputValue={setPageInputValue}
+                        handleCreatePage={handleCreatePage}
+                        handlePageInputCancel={handlePageInputCancel}
+                        openCreatePageModal={openCreatePageModal}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
             ) : (
               <div className="space-y-2">
                 {modules.map((module: ModuleData) => {
@@ -992,7 +952,7 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
                                   </button>
                                   {deleteConfirmChapter === module._id ? (
                                     <div className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
-                                      <Text size="1" theme="muted" className="mb-2">Delete "{module.title}"?</Text>
+                                      <Text size="1" theme="muted" className="mb-2">Delete &quot;{module.title}&quot;?</Text>
                                       <div className="flex gap-2">
                                         <Button 
                                           size="sm" 
@@ -1148,7 +1108,7 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
                                       </button>
                                       {deleteConfirmLesson === page._id ? (
                                         <div className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
-                                          <Text size="1" theme="muted" className="mb-2">Delete "{page.title}"?</Text>
+                                          <Text size="1" theme="muted" className="mb-2">Delete &quot;{page.title}&quot;?</Text>
                                           <div className="flex gap-2">
                                             <Button 
                                               size="sm" 
@@ -1355,90 +1315,5 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
         </div>
       </div>
     </div>
-  );
-}
-
-// Lesson Description Component (inline editable)
-function LessonDescription({
-  description,
-  isOwner,
-  onSave,
-}: {
-  description: string;
-  isOwner: boolean;
-  onSave: (description: string) => void;
-}) {
-  const [text, setText] = useState(description);
-  const [saving, setSaving] = useState(false);
-  const debounceRef = useRef<NodeJS.Timeout | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    setText(description);
-  }, [description]);
-
-  const adjustTextareaHeight = () => {
-    const textarea = textareaRef.current;
-    if (textarea) {
-      textarea.style.height = "auto";
-      textarea.style.height = textarea.scrollHeight + "px";
-    }
-  };
-
-  const handleChange = useCallback((newText: string) => {
-    setText(newText);
-    
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-    }
-    
-    debounceRef.current = setTimeout(() => {
-      setSaving(true);
-      onSave(newText);
-      setSaving(false);
-    }, 1500);
-    
-    setTimeout(adjustTextareaHeight, 0);
-  }, [onSave]);
-
-  const handleBlur = useCallback(() => {
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-    }
-    setSaving(true);
-    onSave(text);
-    setSaving(false);
-  }, [text, onSave]);
-
-  useEffect(() => {
-    setTimeout(adjustTextareaHeight, 0);
-  }, []);
-
-  if (isOwner) {
-    return (
-      <div>
-        <textarea
-          ref={textareaRef}
-          className="w-full p-3 text-sm bg-bg-subtle hover:bg-bg-elevated focus:bg-bg-elevated rounded-lg resize-none focus:outline-none"
-          placeholder="Write a description..."
-          value={text}
-          onChange={(e) => {
-            handleChange(e.target.value);
-            adjustTextareaHeight();
-          }}
-          onBlur={handleBlur}
-          style={{ height: "auto" }}
-        />
-        {saving && (
-          <Text size="1" theme="muted" className="mt-1">Saving...</Text>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <Text size="2" className="text-text-secondary whitespace-pre-wrap">
-      {description || <Text theme="muted">No description yet.</Text>}
-    </Text>
   );
 }

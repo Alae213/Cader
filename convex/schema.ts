@@ -223,7 +223,8 @@ export default defineSchema({
     completedAt: v.number(),
   }).index("by_classroom_id", ["classroomId"])
     .index("by_user_id", ["userId"])
-    .index("by_classroom_and_user", ["classroomId", "userId"]),
+    .index("by_classroom_and_user", ["classroomId", "userId"])
+    .index("by_user_and_page", ["userId", "pageId"]),
 
   // Classroom access - tracks which members have access to which classrooms
   classroomAccess: defineTable({

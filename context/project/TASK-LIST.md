@@ -28,14 +28,22 @@ Tasks currently being worked on or up next.
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T123 | `[x]` | Fix webhook signature verification — properly await HMAC-SHA256 verification instead of just checking length | [context/features/chargily-integration.md](../features/chargily-integration.md) | Uses official SDK's verifySignature function |
-| T124 | `[x]` | Install @chargily/chargily-pay package and use official SDK for API calls and signature verification | [context/features/chargily-integration.md](../features/chargily-integration.md) | SDK v2.1.0 installed, used in webhook and checkout creation |
-| T125 | `[x]` | Encrypt Chargily API keys at rest using AES-GCM encryption before storing in Convex | [context/features/chargily-integration.md](../features/chargily-integration.md) | encrypt() function in convex/lib/encryption.ts, keys encrypted before storage |
-| T126 | `[x]` | Remove internal API type assertion hack in webhook handler — use proper Convex internal imports | [context/features/chargily-integration.md](../features/chargily-integration.md) | No type assertion hack found - already clean |
-| T127 | `[x]` | Add checkout amount verification in webhook — cross-check paid amount with expected price from database | [context/features/chargily-integration.md](../features/chargily-integration.md) | verifyPaymentAmount() function validates amount matches expected price |
-| T128 | `[x]` | Implement renewal reminder emails in checkExpiringSubscriptions — send email 3 days before expiry | [context/features/chargily-integration.md](../features/chargily-integration.md) | sendRenewalReminderEmail() called for memberships expiring within 3 days |
-| T129 | `[x]` | Add webhook retry logic for failed mutations — implement idempotency keys and dead letter queue | [context/features/chargily-integration.md](../features/chargily-integration.md) | Basic idempotency: grantMembership checks for existing membership first |
-| T130 | `[x]` | Update .env.example and production docs with correct Chargily configuration instructions | [context/features/chargily-integration.md](../features/chargily-integration.md) | .env.example properly configured with all required vars |
+| T-CL-REF-001 | `[x]` | Analyze ClassroomViewer.tsx (1562 lines) — identify logical sections for extraction | [context/features/classrooms.md](../features/classrooms.md) | Phase 20A completed |
+| T-CL-REF-002 | `[x]` | Analyze ClassroomsTab.tsx (601 lines) — identify logical sections for extraction | [context/features/classrooms.md](../features/classrooms.md) | Phase 20A completed |
+| T-CL-REF-003 | `[x]` | Create `src/components/Classrooms/` folder structure | [context/features/classrooms.md](../features/classrooms.md) | Phase 20A completed |
+| T-CL-REF-004 | `[x]` | Extract VideoModal.tsx from ClassroomViewer.tsx | [context/features/classrooms.md](../features/classrooms.md) | Phase 20B completed |
+| T-CL-REF-005 | `[x]` | Extract VideoEmbed.tsx from ClassroomViewer.tsx | [context/features/classrooms.md](../features/classrooms.md) | Phase 20B completed |
+| T-CL-REF-006 | `[x]` | Extract ClassroomCard.tsx from ClassroomsTab.tsx | [context/features/classrooms.md](../features/classrooms.md) | Phase 20B completed |
+| T-CL-REF-010 | `[x]` | Move ClassroomViewer.tsx to new folder and update imports | [context/features/classrooms.md](../features/classrooms.md) | Phase 20B completed |
+| T-CL-REF-011 | `[x]` | Move ClassroomsTab.tsx to new folder and update imports | [context/features/classrooms.md](../features/classrooms.md) | Phase 20B completed |
+| T-CL-REF-014 | `[x]` | Create `src/components/Classrooms/index.ts` barrel export | [context/features/classrooms.md](../features/classrooms.md) | Phase 20D completed |
+| T-CL-REF-015 | `[x]` | Update imports in CommunityShell.tsx — point to new folder | [context/features/classrooms.md](../features/classrooms.md) | Phase 20E completed |
+| T-CL-REF-016 | `[x]` | Extract LessonDescription.tsx from ClassroomViewer | [context/features/classrooms.md](../features/classrooms.md) | Phase 20B completed |
+| T-CL-REF-017 | `[x]` | Extract ClassroomSidebar.tsx (chapter/lesson tree) | [context/features/classrooms.md](../features/classrooms.md) | New component - 433 lines |
+| T-CL-REF-018 | `[x]` | Extract LessonContent.tsx (right panel) | [context/features/classrooms.md](../features/classrooms.md) | New component - 266 lines |
+| T-CL-REF-019 | `[x]` | Phase 20F: Fix ESLint in new Classrooms components | [context/features/classrooms.md](../features/classrooms.md) | Build passes, ESLint warnings reduced |
+| T120 | `[ ]` | Vercel production deployment — env vars configured, build passes, domain ready | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | |
+| T121 | `[ ]` | Custom domain setup | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | |
 
 ---
 
@@ -333,6 +341,68 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 | T-CL-037 | `[x]` | Update lesson row layout: drag + thumbnail + title + check | [context/features/classrooms.md](../features/classrooms.md) | |
 | T-CL-038 | `[x]` | Add Expand All / Collapse All functionality | [context/features/classrooms.md](../features/classrooms.md) | |
 | T-CL-039 | `[x]` | Connect all mutations and queries | [context/features/classrooms.md](../features/classrooms.md) | Final integration |
+
+### Phase 20 — Classroom Component Refactoring (T-CL-REF-001 to T-CL-REF-030)
+
+#### Phase 20A — Analysis & Preparation
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CL-REF-001 | `[ ]` | Analyze ClassroomViewer.tsx (1562 lines) — identify logical sections for extraction | [context/features/classrooms.md](../features/classrooms.md) | Sidebar, LessonContent, VideoModal, VideoEmbed, etc. |
+| T-CL-REF-002 | `[ ]` | Analyze ClassroomsTab.tsx (601 lines) — identify logical sections for extraction | [context/features/classrooms.md](../features/classrooms.md) | ClassroomCard, ClassroomForm, grid, modal |
+| T-CL-REF-003 | `[ ]` | Create `src/components/Classrooms/` folder structure | [context/features/classrooms.md](../features/classrooms.md) | New directory for all classroom components |
+
+#### Phase 20B — Extract ClassroomViewer Sub-Components
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CL-REF-004 | `[ ]` | Extract ClassroomSidebar.tsx — chapter/lesson tree with drag-drop, expand/collapse | [context/features/classrooms.md](../features/classrooms.md) | From ClassroomViewer |
+| T-CL-REF-005 | `[ ]` | Extract LessonContent.tsx — right panel with header, content blocks | [context/features/classrooms.md](../features/classrooms.md) | From ClassroomViewer |
+| T-CL-REF-006 | `[ ]` | Extract VideoModal.tsx — modal for adding/editing video URL | [context/features/classrooms.md](../features/classrooms.md) | From ClassroomViewer |
+| T-CL-REF-007 | `[ ]` | Extract VideoEmbed.tsx — video player component | [context/features/classrooms.md](../features/classrooms.md) | From ClassroomViewer |
+| T-CL-REF-008 | `[ ]` | Extract LessonDescription.tsx — inline-editable description | [context/features/classrooms.md](../features/classrooms.md) | From ClassroomViewer |
+| T-CL-REF-009 | `[ ]` | Extract ModuleItem.tsx — individual chapter component with progress ring | [context/features/classrooms.md](../features/classrooms.md) | From ClassroomViewer |
+| T-CL-REF-010 | `[ ]` | Move ClassroomViewer.tsx to new folder and reduce to ~600 lines | [context/features/classrooms.md](../features/classrooms.md) | Keep main viewer logic |
+
+#### Phase 20C — Extract ClassroomsTab Sub-Components
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CL-REF-011 | `[ ]` | Extract ClassroomCard.tsx — card for classroom grid with thumbnail + progress | [context/features/classrooms.md](../features/classrooms.md) | From ClassroomsTab |
+| T-CL-REF-012 | `[ ]` | Extract ClassroomForm.tsx — create/edit classroom form | [context/features/classrooms.md](../features/classrooms.md) | From ClassroomsTab |
+| T-CL-REF-013 | `[ ]` | Move ClassroomsTab.tsx to new folder and reduce to ~300 lines | [context/features/classrooms.md](../features/classrooms.md) | Keep grid + modal orchestration |
+
+#### Phase 20D — Create Barrel Exports
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CL-REF-014 | `[ ]` | Create `src/components/Classrooms/index.ts` barrel export | [context/features/classrooms.md](../features/classrooms.md) | Export all classroom components |
+
+#### Phase 20E — Update Imports & Integration
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CL-REF-015 | `[ ]` | Update imports in CommunityShell.tsx — point to new folder | [context/features/classrooms.md](../features/classrooms.md) | Change from community/ to Classrooms/ |
+| T-CL-REF-016 | `[ ]` | Verify ClassroomViewer still works — test chapter selection, progress, video | [context/features/classrooms.md](../features/classrooms.md) | Manual browser test |
+| T-CL-REF-017 | `[ ]` | Verify ClassroomsTab still works — test grid, create, edit | [context/features/classrooms.md](../features/classrooms.md) | Manual browser test |
+
+#### Phase 20F — ESLint Fixes
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CL-REF-018 | `[ ]` | Fix React refs accessed during render in menu-item.tsx | [context/features/classrooms.md](../features/classrooms.md) | Critical error |
+| T-CL-REF-019 | `[ ]` | Clean up unused imports in convex/functions/feed.ts | [context/features/classrooms.md](../features/classrooms.md) | limit, mentionMatches |
+| T-CL-REF-020 | `[ ]` | Clean up unused imports in convex/functions/leaderboard.ts | [context/features/classrooms.md](../features/classrooms.md) | limit, yesterdayDay |
+| T-CL-REF-021 | `[ ]` | Clean up unused imports in src/app/[communitySlug]/page.tsx | [context/features/classrooms.md](../features/classrooms.md) | SignInButton, SignUpButton |
+| T-CL-REF-022 | `[ ]` | Clean up unused imports in src/app/api/webhooks/clerk/route.ts | [context/features/classrooms.md](../features/classrooms.md) | verifySignature |
+| T-CL-REF-023 | `[ ]` | Clean up unused imports in src/app/explore/page.tsx | [context/features/classrooms.md](../features/classrooms.md) | Button |
+| T-CL-REF-024 | `[ ]` | Clean up unused imports in src/components/community/AboutTab.tsx | [context/features/classrooms.md](../features/classrooms.md) | Badge |
+| T-CL-REF-025 | `[ ]` | Clean up unused imports in src/components/community/AnalysisTab.tsx | [context/features/classrooms.md](../features/classrooms.md) | communityId |
+| T-CL-REF-026 | `[ ]` | Clean up unused imports in src/components/community/ClassroomViewer.tsx | [context/features/classrooms.md](../features/classrooms.md) | isSaving, isCreatingModule, isCreatingPage, error |
+| T-CL-REF-027 | `[ ]` | Replace `<img>` with Next.js `<Image />` in AboutTab.tsx | [context/features/classrooms.md](../features/classrooms.md) | Performance optimization |
+| T-CL-REF-028 | `[ ]` | Run build to verify no errors | [context/features/classrooms.md](../features/classrooms.md) | npm run build |
+| T-CL-REF-029 | `[ ]` | Run ESLint to verify no errors | [context/features/classrooms.md](../features/classrooms.md) | npm run lint |
+| T-CL-REF-030 | `[ ]` | Final verification — all classroom features work in browser | [context/features/classrooms.md](../features/classrooms.md) | UAT |
 
 ---
 

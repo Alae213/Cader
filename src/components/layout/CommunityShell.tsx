@@ -11,7 +11,7 @@ import { TabNav, getInitialTab } from "./TabNav";
 import { AboutTab } from "@/components/community/AboutTab";
 import { FeedTab } from "@/components/community/FeedTab";
 import { MembersTab } from "@/components/community/MembersTab";
-import { ClassroomsTab } from "@/components/community/ClassroomsTab";
+import { ClassroomsTab } from "@/components/Classrooms";
 import { LeaderboardTab } from "@/components/community/LeaderboardTab";
 import { AnalysisTab } from "@/components/community/AnalysisTab";
 import { ProfileModal } from "@/components/community/ProfileModal";

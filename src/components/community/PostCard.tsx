@@ -5,16 +5,15 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useAuth } from "@clerk/nextjs";
 import { toast } from "sonner";
-import { Card, CardContent } from "@/components/ui/Card";
 import { Text } from "@/components/ui/Text";
 import { Avatar } from "@/components/shared/Avatar";
-import { Button } from "@/components/ui/Button";
 import { 
   ThumbsUp, 
   MessageCircle, 
   MoreHorizontal, 
   Pin,
   Trash2,
+  Share2,
   Image,
   Video,
   BarChart3
@@ -71,11 +70,11 @@ export function PostCard({ post, onClick, onDeleted }: PostCardProps) {
     const seconds = Math.floor((Date.now() - timestamp) / 1000);
     if (seconds < 60) return "just now";
     const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes}m ago`;
+    if (minutes < 60) return `${minutes}m`;
     const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h ago`;
+    if (hours < 24) return `${hours}h`;
     const days = Math.floor(hours / 24);
-    return `${days}d ago`;
+    return `${days}d`;
   };
 
   // Handle upvote
@@ -113,7 +112,6 @@ export function PostCard({ post, onClick, onDeleted }: PostCardProps) {
     try {
       await votePoll({ postId: post._id as any, optionIndex });
       
-      // Update local state to show the vote
       const updatedOptions = localPollOptions.map((opt, i) => {
         if (i === optionIndex) {
           return { ...opt, votes: (opt.votes || 0) + 1 };
@@ -179,167 +177,251 @@ export function PostCard({ post, onClick, onDeleted }: PostCardProps) {
     }
   };
 
-  // Determine if user can pin/delete (is owner or admin of the community)
-  // For now, we'll allow the author to delete their own posts
-  const canModify = userId && post.authorId; // Simplified check
+  // Handle share
+  const handleShare = async () => {
+    const shareUrl = `${window.location.origin}/community/${post._id}`;
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: post.content.slice(0, 50) || "Post",
+          url: shareUrl,
+        });
+      } catch {
+        // User cancelled or error
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        toast.success("Link copied!");
+      } catch {
+        toast.error("Failed to copy link");
+      }
+    }
+  };
+
+  const canModify = userId && post.authorId;
+
+  // Calculate total votes for poll
+  const totalPollVotes = localPollOptions.reduce((sum, opt) => sum + (opt.votes || 0), 0);
 
   return (
-    <Card className={post.isPinned ? "border-primary" : ""}>
-      <CardContent className="p-4">
-        {/* Header */}
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-3">
-            <Avatar
-              src={post.author?.avatarUrl}
-              name={post.author?.displayName || "User"}
-              size="md"
-            />
-            <div>
-              <div className="flex items-center gap-2">
-                <Text>{post.author?.displayName || "User"}</Text>
-                {post.isPinned && (
-                  <Pin className="w-3 h-3 text-primary" />
-                )}
-              </div>
-              <Text size="2" theme="muted">{formatTimeAgo(post.createdAt)}</Text>
-            </div>
-          </div>
-
-          {/* Three-dot menu - only show if user can modify */}
-          {canModify && (
-            <div className="relative">
-              <button
-                onClick={() => setShowMenu(!showMenu)}
-                className="p-1 hover:bg-bg-elevated rounded"
-              >
-                <MoreHorizontal className="w-5 h-5" />
-              </button>
-              
-              {showMenu && (
-                <div className="absolute right-0 top-8 bg-bg-base border border-border rounded-lg shadow-lg py-1 min-w-[120px] z-10">
-                  <button 
-                    onClick={handleDelete}
-                    className="w-full px-3 py-2 text-left hover:bg-bg-elevated flex items-center gap-2 text-red-500"
-                    disabled={isLoading}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    <Text size="sm">Delete</Text>
-                  </button>
-                  <button 
-                    onClick={handleTogglePin}
-                    className="w-full px-3 py-2 text-left hover:bg-bg-elevated flex items-center gap-2"
-                    disabled={isLoading}
-                  >
-                    <Pin className="w-4 h-4" />
-                    <Text size="sm">{post.isPinned ? "Unpin" : "Pin"}</Text>
-                  </button>
-                </div>
+    <div 
+      className={`
+        group rounded-2xl p-5 transition-colors duration-200
+        ${post.isPinned ? "bg-primary/5" : "bg-bg-elevated hover:bg-bg-muted/50"}
+      `}
+    >
+      {/* Header */}
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <Avatar
+            src={post.author?.avatarUrl}
+            name={post.author?.displayName || "User"}
+            size="lg"
+          />
+          <div className="flex flex-col">
+            <div className="flex items-center gap-2">
+              <Text fontWeight="semibold">{post.author?.displayName || "User"}</Text>
+              {post.isPinned && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                  <Pin className="w-3 h-3" />
+                  <Text size="2" fontWeight="medium">Pinned</Text>
+                </span>
               )}
             </div>
-          )}
+            <Text size="sm" theme="muted">{formatTimeAgo(post.createdAt)}</Text>
+          </div>
         </div>
 
-        {/* Category Tag */}
-        {post.category && (
-          <div className="mb-2">
-            <span 
-              className="inline-block px-2 py-0.5 rounded text-xs text-white"
-              style={{ backgroundColor: post.category.color }}
+        {canModify && (
+          <div className="relative">
+            <button
+              onClick={() => setShowMenu(!showMenu)}
+              className="p-2 rounded-xl hover:bg-bg-muted transition-colors"
             >
-              {post.category.name}
-            </span>
+              <MoreHorizontal className="w-5 h-5" />
+            </button>
+            
+            {showMenu && (
+              <div className="absolute right-0 top-full mt-1 bg-bg-base rounded-xl shadow-sm border border-border py-1 min-w-[140px] z-10">
+                <button 
+                  onClick={handleDelete}
+                  className="w-full px-4 py-2.5 text-left hover:bg-bg-elevated flex items-center gap-3 text-red-500"
+                  disabled={isLoading}
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <Text size="sm">Delete</Text>
+                </button>
+                <button 
+                  onClick={handleTogglePin}
+                  className="w-full px-4 py-2.5 text-left hover:bg-bg-elevated flex items-center gap-3"
+                  disabled={isLoading}
+                >
+                  <Pin className="w-4 h-4" />
+                  <Text size="sm">{post.isPinned ? "Unpin" : "Pin"}</Text>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Category Tag */}
+      {post.category && (
+        <div className="mb-3">
+          <span 
+            className="inline-block px-3 py-1 rounded-full text-xs font-medium text-white"
+            style={{ backgroundColor: post.category.color }}
+          >
+            {post.category.name}
+          </span>
+        </div>
+      )}
+
+      {/* Content */}
+      <div onClick={onClick} className="cursor-pointer">
+        {/* Text content */}
+        {post.content && (
+          <Text className="mb-4 whitespace-pre-wrap leading-relaxed">{post.content}</Text>
+        )}
+
+        {/* Media: Single Image */}
+        {post.mediaUrls && post.mediaUrls.length === 1 && (
+          <div className="mb-4 rounded-2xl overflow-hidden">
+            <img 
+              src={post.mediaUrls[0]} 
+              alt="" 
+              className="w-full max-h-[400px] object-cover"
+            />
           </div>
         )}
 
-        {/* Content */}
-        <div onClick={onClick} className="cursor-pointer">
-          {/* Text content */}
-          {post.content && (
-            <Text className="mb-3 whitespace-pre-wrap">{post.content}</Text>
-          )}
-
-          {/* Media: Images */}
-          {post.mediaUrls && post.mediaUrls.length > 0 && (
-            <div className="grid grid-cols-2 gap-2 mb-3">
-              {post.mediaUrls.map((url, i) => (
+        {/* Media: Multiple Images */}
+        {post.mediaUrls && post.mediaUrls.length > 1 && (
+          <div className={`grid gap-1 mb-4 rounded-2xl overflow-hidden ${
+            post.mediaUrls.length === 2 ? "grid-cols-2" :
+            post.mediaUrls.length === 3 ? "grid-cols-2" :
+            "grid-cols-2 grid-rows-2"
+          }`}>
+            {post.mediaUrls.slice(0, 4).map((url, i) => (
+              <div key={i} className="relative">
                 <img 
-                  key={i} 
                   src={url} 
                   alt="" 
-                  className="rounded-lg w-full h-48 object-cover"
+                  className="w-full h-40 object-cover"
                 />
-              ))}
-            </div>
-          )}
+                {i === 3 && post.mediaUrls && post.mediaUrls.length > 4 && (
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                    <Text fontWeight="semibold" className="text-white text-lg">
+                      +{post.mediaUrls.length - 4}
+                    </Text>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
 
-          {/* Video embed */}
-          {post.videoUrl && (
-            <div className="mb-3">
-              <VideoEmbed url={post.videoUrl} />
-            </div>
-          )}
+        {/* Video embed */}
+        {post.videoUrl && (
+          <div className="mb-4 rounded-2xl overflow-hidden">
+            <VideoEmbed url={post.videoUrl} />
+          </div>
+        )}
 
-          {/* Poll */}
-          {localPollOptions && localPollOptions.length > 0 && (
-            <div className="space-y-2 mb-3">
-              {localPollOptions.map((option, i) => {
-                const totalVotes = localPollOptions.reduce((sum, opt) => sum + (opt.votes || 0), 0);
-                const percentage = totalVotes > 0 ? Math.round(((option.votes || 0) / totalVotes) * 100) : 0;
-                
-                return (
-                  <button
-                    key={i}
-                    onClick={() => handlePollVote(i)}
-                    disabled={hasVoted || isLoading}
-                    className={`w-full p-3 rounded-lg flex justify-between items-center transition-all ${
-                      hasVoted
-                        ? "bg-bg-elevated"
-                        : "bg-bg-elevated hover:bg-bg-muted cursor-pointer"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className={`w-4 h-4 rounded-full border-2 shrink-0 ${
-                        hasVoted ? "border-primary" : "border-border"
-                      }`}>
+        {/* Poll */}
+        {localPollOptions && localPollOptions.length > 0 && (
+          <div className="mb-4 space-y-2">
+            {localPollOptions.map((option, i) => {
+              const percentage = totalPollVotes > 0 ? Math.round(((option.votes || 0) / totalPollVotes) * 100) : 0;
+              
+              return (
+                <button
+                  key={i}
+                  onClick={() => handlePollVote(i)}
+                  disabled={hasVoted || isLoading}
+                  className={`
+                    w-full relative overflow-hidden rounded-xl p-4 text-left transition-all
+                    ${hasVoted
+                      ? "bg-bg-muted"
+                      : "hover:bg-bg-muted bg-bg-elevated"
+                    }
+                  `}
+                >
+                  {/* Progress bar background */}
+                  {hasVoted && (
+                    <div 
+                      className="absolute inset-y-0 left-0 bg-primary/20 transition-all duration-500"
+                      style={{ width: `${percentage}%` }}
+                    />
+                  )}
+                  
+                  <div className="relative flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`
+                        w-5 h-5 rounded-full border-2 shrink-0 transition-colors
+                        ${hasVoted ? "border-primary bg-primary" : "border-border"}
+                      `}>
                         {hasVoted && (
-                          <div className="w-full h-full rounded-full bg-primary" />
+                          <div className="w-full h-full flex items-center justify-center">
+                            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
                         )}
                       </div>
-                      <Text size="sm">{option.text}</Text>
+                      <Text fontWeight="medium">{option.text}</Text>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {hasVoted && (
-                        <Text size="sm" theme="muted">{percentage}%</Text>
-                      )}
-                      <Text size="sm" theme="muted">{option.votes} votes</Text>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
+                    {hasVoted && (
+                      <Text size="sm" fontWeight="semibold" theme="muted">
+                        {percentage}%
+                      </Text>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+            <Text size="sm" theme="muted" className="pt-1">
+              {totalPollVotes} {totalPollVotes === 1 ? "vote" : "votes"}
+            </Text>
+          </div>
+        )}
+      </div>
 
-        {/* Footer */}
-        <div className="flex items-center gap-4 pt-3 border-t border-border">
+      {/* Footer */}
+      <div className="flex items-center justify-between pt-4 mt-2">
+        <div className="flex items-center gap-1">
           <button 
             onClick={handleUpvote}
-            className={`flex items-center gap-1 transition-colors ${
-              hasUpvoted ? "text-primary" : "hover:text-primary"
-            }`}
+            className={`
+              flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-200
+              ${hasUpvoted 
+                ? "text-primary bg-primary/10" 
+                : "hover:bg-bg-muted text-text-secondary"
+              }
+            `}
             disabled={isLoading}
           >
             <ThumbsUp className={`w-4 h-4 ${hasUpvoted ? "fill-current" : ""}`} />
-            <Text size="sm">{localUpvoteCount}</Text>
+            <Text size="sm" fontWeight="medium" className="tabular-nums">{localUpvoteCount}</Text>
           </button>
           
-          <button className="flex items-center gap-1 hover:text-primary transition-colors">
+          <button className="flex items-center gap-2 px-4 py-2 rounded-xl hover:bg-bg-muted text-text-secondary transition-colors">
             <MessageCircle className="w-4 h-4" />
-            <Text size="sm">{post.commentCount}</Text>
+            <Text size="sm" fontWeight="medium" className="tabular-nums">{post.commentCount}</Text>
+          </button>
+
+          <button 
+            onClick={handleShare}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl hover:bg-bg-muted text-text-secondary transition-colors"
+          >
+            <Share2 className="w-4 h-4" />
+            <Text size="sm" fontWeight="medium">Share</Text>
           </button>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -362,7 +444,7 @@ function VideoEmbed({ url }: { url: string }) {
   if (!embedUrl) return null;
 
   return (
-    <div className="relative aspect-video rounded-lg overflow-hidden bg-bg-elevated">
+    <div className="relative aspect-video rounded-2xl overflow-hidden bg-bg-muted">
       <iframe
         src={embedUrl}
         className="w-full h-full"

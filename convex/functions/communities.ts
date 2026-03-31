@@ -1,4 +1,4 @@
-import { query, mutation, internalMutation } from "../_generated/server";
+import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { encrypt } from "../lib/encryption";
 import { sendRenewalReminderEmail } from "../lib/email";
@@ -17,7 +17,7 @@ function sanitizeHtml(html: string): string {
   ];
   
   // Create a temporary DOM element to parse HTML
-  const DOMParser = (globalThis as any).DOMParser;
+  const DOMParser = (globalThis as unknown as { DOMParser?: new () => DOMParser }).DOMParser;
   const parser = DOMParser ? new DOMParser() : null;
   const temp = parser ? parser.parseFromString(html, 'text/html') : null;
   
@@ -329,7 +329,7 @@ export const updateCommunity = mutation({
     }
     
     // Update community
-    const updateData: Record<string, any> = {
+    const updateData: Record<string, unknown> = {
       updatedAt: Date.now(),
     };
     

@@ -1,4 +1,4 @@
-import { query, mutation, internalMutation } from "../_generated/server";
+import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
 
 // Get user's membership for a community by slug (uses Clerk ID)
@@ -214,7 +214,7 @@ export const grantMembershipWithDetails = mutation({
 
     // Update user profile with phone and wilaya if provided
     if (args.phone || args.wilaya) {
-      const updateData: Record<string, any> = {
+      const updateData: Record<string, unknown> = {
         updatedAt: now,
       };
       if (args.phone) updateData.phone = args.phone;

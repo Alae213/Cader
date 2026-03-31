@@ -58,6 +58,7 @@ function mergeProps<T extends HTMLElement>(
   return merged;
 }
 
+/* eslint-disable react-hooks/static-components */
 function Slot<T extends HTMLElement = HTMLElement>({
   children,
   ref,
@@ -86,6 +87,7 @@ function Slot<T extends HTMLElement = HTMLElement>({
     <Base {...mergedProps} ref={mergeRefs(childRef as React.Ref<T>, ref)} />
   );
 }
+/* eslint-enable react-hooks/static-components */
 
 export {
   Slot,

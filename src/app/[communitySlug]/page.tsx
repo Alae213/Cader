@@ -62,11 +62,11 @@ export default function CommunityPage() {
   };
 
   // Check for stored join intent on mount (after auth redirect)
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     const storedSlug = sessionStorage.getItem("joinCommunitySlug");
     if (storedSlug === communitySlug && clerkId) {
       sessionStorage.removeItem("joinCommunitySlug");
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setShowOnboarding(true);
     }
   }, [communitySlug, clerkId]);
