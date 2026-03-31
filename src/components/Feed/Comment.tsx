@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Text } from "@/components/ui/Text";
 import { Avatar } from "@/components/shared/Avatar";
 import { LevelBadge } from "./LevelBadge";
+import { parseContentWithMentions } from "@/lib/mentions";
 import { 
   ThumbsUp, 
   MessageCircle, 
@@ -85,6 +86,29 @@ export function Comment({
     if (hours < 24) return `${hours}h`;
     const days = Math.floor(hours / 24);
     return `${days}d`;
+  };
+
+  // Render content with clickable @mentions
+  const renderContentWithMentions = (content: string) => {
+    const parts = parseContentWithMentions(content);
+    
+    return parts.map((part, index) => {
+      if (part.type === 'mention') {
+        return (
+          <span
+            key={index}
+            className="text-blue-400 hover:underline cursor-pointer font-medium"
+            onClick={(e) => {
+              e.stopPropagation();
+              // TODO: Navigate to user profile
+            }}
+          >
+            @{part.value}
+          </span>
+        );
+      }
+      return <span key={index}>{part.value}</span>;
+    });
   };
 
   const handleUpvote = async () => {
@@ -190,7 +214,9 @@ export function Comment({
 
           {/* Comment content */}
           <div className="mt-1">
-            <Text size="sm" className="whitespace-pre-wrap">{comment.content}</Text>
+            <Text size="sm" className="whitespace-pre-wrap">
+              {renderContentWithMentions(comment.content)}
+            </Text>
           </div>
 
           {/* Media attachments */}

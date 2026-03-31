@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { CommentsSection } from "./CommentsSection";
 import { LevelBadge } from "./LevelBadge";
+import { parseContentWithMentions, ContentPart } from "@/lib/mentions";
 
 interface PostCardProps {
   post: {
@@ -80,6 +81,29 @@ export function PostCard({ post, communityId, currentUserId, isAdmin = false, on
   // Local state for poll
   const [localPollOptions, setLocalPollOptions] = useState(post.pollOptions || []);
   const [hasVoted, setHasVoted] = useState(false);
+
+  // Render content with clickable @mentions
+  const renderContentWithMentions = (content: string) => {
+    const parts = parseContentWithMentions(content);
+    
+    return parts.map((part, index) => {
+      if (part.type === 'mention') {
+        return (
+          <span
+            key={index}
+            className="text-blue-400 hover:underline cursor-pointer font-medium"
+            onClick={(e) => {
+              e.stopPropagation();
+              // TODO: Navigate to user profile
+            }}
+          >
+            @{part.value}
+          </span>
+        );
+      }
+      return <span key={index}>{part.value}</span>;
+    });
+  };
 
   const formatTimeAgo = (timestamp: number) => {
     const seconds = Math.floor((Date.now() - timestamp) / 1000);
@@ -301,7 +325,9 @@ export function PostCard({ post, communityId, currentUserId, isAdmin = false, on
       <div onClick={onClick} className="cursor-pointer">
         {/* Text content */}
         {post.content && (
-          <Text className="mb-4 whitespace-pre-wrap leading-relaxed">{post.content}</Text>
+          <Text className="mb-4 whitespace-pre-wrap leading-relaxed">
+            {renderContentWithMentions(post.content)}
+          </Text>
         )}
 
         {/* Media: Single Image */}

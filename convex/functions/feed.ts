@@ -306,7 +306,7 @@ export const listComments = query({
     }
 
     // Get all comments for this post
-    let commentQuery = ctx.db
+    const commentQuery = ctx.db
       .query("comments")
       .withIndex("by_post_id", (q) => q.eq("postId", args.postId));
 
@@ -335,7 +335,6 @@ export const listComments = query({
             _id: author._id,
             displayName: author.displayName,
             avatarUrl: author.avatarUrl,
-            username: (author as any).username,
           } : null,
           hasUpvoted,
         };
@@ -348,13 +347,13 @@ export const listComments = query({
 
     // Sort top-level comments
     if (sortBy === "top") {
-      topLevel.sort((a, b) => b.upvoteCount - a.upvoteCount || b.createdAt - a.createdAt);
+      topLevel.sort((a, b) => (b.upvoteCount ?? 0) - (a.upvoteCount ?? 0) || b.createdAt - a.createdAt);
     } else {
       topLevel.sort((a, b) => b.createdAt - a.createdAt);
     }
 
     // Sort replies by upvotes
-    replies.sort((a, b) => b.upvoteCount - a.upvoteCount || b.createdAt - a.createdAt);
+    replies.sort((a, b) => (b.upvoteCount ?? 0) - (a.upvoteCount ?? 0) || b.createdAt - a.createdAt);
 
     // Apply pagination to top-level comments
     const cursorNum = args.cursor ? parseInt(args.cursor, 10) : 0;
@@ -542,7 +541,7 @@ export const toggleCommentUpvote = mutation({
       
       // Update comment upvote count
       await ctx.db.patch(args.commentId, {
-        upvoteCount: Math.max(0, comment.upvoteCount - 1),
+        upvoteCount: Math.max(0, (comment.upvoteCount ?? 0) - 1),
         updatedAt: now,
       });
 
@@ -557,7 +556,7 @@ export const toggleCommentUpvote = mutation({
         createdAt: now,
       });
 
-      return { upvoted: false, newCount: Math.max(0, comment.upvoteCount - 1) };
+      return { upvoted: false, newCount: Math.max(0, (comment.upvoteCount ?? 0) - 1) };
     } else {
       // Add upvote (toggle on)
       await ctx.db.insert("commentUpvotes", {
@@ -568,7 +567,7 @@ export const toggleCommentUpvote = mutation({
 
       // Update comment upvote count
       await ctx.db.patch(args.commentId, {
-        upvoteCount: comment.upvoteCount + 1,
+        upvoteCount: (comment.upvoteCount ?? 0) + 1,
         updatedAt: now,
       });
 
@@ -585,7 +584,7 @@ export const toggleCommentUpvote = mutation({
         });
       }
 
-      return { upvoted: true, newCount: comment.upvoteCount + 1 };
+      return { upvoted: true, newCount: (comment.upvoteCount ?? 0) + 1 };
     }
   },
 });

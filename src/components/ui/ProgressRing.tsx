@@ -1,5 +1,7 @@
 "use client";
 
+import { Text } from "@/components/ui/Text";
+
 interface ProgressRingProps {
   progress: number; // 0-100
   size?: number;
@@ -10,7 +12,7 @@ interface ProgressRingProps {
 export function ProgressRing({
   progress,
   size = 24,
-  strokeWidth = 3,
+  strokeWidth = 2.5,
   className = "",
 }: ProgressRingProps) {
   const radius = (size - strokeWidth) / 2;
@@ -19,13 +21,15 @@ export function ProgressRing({
   const strokeDashoffset = circumference - (clampedProgress / 100) * circumference;
 
   return (
-    <div className={`relative inline-flex items-center justify-center ${className}`}>
+    <div className={`relative inline-flex items-center justify-center ${className}`} style={{ width: size, height: size }}>
       <svg
         width={size}
         height={size}
+        viewBox={`0 0 ${size} ${size}`}
         className="transform -rotate-90"
+        style={{ overflow: 'visible' }}
       >
-        {/* Track - darker background */}
+        {/* Track - darker background using mauve scale */}
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -33,9 +37,9 @@ export function ProgressRing({
           fill="none"
           stroke="currentColor"
           strokeWidth={strokeWidth}
-          className="text-black/20"
+          className="text-mauve-4"
         />
-        {/* Progress - green fill */}
+        {/* Progress - accent color */}
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -46,12 +50,13 @@ export function ProgressRing({
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={strokeDashoffset}
-          className="text-green-500 transition-all duration-300"
+          className="text-accent"
           style={{
-            filter: 'drop-shadow(0 0 4px rgba(5, 222, 106, 0.3))',
+            transition: 'stroke-dashoffset 0.3s ease',
           }}
         />
       </svg>
+      
     </div>
   );
 }

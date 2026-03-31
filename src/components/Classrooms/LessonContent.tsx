@@ -29,7 +29,7 @@ interface ClassroomContent {
 }
 
 interface LessonContentProps {
-  classroomContent: ClassroomContent | null;
+  classroomContent: ClassroomContent | null | undefined;
   pageContent: PageContent | null;
   selectedPageId: string | null;
   isOwner: boolean;
@@ -41,7 +41,7 @@ interface LessonContentProps {
   error: string | null;
   mainContentRef: React.RefObject<HTMLDivElement | null>;
   onOpenSidebar: () => void;
-  onToggleComplete: () => void;
+  onToggleComplete: (e?: React.MouseEvent | undefined) => void | Promise<void>;
   onStartEdit: () => void;
   onTitleChange: (title: string) => void;
   onContentChange: (content: string) => void;
@@ -49,6 +49,13 @@ interface LessonContentProps {
   onCancelEdit: () => void;
   onVideoUpdate: (url: string) => void;
   onDescriptionUpdate: (description: string) => void;
+  editingLessonId?: string | null;
+  setEditingLessonId?: (id: string | null) => void;
+  editingLessonTitle?: string;
+  setEditingLessonTitle?: (title: string) => void;
+  deleteConfirmLesson?: { id: string; title: string } | null;
+  setDeleteConfirmLesson?: (data: { id: string; title: string } | null) => void;
+  handleDeleteLesson?: () => void;
 }
 
 export function LessonContent({
@@ -72,6 +79,13 @@ export function LessonContent({
   onCancelEdit,
   onVideoUpdate,
   onDescriptionUpdate,
+  editingLessonId,
+  setEditingLessonId,
+  editingLessonTitle,
+  setEditingLessonTitle,
+  deleteConfirmLesson,
+  setDeleteConfirmLesson,
+  handleDeleteLesson,
 }: LessonContentProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -153,7 +167,7 @@ export function LessonContent({
                   <Button
                     variant={pageContent.isViewed ? "secondary" : "primary"}
                     size="sm"
-                    onClick={() => onToggleComplete()}
+                    onClick={(e) => onToggleComplete(e)}
                   >
                     {pageContent.isViewed ? (
                       <>

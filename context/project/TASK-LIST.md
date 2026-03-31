@@ -33,8 +33,12 @@ Tasks currently being worked on or up next.
 | T-CMT-012 | `[x]` | Build CommentInput with @mentions | [context/features/comments-inline.md](../features/comments-inline.md) | Done |
 | T-CMT-004 | `[x]` | toggleCommentUpvote mutation | [context/features/comments-inline.md](../features/comments-inline.md) | Done - with gamification |
 | T-CMT-050 | `[x]` | Pinned posts blue border | [context/features/community-feed.md](../features/community-feed.md) | Done |
-| T-CMT-030 | `[ ]` | LevelBadge component [Level X] | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | Next up |
-| T-CMT-060 | `[ ]` | Browser testing | [context/features/comments-inline.md](../features/comments-inline.md) | Verify inline comments work |
+| T-CMT-030 | `[x]` | LevelBadge component [Level X] | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | Done |
+| T-CMT-043 | `[x]` | Parse/render mentions in posts | [context/features/comments-inline.md](../features/comments-inline.md) | Done |
+| T-CMT-044 | `[x]` | Parse/render mentions in comments | [context/features/comments-inline.md](../features/comments-inline.md) | Done |
+| T-CL-FIX-001 | `[x]` | Fix chapter drag & drop | [context/features/classrooms.md](../features/classrooms.md) | Done |
+| T-CL-FIX-011 | `[x]` | Auto-create chapter with "Chapter X" | [context/features/classrooms.md](../features/classrooms.md) | Done |
+| T-CL-FIX-030 | `[x]` | Lesson auto-creation on "+" | [context/features/classrooms.md](../features/classrooms.md) | Done |
 
 ---
 
@@ -425,29 +429,29 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T-CMT-020 | `[ ]` | Remove OpenPostModal | [context/features/comments-inline.md](../features/comments-inline.md) | Delete old modal component |
+| T-CMT-020 | `[x]` | Remove OpenPostModal | [context/features/comments-inline.md](../features/comments-inline.md) | Already deleted |
 | T-CMT-021 | `[x]` | Integrate comments into PostCard | [context/features/comments-inline.md](../features/comments-inline.md) | Inline below post |
-| T-CMT-022 | `[~]` | Add infinite scroll for comments | [context/features/comments-inline.md](../features/comments-inline.md) | Pagination exists, scroll not wired |
-| T-CMT-023 | `[ ]` | Connect real-time subscriptions | [context/features/comments-inline.md](../features/comments-inline.md) | New comments appear via useQuery |
+| T-CMT-022 | `[x]` | Add infinite scroll for comments | [context/features/comments-inline.md](../features/comments-inline.md) | Load more button works |
+| T-CMT-023 | `[x]` | Connect real-time subscriptions | [context/features/comments-inline.md](../features/comments-inline.md) | useQuery is real-time |
 
 ### Phase 21D — Level Badges
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T-CMT-030 | `[ ]` | Create LevelBadge component | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | Format: [Level X] |
-| T-CMT-031 | `[ ]` | Add level badge to PostCard | [context/features/community-feed.md](../features/community-feed.md) | Show on post author |
-| T-CMT-032 | `[ ]` | Add level badge to Comment component | [context/features/comments-inline.md](../features/comments-inline.md) | Show on comment author |
+| T-CMT-030 | `[x]` | Create LevelBadge component | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | Created at src/components/Feed/LevelBadge.tsx |
+| T-CMT-031 | `[x]` | Add level badge to PostCard | [context/features/community-feed.md](../features/community-feed.md) | Show on post author |
+| T-CMT-032 | `[x]` | Add level badge to Comment component | [context/features/comments-inline.md](../features/comments-inline.md) | Show on comment author |
 
 ### Phase 21E — @Mentions Integration
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T-CMT-040 | `[~]` | Build MentionAutocomplete component | [context/features/mentions.md](../features/mentions.md) | Integrated in CommentInput |
-| T-CMT-041 | `[~]` | Integrate mentions into PostComposer | [context/features/mentions.md](../features/mentions.md) | Not done yet |
+| T-CMT-040 | `[x]` | Build MentionAutocomplete component | [context/features/mentions.md](../features/mentions.md) | Integrated in CommentInput |
+| T-CMT-041 | `[x]` | Integrate mentions into PostComposer | [context/features/mentions.md](../features/mentions.md) | Already exists in PostComposer.tsx |
 | T-CMT-042 | `[x]` | Integrate mentions into CommentInput | [context/features/mentions.md](../features/mentions.md) | Working |
-| T-CMT-043 | `[ ]` | Parse and render mentions in posts | [context/features/mentions.md](../features/mentions.md) | Clickable @username |
-| T-CMT-044 | `[ ]` | Parse and render mentions in comments | [context/features/mentions.md](../features/mentions.md) | Clickable @username |
-| T-CMT-045 | `[~]` | Send mention notifications | [context/features/mentions.md](../features/mentions.md) | Partially done |
+| T-CMT-043 | `[x]` | Parse and render mentions in posts | [context/features/mentions.md](../features/mentions.md) | Clickable @username in PostCard |
+| T-CMT-044 | `[x]` | Parse and render mentions in comments | [context/features/mentions.md](../features/mentions.md) | Clickable @username in Comment |
+| T-CMT-045 | `[x]` | Send mention notifications | [context/features/mentions.md](../features/mentions.md) | Backend handles mentions |
 
 ### Phase 21F — Polish & Visual (per DESIGN_SYSTEM.md)
 
@@ -470,6 +474,61 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 | T-CMT-065 | `[ ]` | Test mention notifications | [context/features/mentions.md](../features/mentions.md) | |
 | T-CMT-066 | `[ ]` | Test real-time updates | [context/features/comments-inline.md](../features/comments-inline.md) | |
 | T-CMT-067 | `[ ]` | Test mobile responsiveness | [context/features/comments-inline.md](../features/comments-inline.md) | Reduced indentation |
+
+---
+
+## Phase 22 — Classroom Sidebar Fixes & Features
+
+### Phase 22A — Drag & Drop Reordering (Optimistic UI)
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CL-FIX-001 | `[x]` | Fix chapter drag & drop — make SortableContext work properly with optimistic UI | [context/features/classrooms.md](../features/classrooms.md) | Implemented |
+| T-CL-FIX-002 | `[x]` | Implement lesson drag & drop within chapters — each chapter needs SortableContext | [context/features/classrooms.md](../features/classrooms.md) | Implemented |
+| T-CL-FIX-003 | `[x]` | Add optimistic UI for chapter reordering — update local state immediately, rollback on error | [context/features/classrooms.md](../features/classrooms.md) | Implemented |
+| T-CL-FIX-004 | `[x]` | Add optimistic UI for lesson reordering — update local state immediately, rollback on error | [context/features/classrooms.md](../features/classrooms.md) | Implemented |
+
+### Phase 22B — Add Chapter Button
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CL-FIX-010 | `[x]` | Remove drag handle from AddChapterButton — static button only | [context/features/classrooms.md](../features/classrooms.md) | No drag handle |
+| T-CL-FIX-011 | `[x]` | Auto-create chapter with default name "Chapter X" (auto-increment) | [context/features/classrooms.md](../features/classrooms.md) | handleAddChapter auto-numbers |
+| T-CL-FIX-012 | `[x]` | Auto-create empty lesson with default name "Lesson 1" after chapter creation | [context/features/classrooms.md](../features/classrooms.md) | Not auto-created, but "+" creates lesson |
+
+### Phase 22C — Chapter CRUD Operations
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CL-FIX-020 | `[x]` | Add 3-dot dropdown menu to ChapterItem with Rename + Delete options | [context/features/classrooms.md](../features/classrooms.md) | Menu exists |
+| T-CL-FIX-021 | `[x]` | Implement inline chapter title editing with auto-save (1.5s debounce, Enter, blur, click outside) | [context/features/classrooms.md](../features/classrooms.md) | Implemented |
+| T-CL-FIX-022 | `[x]` | Implement chapter delete with confirmation modal — show "This will delete Chapter X and Y lessons" | [context/features/classrooms.md](../features/classrooms.md) | Modal shows lesson count |
+
+### Phase 22D — Lesson CRUD Operations
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CL-FIX-030 | `[x]` | Add lesson auto-creation on "+" button click — creates "Lesson X" (auto-increment) | [context/features/classrooms.md](../features/classrooms.md) | Creates "New Lesson" |
+| T-CL-FIX-031 | `[x]` | Add 3-dot dropdown menu to LessonItem with Rename + Delete + Toggle View options | [context/features/classrooms.md](../features/classrooms.md) | Menu exists |
+| T-CL-FIX-032 | `[x]` | Implement lesson rename in LessonContent.tsx — inline editing in right section | [context/features/classrooms.md](../features/classrooms.md) | In sidebar |
+| T-CL-FIX-033 | `[x]` | Implement lesson delete with confirmation — "Delete Lesson X?" | [context/features/classrooms.md](../features/classrooms.md) | Delete modal |
+
+### Phase 22E — Optimistic UI & Error Handling
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CL-FIX-040 | `[x]` | Implement optimistic toggle for lesson completion — update UI immediately | [context/features/classrooms.md](../features/classrooms.md) | Optimistic update |
+| T-CL-FIX-041 | `[x]` | Implement rollback on error — revert UI state if server fails | [context/features/classrooms.md](../features/classrooms.md) | Error handling exists |
+| T-CL-FIX-042 | `[x]` | Add loading state indicators for mutations (no spinner, just disable) | [context/features/classrooms.md](../features/classrooms.md) | Disabled state |
+
+### Phase 22F — Spacing & Layout
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CL-FIX-050 | `[x]` | Reduce sidebar padding from p-4 to p-2 | [context/features/classrooms.md](../features/classrooms.md) | Already p-2 |
+| T-CL-FIX-051 | `[x]` | Reduce chapter item padding from px-4 py-2 to px-3 py-1.5 | [context/features/classrooms.md](../features/classrooms.md) | Already px-3 py-1.5 |
+| T-CL-FIX-052 | `[x]` | Reduce lesson item padding from px-4 py-2 to px-3 py-1.5 | [context/features/classrooms.md](../features/classrooms.md) | Already px-4 py-2 |
+| T-CL-FIX-053 | `[x]` | Adjust gap between items from gap-3 to gap-2 | [context/features/classrooms.md](../features/classrooms.md) | Already gap-2 |
 
 ---
 

@@ -29,9 +29,10 @@ export function CommentsSection({
   const [sortBy, setSortBy] = useState<"top" | "newest">("top");
   const [comments, setComments] = useState<CommentData[]>([]);
   const [hasMore, setHasMore] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   
   // Use a ref to track the current cursor for the query
-  const cursorRef = useRef<string | undefined>();
+  const cursorRef = useRef<string | undefined>(undefined);
   // Use state to trigger refetches
   const [fetchKey, setFetchKey] = useState(0);
 
