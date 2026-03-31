@@ -10,7 +10,6 @@ import { Heading, Text } from "@/components/ui/Text";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Avatar } from "@/components/shared/Avatar";
-import { WILAYAS } from "@/lib/constants";
 import { 
   User, Shield, CreditCard, AlertTriangle, LogOut, Trash2, 
   Loader2, Tags, GripVertical, Plus, X, Pencil
@@ -64,7 +63,6 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
 
   // Local state for forms
   const [displayName, setDisplayName] = useState("");
-  const [selectedWilaya, setSelectedWilaya] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   
   const [searchQuery, setSearchQuery] = useState("");
@@ -85,7 +83,6 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
   useEffect(() => {
     if (currentUser) {
       setDisplayName(currentUser.displayName || "");
-      setSelectedWilaya(currentUser.wilaya || "");
     }
   }, [currentUser]);
 
@@ -100,7 +97,6 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
       await updateProfile({
         userId: currentUser._id,
         displayName,
-        wilaya: selectedWilaya || undefined,
       });
       toast.success("Profile updated successfully");
     } catch (error) {
@@ -216,19 +212,6 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
                 <Avatar src={user?.imageUrl} name={displayName} size="lg" />
                 <Text size="sm" theme="muted">Avatar is managed by Clerk</Text>
               </div>
-            </div>
-            <div>
-              <Text size="sm" theme="secondary" className="mb-2">Wilaya</Text>
-              <select
-                value={selectedWilaya}
-                onChange={(e) => setSelectedWilaya(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-bg-elevated border border-border text-text-primary"
-              >
-                <option value="">Select your wilaya</option>
-                {WILAYAS.map((wilaya, index) => (
-                  <option key={wilaya} value={index + 1}>{wilaya}</option>
-                ))}
-              </select>
             </div>
             <Button onClick={handleSaveProfile} disabled={isSaving} className="w-full">
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}

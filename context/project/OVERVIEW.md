@@ -46,7 +46,6 @@ Two sides, one platform:
 - Take structured courses with progress tracking
 - Participate in a community feed (posts, comments, reactions)
 - Earn points and level up through the gamification system
-- Discover peers in their Wilaya via the interactive Algeria map
 
 **Business model:**
 - Platform revenue: 2,000 DZD/month creator subscription
@@ -84,7 +83,6 @@ A and a member of community B simultaneously.
 | What | Why it matters |
 |---|---|
 | **Chargily Pay (DZD)** | The only reason this product can exist. No other community platform accepts CIB/Edahabia. |
-| **Wilaya Map** | Geo-networking feature unique to Algeria. Surfaces local connection no international tool can offer. |
 | **Local-first pricing** | Creator sets price in DZD. Students pay in DZD. Zero currency conversion. |
 | **Creator owns payment flow** | Creator's own Chargily account receives funds. Platform charges a separate subscription. No payment lock-in. |
 

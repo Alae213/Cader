@@ -32,65 +32,6 @@ const PRICING_TYPES = [
   { value: "one_time", label: "One-time payment" },
 ];
 
-const WILAYAS = [
-  { value: "adrar", label: "Adrar" },
-  { value: "chlef", label: "Chlef" },
-  { value: "laghouat", label: "Laghouat" },
-  { value: "oum_el_bouaghi", label: "Oum El Bouaghi" },
-  { value: "batna", label: "Batna" },
-  { value: "bejaia", label: "Béjaïa" },
-  { value: "biskra", label: "Biskra" },
-  { value: "bechar", label: "Béchar" },
-  { value: "blida", label: "Blida" },
-  { value: "bouira", label: "Bouira" },
-  { value: "tamanrasset", label: "Tamanrasset" },
-  { value: "tebessa", label: "Tébessa" },
-  { value: "tlemcen", label: "Tlemcen" },
-  { value: "tiaret", label: "Tiaret" },
-  { value: "tizi_ouzou", label: "Tizi Ouzou" },
-  { value: "alger", label: "Alger" },
-  { value: "djelfa", label: "Djelfa" },
-  { value: "jijel", label: "Jijel" },
-  { value: "setif", label: "Sétif" },
-  { value: "saida", label: "Saïda" },
-  { value: "skikda", label: "Skikda" },
-  { value: "sidi_bel_abbes", label: "Sidi Bel Abbès" },
-  { value: "annaba", label: "Annaba" },
-  { value: "guelma", label: "Guelma" },
-  { value: "constantine", label: "Constantine" },
-  { value: "medea", label: "Médéa" },
-  { value: "mostaganem", label: "Mostaganem" },
-  { value: "msila", label: "M'Sila" },
-  { value: "mascara", label: "Mascara" },
-  { value: "ouargla", label: "Ouargla" },
-  { value: "oran", label: "Oran" },
-  { value: "el_bayadh", label: "El Bayadh" },
-  { value: "illizi", label: "Illizi" },
-  { value: "bordj_bouarreridj", label: "Bordj Bou Arréridj" },
-  { value: "boumerdes", label: "Boumerdès" },
-  { value: "el_tarf", label: "El Tarf" },
-  { value: "tissemsilt", label: "Tissemsilt" },
-  { value: "el_oued", label: "El Oued" },
-  { value: "khenchela", label: "Khenchela" },
-  { value: "souk_ahras", label: "Souk Ahras" },
-  { value: "tipaza", label: "Tipaza" },
-  { value: "mila", label: "Mila" },
-  { value: "ain_defla", label: "Aïn Defla" },
-  { value: "naama", label: "Naâma" },
-  { value: "ain_temouchent", label: "Aïn Témouchent" },
-  { value: "ghardaia", label: "Ghardaïa" },
-  { value: "relizane", label: "Relizane" },
-  { value: "timimoun", label: "Timimoun" },
-  { value: "bordj_baji_mokhtar", label: "Bordj Badji Mokhtar" },
-  { value: "ouled_djellal", label: "Ouled Djellal" },
-  { value: "beni_abbes", label: "Béni Abbès" },
-  { value: "in_salah", label: "In Salah" },
-  { value: "in_guzzem", label: "In Guzzem" },
-  { value: "tilтемсі", label: "Til TEMCI" },
-  { value: "el_meghaier", label: "El Meghaïer" },
-  { value: "el_menia", label: "El Ménia" },
-];
-
 export function CreateCommunityModal({ open, onOpenChange }: CreateCommunityModalProps) {
   const router = useRouter();
   const [step, setStep] = useState(1);
@@ -108,7 +49,6 @@ export function CreateCommunityModal({ open, onOpenChange }: CreateCommunityModa
   const [price, setPrice] = useState("");
   const [chargilyApiKey, setChargilyApiKey] = useState("");
   const [chargilyWebhookSecret, setChargilyWebhookSecret] = useState("");
-  const [wilaya, setWilaya] = useState("");
 
   // Convex mutations and actions
   const createCommunity = useMutation(api.functions.communities.createCommunity);
@@ -209,7 +149,6 @@ export function CreateCommunityModal({ open, onOpenChange }: CreateCommunityModa
         slug,
         pricingType: pricingType as "free" | "monthly" | "annual" | "one_time",
         priceDzd: price ? parseInt(price) : undefined,
-        wilaya: wilaya || undefined,
         chargilyApiKey: pricingType !== "free" ? chargilyApiKey || undefined : undefined,
         chargilyWebhookSecret: pricingType !== "free" ? chargilyWebhookSecret || undefined : undefined,
       });
@@ -239,7 +178,6 @@ export function CreateCommunityModal({ open, onOpenChange }: CreateCommunityModa
     setPrice("");
     setChargilyApiKey("");
     setChargilyWebhookSecret("");
-    setWilaya("");
     setError("");
     onOpenChange(false);
   };
@@ -382,21 +320,6 @@ export function CreateCommunityModal({ open, onOpenChange }: CreateCommunityModa
                   </div>
                 </>
               )}
-
-              {/* Wilaya */}
-              <div>
-                <Select value={wilaya || "none"} onValueChange={(val) => setWilaya(val === "none" ? "" : val)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select your wilaya" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Select your wilaya</SelectItem>
-                    {WILAYAS.map((wilaya) => (
-                      <SelectItem key={wilaya.value} value={wilaya.value}>{wilaya.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
 
               {error && (
                 <Text size="2" theme="error">

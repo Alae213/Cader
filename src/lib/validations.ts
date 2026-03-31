@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { PRICING_TYPES, WILAYAS } from "./constants";
+import { PRICING_TYPES } from "./constants";
 
 // Common validation patterns
 const phoneSchema = z
@@ -16,7 +16,6 @@ const slugSchema = z
 export const userProfileSchema = z.object({
   displayName: z.string().min(1, "Display name is required").max(100),
   phone: phoneSchema.optional(),
-  wilaya: z.enum(WILAYAS).optional(),
 });
 
 export const userUpdateSchema = userProfileSchema.partial();
@@ -34,7 +33,6 @@ export const communityCreateStep1Schema = z.object({
 export const communityCreateStep2Schema = z.object({
   pricingType: z.enum(PRICING_TYPES),
   priceDzd: z.number().min(0).optional(),
-  wilaya: z.string().optional(),
   chargilyApiKey: z.string().optional(),
   chargilyWebhookSecret: z.string().optional(),
 }).refine(
@@ -56,7 +54,6 @@ export const communityUpdateSchema = z.object({
   description: z.string().max(5000).optional(),
   videoUrl: z.string().url().optional().or(z.literal("")),
   links: z.array(z.string().url()).max(5).optional(),
-  wilaya: z.enum(WILAYAS).optional(),
   pricingType: z.enum(PRICING_TYPES).optional(),
   priceDzd: z.number().min(0).optional(),
 });
@@ -149,7 +146,6 @@ export const settingsProfileSchema = z.object({
   displayName: z.string().min(1).max(100).optional(),
   avatarUrl: z.string().url().optional().or(z.literal("")).optional(),
   bio: z.string().max(160).optional(),
-  wilaya: z.enum(WILAYAS).optional(),
 });
 
 // Chargily webhook validation

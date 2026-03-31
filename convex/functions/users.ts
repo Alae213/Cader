@@ -119,7 +119,6 @@ export const getUserProfile = query({
         clerkId: user.clerkId,
         displayName: user.displayName,
         avatarUrl: user.avatarUrl,
-        wilaya: user.wilaya,
         email: user.email,
         phone: user.phone,
         createdAt: user.createdAt,
@@ -201,7 +200,6 @@ export const updateUserProfile = mutation({
     userId: v.id("users"),
     displayName: v.optional(v.string()),
     avatarUrl: v.optional(v.string()),
-    wilaya: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const updates: Record<string, unknown> = {
@@ -210,7 +208,6 @@ export const updateUserProfile = mutation({
 
     if (args.displayName !== undefined) updates.displayName = args.displayName;
     if (args.avatarUrl !== undefined) updates.avatarUrl = args.avatarUrl;
-    if (args.wilaya !== undefined) updates.wilaya = args.wilaya;
 
     await ctx.db.patch(args.userId, updates);
     return true;

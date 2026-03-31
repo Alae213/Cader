@@ -175,7 +175,6 @@ export const createCommunity = mutation({
     slug: v.string(),
     pricingType: v.union(v.literal("free"), v.literal("monthly"), v.literal("annual"), v.literal("one_time")),
     priceDzd: v.optional(v.number()),
-    wilaya: v.optional(v.string()),
     // Chargily keys (optional - can be added later via settings)
     chargilyApiKey: v.optional(v.string()),
     chargilyWebhookSecret: v.optional(v.string()),
@@ -254,7 +253,6 @@ export const createCommunity = mutation({
     const communityId = await ctx.db.insert("communities", {
       slug,
       name: args.name,
-      wilaya: args.wilaya,
       pricingType: args.pricingType,
       priceDzd: args.priceDzd,
       ownerId: user._id,
@@ -294,7 +292,6 @@ export const updateCommunity = mutation({
     logoUrl: v.optional(v.string()),
     videoUrl: v.optional(v.string()),
     links: v.optional(v.array(v.string())),
-    wilaya: v.optional(v.string()),
     pricingType: v.optional(v.union(v.literal("free"), v.literal("monthly"), v.literal("annual"), v.literal("one_time"))),
     priceDzd: v.optional(v.number()),
     chargilyApiKey: v.optional(v.string()),
@@ -339,7 +336,6 @@ export const updateCommunity = mutation({
     if (args.logoUrl !== undefined) updateData.logoUrl = args.logoUrl;
     if (args.videoUrl !== undefined) updateData.videoUrl = args.videoUrl;
     if (args.links !== undefined) updateData.links = args.links;
-    if (args.wilaya !== undefined) updateData.wilaya = args.wilaya;
     if (args.pricingType !== undefined) updateData.pricingType = args.pricingType;
     if (args.priceDzd !== undefined) updateData.priceDzd = args.priceDzd;
     

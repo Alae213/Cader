@@ -69,7 +69,7 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
 | T16 | `[x]` | Build community creation modal — Step 1: name input + slug auto-gen + debounced uniqueness check against Convex | [context/features/community-creation.md](../features/community-creation.md) | |
-| T17 | `[x]` | Build community creation modal — Step 2: pricing type (free/monthly/annual/one-time) + DZD price + Chargily keys + Wilaya dropdown | [context/features/community-creation.md](../features/community-creation.md) | |
+| T17 | `[x]` | Build community creation modal — Step 2: pricing type (free/monthly/annual/one-time) + DZD price + Chargily keys | [context/features/community-creation.md](../features/community-creation.md) | |
 | T18 | `[x]` | Build Chargily key validation — server-side action that tests keys via Chargily API before allowing paid community creation | [context/features/community-creation.md](../features/community-creation.md) | validateChargilyKeys action validates via API before creation |
 | T19 | `[x]` | Build `createCommunity` Convex mutation — write community record, encrypt Chargily keys, validate slug uniqueness server-side | [context/features/community-creation.md](../features/community-creation.md) | Keys encrypted with AES-GCM, slug validated server-side |
 | T20 | `[x]` | Build community creation redirect — after create, redirect to `/[communitySlug]` | [context/features/community-creation.md](../features/community-creation.md) | |
@@ -120,7 +120,7 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T40 | `[x]` | Build onboarding modal — Step 1: full name (auto-filled from Clerk) + phone (Algerian format) + Wilaya dropdown | [context/features/onboarding-modal.md](../features/onboarding-modal.md) | Created OnboardingModal component with Step 1 |
+| T40 | `[x]` | Build onboarding modal — Step 1: full name (auto-filled from Clerk) + phone (Algerian format) | [context/features/onboarding-modal.md](../features/onboarding-modal.md) | Created OnboardingModal component with Step 1 |
 | T41 | `[x]` | Build onboarding modal — Step 2 (paid only): billing summary + Chargily checkout button | [context/features/onboarding-modal.md](../features/onboarding-modal.md) | Added Step 2 billing with price summary |
 | T42 | `[x]` | Build onboarding pending state — "Confirming payment..." spinner, poll `memberships` via Convex `useQuery`, close on record appear | [context/features/onboarding-modal.md](../features/onboarding-modal.md) | Added pending state UI with membership polling |
 | T43 | `[x]` | Build free community onboarding — grant membership immediately on Step 1 submit, skip billing step | [context/features/onboarding-modal.md](../features/onboarding-modal.md) | Added grantMembershipWithDetails mutation |
@@ -180,16 +180,6 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 | T75 | `[x]` | Build lesson progress tracking — `markPageViewed` mutation, `lessonProgress` table, progress % calculation per classroom | [context/features/classrooms.md](../features/classrooms.md) | |
 | T76 | `[x]` | Build access gate overlay — level-gated: "Reach level X" + current vs required; price-gated: price + "Buy now"; level+price: level first then payment | [context/features/classrooms.md](../features/classrooms.md) | EC-6 |
 
-### Phase 11 — Members & Wilaya Map (T77–T81)
-
-| # | Status | Task | Feature | Notes |
-|---|--------|------|---------|-------|
-| T77 | `[x]` | Build Algeria SVG map — 58 Wilayas as clickable/hoverable regions, zoom controls, tooltip (name + member count) | [context/features/members-wilaya-map.md](../features/members-wilaya-map.md) | Using grid layout (simplified from full SVG) |
-| T78 | `[x]` | Build member list — search by display name (real-time), filter by Wilaya (reactive to map click), rows with avatar + name + level + Wilaya + join date | [context/features/members-wilaya-map.md](../features/members-wilaya-map.md) | |
-| T79 | `[x]` | Build member profile popover — click member row → avatar, name, level, Wilaya, communities in common | [context/features/members-wilaya-map.md](../features/members-wilaya-map.md) | Shows basic info + block action for admins |
-| T80 | `[x]` | Build block member — owner action in popover, confirmation, `memberships.status = blocked`, immediate access revoke | [context/features/members-wilaya-map.md](../features/members-wilaya-map.md) | |
-| T81 | `[x]` | Build `listMembers` and `getMemberCountByWilaya` Convex queries — active members with Wilaya data, live counts | [context/features/members-wilaya-map.md](../features/members-wilaya-map.md) | |
-
 ### Phase 12 — Leaderboard & Gamification (T82–T90)
 
 | # | Status | Task | Feature | Notes |
@@ -217,9 +207,9 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T95 | `[x]` | Build profile modal — avatar (large), display name, level badge, Wilaya, contribution activity map (GitHub-style grid), communities joined/created | [context/features/profile-modal.md](../features/profile-modal.md) | `[Activity: open app + posts + comments + upvotes + lessons]` |
+| T95 | `[x]` | Build profile modal — avatar (large), display name, level badge, contribution activity map (GitHub-style grid), communities joined/created | [context/features/profile-modal.md](../features/profile-modal.md) | `[Activity: open app + posts + comments + upvotes + lessons]` |
 | T96 | `[x]` | Build `getUserProfile` and `getUserActivity` Convex queries — profile data + communities + daily activity past year | [context/features/profile-modal.md](../features/profile-modal.md) | |
-| T97 | `[x]` | Build settings modal — Profile section: display name, avatar upload, bio (160 chars), Wilaya dropdown, save | [context/features/settings.md](../features/settings.md) | |
+| T97 | `[x]` | Build settings modal — Profile section: display name, avatar upload, bio (160 chars), save | [context/features/settings.md](../features/settings.md) | |
 | T98 | `[x]` | Build settings modal — Admins section: list current admins, add/remove member as admin, EC-8 last-admin guard | [context/features/settings.md](../features/settings.md) | |
 | T99 | `[x]` | Build settings modal — Billing section: platform subscription status, member count, subscribe/cancel CTA | [context/features/settings.md](../features/settings.md) | |
 | T100 | `[x]` | Build settings modal — Danger Zone: delete community (type name to confirm), EC-7 block if active paying members | [context/features/settings.md](../features/settings.md) | `[Hard delete with confirmation: type community name + hold button 5 seconds]` |
@@ -532,6 +522,38 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 
 ---
 
+## Phase 23 — Payment Edge Cases & Security Fixes
+
+### Phase 23A — Critical Fixes
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-PAY-001 | `[ ]` | Add `paymentReference` field to `memberships` schema | [context/features/payment-edge-cases.md](../features/payment-edge-cases.md) | Store Chargily checkout ID for idempotency |
+| T-PAY-002 | `[ ]` | Add idempotency check in `grantMembership` mutation — check if paymentReference already exists | [context/features/payment-edge-cases.md](../features/payment-edge-cases.md) | Prevent duplicate memberships |
+| T-PAY-003 | `[ ]` | Add rate limiting to webhook endpoint — 100 req/min per IP | [context/features/payment-edge-cases.md](../features/payment-edge-cases.md) | Use Upstash or similar |
+| T-PAY-004 | `[ ]` | Add user existence check in webhook handler before granting access | [context/features/payment-edge-cases.md](../features/payment-edge-cases.md) | Graceful handling if user deleted |
+
+### Phase 23B — High Priority Fixes
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-PAY-005 | `[ ]` | Handle checkout expiration in OnboardingModal — poll and show expired message | [context/features/payment-edge-cases.md](../features/payment-edge-cases.md) | EC-19 |
+| T-PAY-006 | `[ ]` | Handle cancel redirect in OnboardingModal — parse status param and show UI | [context/features/payment-edge-cases.md](../features/payment-edge-cases.md) | EC-20 |
+| T-PAY-007 | `[ ]` | Add platform tier verification in webhook before granting subscription | [context/features/payment-edge-cases.md](../features/payment-edge-cases.md) | Verify community exists |
+
+### Phase 23C — Medium Priority Fixes
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-PAY-008 | `[ ]` | Filter deleted classrooms from access queries | [context/features/payment-edge-cases.md](../features/payment-edge-cases.md) | G-007 |
+| T-PAY-009 | `[ ]` | Add test/live mode verification in webhook — reject test checkouts in production | [context/features/payment-edge-cases.md](../features/payment-edge-cases.md) | EC-17 |
+| T-PAY-010 | `[ ]` | Store price in checkout metadata at creation — verify against stored price not current | [context/features/payment-edge-cases.md](../features/payment-edge-cases.md) | EC-18, prevents price manipulation |
+| T-PAY-011 | `[ ]` | Add unique index for `(communityId, userId)` to prevent duplicate memberships | [context/features/payment-edge-cases.md](../features/payment-edge-cases.md) | Database-level duplicate prevention |
+| T-PAY-012 | `[ ]` | Use atomic check for member limit in join mutation | [context/features/payment-edge-cases.md](../features/payment-edge-cases.md) | G-011 |
+| T-PAY-013 | `[ ]` | Create payment history query and UI for members | [context/features/payment-edge-cases.md](../features/payment-edge-cases.md) | G-012 |
+
+---
+
 ## Blocked
 
 Tasks that can't proceed until something else is resolved.
@@ -546,7 +568,6 @@ Tasks that can't proceed until something else is resolved.
 | T47-T57 | Community feed | [context/features/community-feed.md](../features/community-feed.md) | T22 (SPA shell - partial), T8 (middleware - partial) |
 | T58-T65 | Feed interactions (upvotes, categories, pin, delete) | [context/features/community-feed.md](../features/community-feed.md) | T53 (post card), T54 (listPosts) |
 | T66-T76 | Classrooms | [context/features/classrooms.md](../features/classrooms.md) | T22 (SPA shell - partial), T35 (classroom access) |
-| T77-T81 | Members & Wilaya map | [context/features/members-wilaya-map.md](../features/members-wilaya-map.md) | T22 (SPA shell - partial) |
 | T82-T90 | Leaderboard & gamification | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | T58 (upvotes — pointEvents), T66 (classrooms — lesson progress) |
 | T91-T94 | @Mentions & notifications | [context/features/mentions.md](../features/mentions.md) | T56 (open post modal), T81 (listMembers) |
 | T95-T101 | Modals (profile, settings) | [context/features/settings.md](../features/settings.md) | T22 (SPA shell - partial), T32 (Chargily) |

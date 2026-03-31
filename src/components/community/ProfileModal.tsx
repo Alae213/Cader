@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Avatar } from "@/components/shared/Avatar";
 import { MapPin, Calendar, Settings, ExternalLink } from "lucide-react";
-import { WILAYAS } from "@/lib/constants";
 import Link from "next/link";
 
 interface ProfileModalProps {
@@ -46,7 +45,6 @@ export function ProfileModal({ userId, open, onOpenChange, onEditProfile }: Prof
   }
 
   const { user, level, totalPoints, joinedCommunities, ownedCommunities } = profileData;
-  const wilayaName = user.wilaya ? WILAYAS[parseInt(user.wilaya) - 1] || user.wilaya : null;
 
   // Generate activity grid data (past 52 weeks)
   const getActivityGrid = () => {
@@ -120,13 +118,6 @@ export function ProfileModal({ userId, open, onOpenChange, onEditProfile }: Prof
             </Badge>
             <Text size="sm" theme="secondary">{totalPoints} points</Text>
           </div>
-
-          {wilayaName && (
-            <div className="flex items-center gap-1 text-text-secondary">
-              <MapPin className="h-4 w-4" />
-              <Text size="sm" theme="secondary">{wilayaName}</Text>
-            </div>
-          )}
 
           <div className="flex items-center gap-1 text-text-secondary mt-1">
             <Calendar className="h-4 w-4" />

@@ -150,7 +150,6 @@ export const grantMembershipWithDetails = mutation({
     communityId: v.id("communities"),
     displayName: v.string(),
     phone: v.optional(v.string()),
-    wilaya: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     // Get authenticated user from Clerk
@@ -212,15 +211,12 @@ export const grantMembershipWithDetails = mutation({
       updatedAt: now,
     });
 
-    // Update user profile with phone and wilaya if provided
-    if (args.phone || args.wilaya) {
-      const updateData: Record<string, unknown> = {
+    // Update user profile with phone if provided
+    if (args.phone) {
+      await ctx.db.patch(user._id, {
+        phone: args.phone,
         updatedAt: now,
-      };
-      if (args.phone) updateData.phone = args.phone;
-      if (args.wilaya) updateData.wilaya = args.wilaya;
-      
-      await ctx.db.patch(user._id, updateData);
+      });
     }
 
     return membershipId;
@@ -346,7 +342,6 @@ export const listMembers = query({
           clerkId: user.clerkId,
           displayName: user.displayName,
           avatarUrl: user.avatarUrl,
-          wilaya: user.wilaya,
           role: membership.role,
           subscriptionType: membership.subscriptionType,
           createdAt: membership.createdAt,
@@ -358,34 +353,6 @@ export const listMembers = query({
 
     // Filter out nulls and sort by join date (newest first)
     return members.filter(Boolean).sort((a, b) => b!.createdAt - a!.createdAt);
-  },
-});
-
-// Get member count by wilaya for a community
-export const getMemberCountByWilaya = query({
-  args: {
-    communityId: v.id("communities"),
-  },
-  handler: async (ctx, args) => {
-    // Get all active memberships for the community
-    const memberships = await ctx.db
-      .query("memberships")
-      .withIndex("by_community_id", (q) => q.eq("communityId", args.communityId))
-      .filter((q) => q.eq(q.field("status"), "active"))
-      .collect();
-
-    // Count members by wilaya
-    const wilayaCounts: Record<string, number> = {};
-    
-    for (const membership of memberships) {
-      const user = await ctx.db.get(membership.userId);
-      if (!user) continue;
-      
-      const wilaya = user.wilaya || "Unspecified";
-      wilayaCounts[wilaya] = (wilayaCounts[wilaya] || 0) + 1;
-    }
-
-    return wilayaCounts;
   },
 });
 

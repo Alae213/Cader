@@ -27,19 +27,6 @@ interface OnboardingModalProps {
   onComplete?: () => void;
 }
 
-// Algerian wilayas for the dropdown
-const WILAYAS = [
-  "Adrar", "Aïn Défla", "Aïn Témouchent", "Alger", "Annaba", "Bachar", "Béjaïa", "Biskra",
-  "Blida", "Bordj Bou Arréridj", "Bouira", "Boumerdès", "Chlef", "Constantine", "Djelfa",
-  "El Bayadh", "El Oued", "El Tarf", "Ghardaïa", "Guelma", "Illizi", "Jijel", "Khenchela",
-  "Laghouat", "L盘", "Médéa", "Mila", "Mostaganem", "M'Sila", "Naâma", "Oran", "Ouargla",
-  "Oum El Bouaghi", "Relizane", "Saïda", "Sétif", "Sidi Bel Abbès", "Skikda", "Souk Ahras",
-  "Tamanghasset", "Tébessa", "Tiaret", "Tindouf", "Tipaza", "Tissemsilt", "Tizi Ouzou",
-  "Tlemcen", "Hodh El Gharbi", "Hodh El Charqui", "Trarki", "Dakhla Oued Ed Dahab", "Laâyoune",
-  "Smara", "Akjoujt", "Atar", "Boutilimit", "Fderîck", "Kiffa", "Nouakchott", "Nouadhibou",
-  "Rosso", "Sélibabi", "Zouerate", "Gorgol", "Guidimaka", "Brakna", "Trarza"
-];
-
 export function OnboardingModal({ community, open, onOpenChange, onComplete }: OnboardingModalProps) {
   const { userId } = useAuth();
   const { user } = useUser();
@@ -50,7 +37,6 @@ export function OnboardingModal({ community, open, onOpenChange, onComplete }: O
   // Form state
   const [displayName, setDisplayName] = useState("");
   const [phone, setPhone] = useState("");
-  const [wilaya, setWilaya] = useState("");
   
   // Checkout state
   const [checkoutUrl, setCheckoutUrl] = useState("");
@@ -101,7 +87,6 @@ export function OnboardingModal({ community, open, onOpenChange, onComplete }: O
         communityId: community._id as any,
         displayName: displayName.trim(),
         phone: phone.trim() || undefined,
-        wilaya: wilaya || undefined,
       });
       
       toast.success("Welcome to the community!");
@@ -217,21 +202,6 @@ export function OnboardingModal({ community, open, onOpenChange, onComplete }: O
               <Text size="2" theme="muted">
                 For payment verification (Algerian numbers only)
               </Text>
-            </div>
-
-            {/* Wilaya (optional) */}
-            <div className="space-y-2">
-              <Text size="sm" fontWeight="medium">Wilaya (Optional)</Text>
-              <select
-                className="w-full px-3 py-2 rounded-md border border-border bg-bg-base text-text-primary"
-                value={wilaya}
-                onChange={(e) => setWilaya(e.target.value)}
-              >
-                <option value="">Select your wilaya</option>
-                {WILAYAS.map((w) => (
-                  <option key={w} value={w}>{w}</option>
-                ))}
-              </select>
             </div>
 
             {/* Error */}

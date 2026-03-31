@@ -23,7 +23,6 @@ interface Community {
   _id: string;
   name: string;
   slug: string;
-  wilaya?: string;
   pricingType: string;
   priceDzd?: number;
   // Encrypted keys - we can't display them, so we'll show placeholder
@@ -41,56 +40,6 @@ const PRICING_TYPES = [
   { value: "monthly", label: "Monthly subscription" },
   { value: "annual", label: "Annual subscription" },
   { value: "one_time", label: "One-time payment" },
-];
-
-const WILAYAS = [
-  { value: "adrar", label: "Adrar" },
-  { value: "chlef", label: "Chlef" },
-  { value: "laghouat", label: "Laghouat" },
-  { value: "oum_el_bouaghi", label: "Oum El Bouaghi" },
-  { value: "batna", label: "Batna" },
-  { value: "bejaia", label: "Béjaïa" },
-  { value: "biskra", label: "Biskra" },
-  { value: "bechar", label: "Béchar" },
-  { value: "blida", label: "Blida" },
-  { value: "bouira", label: "Bouira" },
-  { value: "tamanrasset", label: "Tamanrasset" },
-  { value: "tebessa", label: "Tébessa" },
-  { value: "tlemcen", label: "Tlemcen" },
-  { value: "tiaret", label: "Tiaret" },
-  { value: "tizi_ouzou", label: "Tizi Ouzou" },
-  { value: "alger", label: "Alger" },
-  { value: "djelfa", label: "Djelfa" },
-  { value: "jijel", label: "Jijel" },
-  { value: "setif", label: "Sétif" },
-  { value: "saida", label: "Saïda" },
-  { value: "skikda", label: "Skikda" },
-  { value: "sidi_bel_abbes", label: "Sidi Bel Abbès" },
-  { value: "annaba", label: "Annaba" },
-  { value: "guelma", label: "Guelma" },
-  { value: "constantine", label: "Constantine" },
-  { value: "medea", label: "Médéa" },
-  { value: "mostaganem", label: "Mostaganem" },
-  { value: "msila", label: "M'Sila" },
-  { value: "mascara", label: "Mascara" },
-  { value: "ouargla", label: "Ouargla" },
-  { value: "oran", label: "Oran" },
-  { value: "el_bayadh", label: "El Bayadh" },
-  { value: "illizi", label: "Illizi" },
-  { value: "bordj_bouarreridj", label: "Bordj Bou Arréridj" },
-  { value: "boumerdes", label: "Boumerdès" },
-  { value: "el_tarf", label: "El Tarf" },
-  { value: "tissemsilt", label: "Tissemsilt" },
-  { value: "el_oued", label: "El Oued" },
-  { value: "khenchela", label: "Khenchela" },
-  { value: "souk_ahras", label: "Souk Ahras" },
-  { value: "tipaza", label: "Tipaza" },
-  { value: "mila", label: "Mila" },
-  { value: "ain_defla", label: "Aïn Defla" },
-  { value: "naama", label: "Naâma" },
-  { value: "ain_temouchent", label: "Aïn Témouchent" },
-  { value: "ghardaia", label: "Ghardaïa" },
-  { value: "relizane", label: "Relizane" },
 ];
 
 type TabType = "basic" | "pricing";
@@ -114,7 +63,6 @@ export function EditCommunityModal({ open, onOpenChange, community }: EditCommun
   const [price, setPrice] = useState(community.priceDzd?.toString() || "");
   const [chargilyApiKey, setChargilyApiKey] = useState("");
   const [chargilyWebhookSecret, setChargilyWebhookSecret] = useState("");
-  const [wilaya, setWilaya] = useState(community.wilaya || "");
   const [chargilyError, setChargilyError] = useState("");
   
   // Store original values for dirty check
@@ -123,7 +71,6 @@ export function EditCommunityModal({ open, onOpenChange, community }: EditCommun
     slug: community.slug,
     pricingType: community.pricingType,
     priceDzd: community.priceDzd,
-    wilaya: community.wilaya,
   });
 
   // Reset form when modal opens with new community data
@@ -134,7 +81,6 @@ export function EditCommunityModal({ open, onOpenChange, community }: EditCommun
       setSlugAvailable(null);
       setPricingType(community.pricingType);
       setPrice(community.priceDzd?.toString() || "");
-      setWilaya(community.wilaya || "");
       setChargilyApiKey("");
       setChargilyWebhookSecret("");
       setChargilyError("");
@@ -146,7 +92,6 @@ export function EditCommunityModal({ open, onOpenChange, community }: EditCommun
         slug: community.slug,
         pricingType: community.pricingType,
         priceDzd: community.priceDzd,
-        wilaya: community.wilaya,
       };
     }
   }, [open, community]);
@@ -158,11 +103,10 @@ export function EditCommunityModal({ open, onOpenChange, community }: EditCommun
       slug !== originalValues.current.slug ||
       pricingType !== originalValues.current.pricingType ||
       price !== (originalValues.current.priceDzd?.toString() || "") ||
-      wilaya !== (originalValues.current.wilaya || "") ||
       chargilyApiKey !== "" ||
       chargilyWebhookSecret !== "";
     setIsDirty(dirty);
-  }, [name, slug, pricingType, price, wilaya, chargilyApiKey, chargilyWebhookSecret]);
+  }, [name, slug, pricingType, price, chargilyApiKey, chargilyWebhookSecret]);
 
   // Convex mutations
   const updateCommunity = useMutation(api.functions.communities.updateCommunity);
@@ -284,7 +228,6 @@ export function EditCommunityModal({ open, onOpenChange, community }: EditCommun
         communityId: community._id as any,
         name: name.trim(),
         slug: slug.trim() !== community.slug ? slug.trim() : undefined,
-        wilaya: wilaya || undefined,
         pricingType: pricingType as "free" | "monthly" | "annual" | "one_time",
         priceDzd: pricingType !== "free" && price ? parseInt(price) : undefined,
         chargilyApiKey: pricingType !== "free" && chargilyApiKey ? chargilyApiKey : undefined,
@@ -496,21 +439,6 @@ export function EditCommunityModal({ open, onOpenChange, community }: EditCommun
                   )}
                 </>
               )}
-
-              {/* Wilaya */}
-              <div>
-                <Select value={wilaya || "none"} onValueChange={(val) => setWilaya(val === "none" ? "" : val)} disabled={loading}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select your wilaya" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Select your wilaya</SelectItem>
-                    {WILAYAS.map((wilaya) => (
-                      <SelectItem key={wilaya.value} value={wilaya.value}>{wilaya.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
 
               {error && (
                 <Text size="2" theme="error">

@@ -249,7 +249,7 @@ export function LessonContent({
                   <CardContent className="p-4">
                     <Text size="2" className="whitespace-pre-wrap">
                       {pageContent.content || (
-                        <Text theme="muted">No content yet.</Text>
+                        <Text as="span" theme="muted">No content yet.</Text>
                       )}
                     </Text>
                   </CardContent>

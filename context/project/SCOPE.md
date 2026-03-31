@@ -69,12 +69,6 @@ These are the things Cader must do on day one to be a usable product.
 - [ ] "Start Here" onboarding course pattern (optional, owner-configured)
 - [ ] Classroom viewer: left sidebar (tree) + right content panel
 
-**Members + Wilaya Map**
-- [ ] Algeria SVG map (68 Wilayas) — interactive, hover/click filters member list
-- [ ] Member list: searchable + filterable by Wilaya
-- [ ] Owner: block users, view payment history
-- [ ] Member profile card
-
 **Leaderboard + Gamification**
 - [ ] 5-level progression system
 - [ ] Points from post upvotes (append-only `pointEvents` table — ADR-008)
@@ -91,7 +85,7 @@ These are the things Cader must do on day one to be a usable product.
 - [ ] Classroom viewer (within `/[communitySlug]` — no route change)
 
 **Settings**
-- [ ] Profile: display name, avatar, bio, wilaya
+- [ ] Profile: display name, avatar, bio
 - [ ] Notifications: email/in-app toggle (basic)
 - [ ] Admins: add / remove community admins
 - [ ] Billing: view subscription status, renew, cancel
