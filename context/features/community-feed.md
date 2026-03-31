@@ -8,11 +8,9 @@
 
 ## Summary
 
-The Community tab is the social heart of every community. It is a chronological (or ranked)
-feed of posts from members and the owner. Posts support text, images, video embeds, GIFs, and
-polls. Members interact via threaded comments, @mentions, and upvotes. The owner can define
-post categories, pin posts, and delete any content. Upvotes award points that feed into the
-gamification/leaderboard system.
+The Community tab is the social heart of every community. It is a chronological (or ranked) feed of posts from members and the owner. Posts support text, images, video embeds, GIFs, and polls. Members interact via inline threaded comments (Whop/Reddit style), @mentions, and upvotes. The owner can define post categories, pin posts, and delete any content. Upvotes award points that feed into the gamification/leaderboard system.
+
+**Key Design Change:** Comments are inline below posts (no modal), threaded 2 levels deep, like Whop/Reddit.
 
 ---
 
@@ -27,160 +25,275 @@ gamification/leaderboard system.
 ## User Stories
 
 - As a **member**, I want to **post text, images, videos, and polls** so that I can share knowledge and start conversations.
-- As a **member**, I want to **comment in threads** so that I can engage with other members' posts.
+- As a **member**, I want to **see comments inline below posts** so I can read the conversation without opening a modal.
+- As a **member**, I want to **reply to comments** creating threaded replies (2 levels deep).
 - As a **member**, I want to **@mention someone** so that they are notified of my post or comment.
-- As a **member**, I want to **upvote posts** so that good content rises and I earn points.
+- As a **member**, I want to **upvote posts and comments** so that good content rises and I earn points.
 - As an **owner**, I want to **pin posts** so that announcements always stay visible at the top.
 - As an **owner**, I want to **define categories** so that members can filter content by topic.
-- As an **owner**, I want to **delete any post or comment** so that I can moderate the community.
+- As an **owner/admin**, I want to **delete any comment** so I can moderate the community.
+- As a **post author**, I want to **delete any comment on my post** so I can moderate my content.
 
 ---
 
-## Behaviour
+## UI/UX Specification (Whop-Inspired)
 
-### Feed Layout
+### Layout Structure
 
-- Right column: same as About tab (community info, stats, Invite Friend link for members)
-- Left/main column: post composer + feed of posts
+```
+┌─────────────────────────────────────────┐
+│ Post Composer                           │
+│ (expanded when clicked)                 │
+└─────────────────────────────────────────┘
+
+┌─────────────────────────────────────────┐
+│ Post Card                               │
+│ ┌─────────────────────────────────────┐ │
+│ │ Header: Avatar + Name + [Level X]   │ │
+│ │           + @username + timestamp  │ │
+│ ├─────────────────────────────────────┤ │
+│ │ Category Tag (if set)              │ │
+│ ├─────────────────────────────────────┤ │
+│ │ Content: Text / Media / Poll       │ │
+│ ├─────────────────────────────────────┤ │
+│ │ Footer: [Upvote] [Comment] [Share] │ │
+│ └─────────────────────────────────────┘ │
+│                                         │
+│ Comments Section (inline)                │
+│ ┌─────────────────────────────────────┐ │
+│ │ Comment 1                           │ │
+│ │   └─ Comment 1.1 (reply, indented)  │ │
+│ │   └─ Comment 1.2 (reply, indented) │ │
+│ │ Comment 2                           │ │
+│ │   └─ Comment 2.1 (reply, indented) │ │
+│ │ [Load More Comments]                │ │
+│ └─────────────────────────────────────┘ │
+│                                         │
+│ ┌─────────────────────────────────────┐ │
+│ │ Comment Input                       │ │
+│ │ [Avatar] [Write a comment...]       │ │
+│ └─────────────────────────────────────┘ │
+└─────────────────────────────────────────┘
+```
+
+### Visual Design (per DESIGN_SYSTEM.md)
+
+- **No borders** - use surface hierarchy
+- **Rounded corners** - `rounded-2xl` (32px) for post containers
+- **Post background** - `bg-bg-elevated`
+- **Hover state** - `hover:bg-bg-muted/50`
+- **Pinned posts** - Blue left border (`border-l-4 border-blue-500`) + pin icon badge
+
+### Spacing (per DESIGN_SYSTEM.md)
+
+| Element | Spacing |
+|---------|---------|
+| Post container padding | `p-5` (20px) |
+| Post to comments | `mt-4` (16px) |
+| Comment padding | `p-3` (12px) |
+| Top-level indent | `pl-0` |
+| Level-2 indent desktop | `pl-8` (32px) |
+| Level-2 indent mobile | `pl-4` (16px) |
+| Between comments | `gap-2` (8px) |
+| Avatar to content | `gap-3` (12px) |
+
+### Components
+
+#### PostCard
+- Avatar (40px)
+- Author name + level badge "[Level X]"
+- @username (if available)
+- Timestamp ("2h ago")
+- Category tag (if set)
+- Content (text/media/poll)
+- Actions: Upvote + count, Comment + count, Share
+- Pin indicator (if pinned)
+- Three-dot menu (delete, pin/unpin)
+
+#### Comment Component
+- Avatar (32px)
+- Author name + level badge "[Level X]"
+- @username
+- Timestamp ("2h ago")
+- Comment content
+- Actions: Upvote + count, Reply (if level < 2)
+- Three-dot menu (delete if author/admin/post-author)
+
+#### Comment Input
+- Avatar (32px) + text input
+- Plain text only
+- Image/GIF attachments support
+- @mentions support (autocomplete)
+- "Write a comment..." placeholder
+
+---
+
+## Functionality Specification
 
 ### Post Composer
+1. Member clicks the composer bar → expands inline
+2. Post types available:
+   - **Text** — plain text
+   - **Image** — file upload (stored in Convex)
+   - **Video embed** — YouTube / Vimeo / Google Drive URL
+   - **GIF** — URL input
+   - **Poll** — question + 2-4 options
+3. Category selector (optional)
+4. @mentions autocomplete
+5. Submit → post appears in real-time
 
-1. Member clicks the composer bar
-2. "Add post" modal opens
-3. Post types available:
-   - **Text** — plain text with rich text formatting
-   - **Image** — file upload (stored in Convex file storage)
-   - **Video embed** — YouTube / Vimeo / Google Drive URL (not file upload)
-   - **GIF** — GIF search or URL
-   - **Poll** — question + 2–4 options, optional end date
-4. Category selector (optional — pick from owner-defined categories)
-5. Submit → post appears at top of feed in real time (Convex live query)
+### Comments (Inline, No Modal)
+- **Threaded**: top-level comments + replies (2 levels max)
+- **Sorting**: Top (most upvotes)
+- **Pagination**: Initial 5, infinite scroll 5 more
+- **No empty state**: Don't show "Be the first to comment"
+- **Inline input**: At bottom of comments section
 
-### Post Card
+### Comment Actions
+- **Upvote**: Toggle, real-time count, awards points
+- **Reply**: Opens inline reply input below comment
+- **Delete**: Post author or admin/owner only
 
-Each post shows:
-- Author avatar + name + level badge + timestamp
-- Post content (text / image / embed / poll)
-- Category tag (if set)
-- Upvote button + count
-- Comment button + count
-- Pin indicator (if pinned by owner)
-- Three-dot menu (owner: delete + pin; author: delete own post)
-
-### "Open post" Modal
-
-- Clicking a post card opens a modal with the full post
-- Full threaded comment thread visible
-- Comment composer at the bottom
-
-### Comments
-
-- Threaded: top-level comments + replies (one level deep in v1)
-- @mention autocomplete: type `@` to search members
-- Comment submit → appears in real time
-- Owner / admin can delete any comment
-- Author can delete their own comment
+### @Mentions
+- Works in post composer AND comment composer
+- Autocomplete: avatar + name + level badge
+- Max 20 mentions per post/comment
+- Triggers notification in real-time
 
 ### Upvotes
-
-- One upvote per member per post (toggle)
-- Upvoting a post: awards 1 point to the post author (written to `pointEvents` table)
-- Un-upvoting: writes a -1 event to `pointEvents` (does not delete the original event)
-- Real-time count via Convex `useQuery`
-
-### Categories
-
-- Owner defines categories in Settings or inline via a category manager
-- Members can filter feed by category
-- Posts without a category appear in "All"
+- One upvote per member per post/comment (toggle)
+- Awards 1 point to author (per gamification rules)
+- Real-time count via Convex live query
+- Points awarded in real-time (optimistic UI)
 
 ### Pinned Posts
-
-- Owner can pin up to 3 posts (suggested limit — TBD in open questions)
-- Pinned posts appear at the top of the feed with a pin indicator
-- Owner can unpin via the three-dot menu
-
-### Edge Cases & Rules
-
-- Minimum post content: at least one non-empty field (text, image, embed, or poll)
-- Poll option minimum: 2 options. Maximum: 4 options.
-- Poll voting: one vote per member per poll, cannot change vote after submission
-- Image upload size limit: 10MB per image, validated server-side
-- Video embed URL validation: same rules as About tab (YouTube / Vimeo / GDrive only)
-- @mention notification: in-app notification sent to mentioned user
-- Feed updates are real-time via Convex `useQuery` — no manual refresh
-- Feed default sort: newest first (chronological). Possible v1.1: hot/trending sort.
-- Only members (not visitors or non-members) can see the Community tab
+- Blue border + pin icon badge
+- Appear at top of feed
+- Max 3 pinned per community
 
 ---
 
-## Connections
+## Data Model
 
-- **Depends on:** Clerk auth + active membership (required to access tab), Community creation (categoryIds scoped to community)
-- **Triggers:** Leaderboard/gamification (upvote → `pointEvents` write), In-app notifications (@mention, comment reply)
-- **Shares data with:** Leaderboard (point aggregation), Profile modal (post activity)
+### Posts (existing or update)
+```typescript
+{
+  _id: string;
+  communityId: string;
+  authorId: string;
+  author: {
+    _id: string;
+    displayName: string;
+    avatarUrl?: string;
+    username?: string;
+  };
+  categoryId?: string;
+  content: string;
+  contentType: "text" | "image" | "video" | "gif" | "poll";
+  mediaUrls?: string[];
+  videoUrl?: string;
+  pollOptions?: { text: string; votes: number }[];
+  isPinned: boolean;
+  upvoteCount: number;
+  commentCount: number;
+  createdAt: number;
+}
+```
+
+### Comments (new)
+```typescript
+{
+  _id: string;
+  postId: string;
+  parentId?: string; // null for top-level
+  authorId: string;
+  author: {
+    _id: string;
+    displayName: string;
+    avatarUrl?: string;
+    username?: string;
+  };
+  content: string;
+  mentions?: string[]; // user IDs
+  mediaUrls?: string[];
+  upvoteCount: number;
+  createdAt: number;
+}
+```
+
+---
+
+## Gamification Integration
+
+Per `leaderboard-gamification.md`:
+- Post creation: +2 points (if visible 10+ min)
+- Comment creation: +1 point (if 20+ chars, visible 2+ min)
+- Post upvote received: +1 point
+- Comment upvote received: +1 point
+- All points awarded in real-time (optimistic UI)
+
+Level badges shown on:
+- Post author
+- Comment author
+
+Badge format: `[Level X]` (e.g., `[Level 3]`)
+
+---
+
+## Integration with @Mentions
+
+Per `mentions.md`:
+- Autocomplete in post composer AND comment composer
+- Shows: avatar, name, level badge
+- Max 20 mentions per post/comment
+- Notification sent in real-time
+
+---
+
+## Edge Cases
+
+1. **Comment nesting**: After level 2, show "Reply to [username]" link
+2. **Deleted comment**: Remove entirely from UI
+3. **Deleted post**: Cascade delete comments
+4. **Rapid upvotes**: Debounce to prevent spam
+5. **Empty comment**: Validate min 1 character
 
 ---
 
 ## MVP vs Full Version
 
-| Aspect | MVP (v1) | Full Version |
-|---|---|---|
-| Post types | Text, image, video embed, GIF, poll | + Audio, file attachments |
-| Comment depth | 1 level of replies | Multi-level threading |
-| Feed sort | Chronological (newest first) | Hot / trending / category-specific |
-| Notifications | In-app only | + Email digest |
-| Post scheduling | Not supported | Schedule posts in advance |
-| Post reactions | Upvote only | Multi-reaction (like, fire, etc.) |
-| Media storage | Convex file storage | CDN-backed media storage |
+| Aspect | MVP (v1) | Full |
+|--------|----------|------|
+| Post types | Text, image, video embed, GIF, poll | + Audio, files |
+| Comment depth | 2 levels | Unlimited |
+| Comment editing | No | Yes |
+| Comment sorting | Top only | Top/Newest/Oldest |
+| Rich text | No | Yes |
+| @mentions | Basic autocomplete | @everyone, @role |
 
 ---
 
 ## Security Considerations
 
-- Rich text and user-generated content sanitized server-side before storage (prevent XSS).
-- Image uploads: validate MIME type by content (not just extension), enforce 10MB limit server-side.
-- Delete operations: server-side check that the requesting user is the post author OR an admin of this community.
-- Upvote: server-side idempotency check — one upvote event per (userId, postId).
-- @mention: only surfaces member usernames within the same community — no cross-community leakage.
-- Rate limiting: max 20 posts per member per hour; max 60 comments per member per hour.
+- Content sanitized server-side (prevent XSS)
+- Image uploads: validate MIME, 10MB limit server-side
+- Delete: server-side permission check (author or admin)
+- Upvote: idempotency check per (userId, targetId)
+- @mention: scoped to community members only
+- Rate limiting: max 20 posts/hour, max 60 comments/hour
 
 ---
 
 ## Tasks
 
-| Task # | Status | What needs to be done |
-|---|---|---|
-| T— | `[ ]` | Create Convex schema: `posts` (communityId, authorId, type, content, categoryId, isPinned, createdAt) |
-| T— | `[ ]` | Create Convex schema: `comments` (postId, authorId, content, parentCommentId, createdAt) |
-| T— | `[ ]` | Create Convex schema: `upvotes` (postId, userId, communityId) |
-| T— | `[ ]` | Create Convex schema: `categories` (communityId, name, color) |
-| T— | `[ ]` | Convex query: `listPosts` — paginated, filtered by communityId + optional categoryId, live |
-| T— | `[ ]` | Convex mutation: `createPost` — validates content, writes post, returns id |
-| T— | `[ ]` | Convex mutation: `toggleUpvote` — idempotent, writes to `upvotes` + `pointEvents` |
-| T— | `[ ]` | Convex mutation: `createComment` (+ reply) |
-| T— | `[ ]` | Convex mutation: `deletePost` / `deleteComment` (auth check: author or admin) |
-| T— | `[ ]` | Convex mutation: `pinPost` / `unpinPost` (admin only) |
-| T— | `[ ]` | Build post composer UI + "Add post" modal |
-| T— | `[ ]` | Build post card component (all post types) |
-| T— | `[ ]` | Build "Open post" modal with comment thread |
-| T— | `[ ]` | Build @mention autocomplete in comment composer |
-| T— | `[ ]` | Build category filter UI |
-| T— | `[ ]` | Build poll component (vote, results display) |
-
----
-
-## User Acceptance Tests
-
-**UAT Status:** `pending`
-**Last tested:** —
-**Outcome:** —
+See TASK-LIST.md for implementation tasks (Phase: Inline Comments Redesign).
 
 ---
 
 ## Open Questions
 
-- [ ] What is the maximum number of pinned posts allowed at once?
-- [ ] Is the feed sorted purely by newest-first in v1, or is there a pinned-first then newest-first sort?
-- [ ] Are GIFs uploaded as files or loaded via a third-party GIF search API (e.g. Giphy)?
-- [ ] What types of in-app notifications exist in v1 (upvote, comment, @mention, new post)?
+- [x] What is the maximum number of pinned posts? → **3**
+- [x] Feed sort? → **Pinned first, then by selected sort (newest/most liked/most commented)**
+- [x] Comments inline or modal? → **Inline (Whop/Reddit style)**
+- [x] Comment nesting depth? → **2 levels**
+- [x] Mobile indentation? → **Less than desktop (pl-4 vs pl-8)**

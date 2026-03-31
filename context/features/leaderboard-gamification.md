@@ -212,6 +212,13 @@ A numeric level badge is shown in the following surfaces:
 * Badge always reflects current derived all-time level.
 * Badge updates live when level changes.
 * Badge appearance is consistent across all surfaces.
+* **Badge format:** `[Level X]` (e.g., `[Level 1]`, `[Level 3]`, `[Level 5]`)
+* Badge shown on:
+  * Post author (in post card)
+  * Comment author (in comment)
+  * Member profile card/modal
+  * Members tab rows
+  * Leaderboard rows
 
 ### Classroom Access Gating
 

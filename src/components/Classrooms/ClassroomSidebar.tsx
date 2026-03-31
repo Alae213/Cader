@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -148,11 +149,24 @@ export function ClassroomSidebar({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
-  // Calculate overall progress
-  const allPages = classroomContent?.modules?.flatMap(m => m.pages || []) || [];
-  const totalLessons = allPages.length;
-  const completedLessons = allPages.filter(p => p.isViewed).length;
-  const progress = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+  // Calculate overall progress (memoized)
+  const { totalLessons, completedLessons, progress } = useMemo(() => {
+    const allPages = classroomContent?.modules?.flatMap(m => m.pages || []) || [];
+    const total = allPages.length;
+    const completed = allPages.filter(p => p.isViewed).length;
+    return {
+      totalLessons: total,
+      completedLessons: completed,
+      progress: total > 0 ? Math.round((completed / total) * 100) : 0
+    };
+  }, [classroomContent]);
+
+  // Handle keyboard events for mobile overlay
+  const handleOverlayKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") {
+      onCloseSidebar();
+    }
+  };
 
   return (
     <>
@@ -161,6 +175,10 @@ export function ClassroomSidebar({
         <div
           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
           onClick={onCloseSidebar}
+          onKeyDown={handleOverlayKeyDown}
+          role="button"
+          tabIndex={-1}
+          aria-label="Close sidebar"
           aria-hidden="true"
         />
       )}
@@ -238,7 +256,8 @@ export function ClassroomSidebar({
                     if (e.key === "Enter") onModuleInputSubmit();
                     if (e.key === "Escape") onModuleInputCancel();
                   }}
-                  onBlur={onModuleInputSubmit}
+                  // Only submit on Enter, not on blur to prevent accidental creation
+                  aria-label="Chapter title input"
                   placeholder="Chapter title..."
                   className="flex-1 bg-bg-elevated border border-accent rounded px-2 py-1 text-sm focus:outline-none"
                   autoFocus
@@ -351,6 +370,7 @@ export function ClassroomSidebar({
                           className={`flex items-center gap-2 flex-1 text-left ${isOwner && editingChapterId !== module._id ? 'cursor-pointer' : ''}`}
                           aria-expanded={!isCollapsed}
                           aria-controls={`module-${module._id}`}
+                          aria-disabled={!isOwner || editingChapterId === module._id}
                         >
                           {module.pages?.length ? (
                             isCollapsed ? (
@@ -379,7 +399,7 @@ export function ClassroomSidebar({
                       </div>
 
                       {!isCollapsed && module.pages && module.pages.length > 0 && (
-                        <div className="ml-4 space-y-1 mt-1">
+                        <div id={`module-${module._id}`} className="ml-4 space-y-1 mt-1">
                           {module.pages.map((page) => (
                             <button
                               key={page._id}
@@ -397,7 +417,7 @@ export function ClassroomSidebar({
                               {page.videoUrl ? (
                                 <img
                                   src={getVideoThumbnail(page.videoUrl) || undefined}
-                                  alt=""
+                                  alt={`Video thumbnail for ${page.title}`}
                                   className="w-[55px] h-[30px] object-cover rounded flex-shrink-0"
                                 />
                               ) : (

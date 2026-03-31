@@ -406,6 +406,82 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 
 ---
 
+## Phase 21 — Inline Comments Redesign (Whop-Inspired)
+
+### Phase 21A — Convex Backend
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CMT-001 | `[ ]` | Create `comments` table in Convex schema | [context/features/comments-inline.md](../features/comments-inline.md) | postId, parentId, authorId, content, mentions, mediaUrls, upvoteCount |
+| T-CMT-002 | `[ ]` | Create `createComment` mutation | [context/features/comments-inline.md](../features/comments-inline.md) | With mention parsing, point events |
+| T-CMT-003 | `[ ]` | Create `deleteComment` mutation | [context/features/comments-inline.md](../features/comments-inline.md) | Permission: author, post-author, admin |
+| T-CMT-004 | `[ ]` | Create `toggleCommentUpvote` mutation | [context/features/comments-inline.md](../features/comments-inline.md) | With point events |
+| T-CMT-005 | `[ ]` | Create `listComments` query | [context/features/comments-inline.md](../features/comments-inline.md) | Paginated, sorted by upvotes, threaded |
+| T-CMT-006 | `[ ]` | Create `getComment` query | [context/features/comments-inline.md](../features/comments-inline.md) | Single comment |
+| T-CMT-007 | `[ ]` | Update Convex schema: add username to posts/comments | [context/features/community-feed.md](../features/community-feed.md) | Track username for display |
+
+### Phase 21B — UI Components
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CMT-010 | `[ ]` | Build Comment component | [context/features/comments-inline.md](../features/comments-inline.md) | Single comment with avatar, name, level badge, content, upvote, reply |
+| T-CMT-011 | `[ ]` | Build CommentThread component | [context/features/comments-inline.md](../features/comments-inline.md) | Threaded view, 2-level nesting, indentation |
+| T-CMT-012 | `[ ]` | Build CommentInput component | [context/features/comments-inline.md](../features/comments-inline.md) | Inline composer, @mentions, image/gif support |
+| T-CMT-013 | `[ ]` | Build ReplyInput component | [context/features/comments-inline.md](../features/comments-inline.md) | Inline reply composer |
+| T-CMT-014 | `[ ]` | Build CommentsSection component | [context/features/comments-inline.md](../features/comments-inline.md) | Container with input + thread + load more |
+
+### Phase 21C — Integration
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CMT-020 | `[ ]` | Remove OpenPostModal | [context/features/comments-inline.md](../features/comments-inline.md) | Delete old modal component |
+| T-CMT-021 | `[ ]` | Integrate comments into PostCard | [context/features/comments-inline.md](../features/comments-inline.md) | Inline below post, no modal |
+| T-CMT-022 | `[ ]` | Add infinite scroll for comments | [context/features/comments-inline.md](../features/comments-inline.md) | Load 5 more |
+| T-CMT-023 | `[ ]` | Connect real-time subscriptions | [context/features/comments-inline.md](../features/comments-inline.md) | New comments/upvotes appear instantly |
+
+### Phase 21D — Level Badges
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CMT-030 | `[ ]` | Create LevelBadge component | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | Format: [Level X] |
+| T-CMT-031 | `[ ]` | Add level badge to PostCard | [context/features/community-feed.md](../features/community-feed.md) | Show on post author |
+| T-CMT-032 | `[ ]` | Add level badge to Comment component | [context/features/comments-inline.md](../features/comments-inline.md) | Show on comment author |
+
+### Phase 21E — @Mentions Integration
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CMT-040 | `[ ]` | Build MentionAutocomplete component | [context/features/mentions.md](../features/mentions.md) | Dropdown with avatar + name + level |
+| T-CMT-041 | `[ ]` | Integrate mentions into PostComposer | [context/features/mentions.md](../features/mentions.md) | Existing composer |
+| T-CMT-042 | `[ ]` | Integrate mentions into CommentInput | [context/features/mentions.md](../features/mentions.md) | New inline composer |
+| T-CMT-043 | `[ ]` | Parse and render mentions in posts | [context/features/mentions.md](../features/mentions.md) | Clickable @username |
+| T-CMT-044 | `[ ]` | Parse and render mentions in comments | [context/features/mentions.md](../features/mentions.md) | Clickable @username |
+| T-CMT-045 | `[ ]` | Send mention notifications | [context/features/mentions.md](../features/mentions.md) | Real-time on submit |
+
+### Phase 21F — Polish & Visual (per DESIGN_SYSTEM.md)
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CMT-050 | `[ ]` | Style pinned posts with blue border | [context/features/community-feed.md](../features/community-feed.md) | border-l-4 border-blue-500 |
+| T-CMT-051 | `[ ]` | Apply consistent spacing | [context/features/community-feed.md](../features/community-feed.md) | Use spacing scale |
+| T-CMT-052 | `[ ]` | Style comment indentation | [context/features/comments-inline.md](../features/comments-inline.md) | pl-8 desktop, pl-4 mobile |
+| T-CMT-053 | `[ ]` | Whop-style footer actions | [context/features/community-feed.md](../features/community-feed.md) | Unified button group |
+
+### Phase 21G — Testing
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CMT-060 | `[ ]` | Test comment creation | [context/features/comments-inline.md](../features/comments-inline.md) | |
+| T-CMT-061 | `[ ]` | Test threaded replies (2 levels) | [context/features/comments-inline.md](../features/comments-inline.md) | |
+| T-CMT-062 | `[ ]` | Test comment deletion permissions | [context/features/comments-inline.md](../features/comments-inline.md) | Author, post-author, admin |
+| T-CMT-063 | `[ ]` | Test comment upvotes | [context/features/comments-inline.md](../features/comments-inline.md) | Points awarded |
+| T-CMT-064 | `[ ]` | Test @mentions autocomplete | [context/features/mentions.md](../features/mentions.md) | |
+| T-CMT-065 | `[ ]` | Test mention notifications | [context/features/mentions.md](../features/mentions.md) | |
+| T-CMT-066 | `[ ]` | Test real-time updates | [context/features/comments-inline.md](../features/comments-inline.md) | |
+| T-CMT-067 | `[ ]` | Test mobile responsiveness | [context/features/comments-inline.md](../features/comments-inline.md) | Reduced indentation |
+
+---
+
 ## Blocked
 
 Tasks that can't proceed until something else is resolved.
