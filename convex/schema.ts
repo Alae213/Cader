@@ -9,6 +9,7 @@ export default defineSchema({
     email: v.string(),
     avatarUrl: v.optional(v.string()),
     phone: v.optional(v.string()),
+    wilaya: v.optional(v.string()), // Deprecated - kept for data migration
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_clerk_id", ["clerkId"])
@@ -23,6 +24,7 @@ export default defineSchema({
     logoUrl: v.optional(v.string()),
     videoUrl: v.optional(v.string()),
     links: v.optional(v.array(v.string())),
+    wilaya: v.optional(v.string()), // Deprecated - kept for data migration
     
     // Ownership
     ownerId: v.id("users"),

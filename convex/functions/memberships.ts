@@ -233,6 +233,21 @@ export const grantMembership = mutation({
     paymentReference: v.string(),
   },
   handler: async (ctx, args) => {
+    // IDEMPOTENCY CHECK: Check if this paymentReference was already processed
+    // This prevents duplicate memberships if webhook fires multiple times
+    const existingByPaymentRef = await ctx.db
+      .query("memberships")
+      .filter((q) => 
+        q.eq(q.field("paymentReference"), args.paymentReference)
+      )
+      .first();
+
+    if (existingByPaymentRef) {
+      // Payment already processed - return existing membership ID
+      console.log("Duplicate payment detected, returning existing membership:", existingByPaymentRef._id);
+      return existingByPaymentRef._id;
+    }
+
     // Get community to determine pricing type
     const community = await ctx.db.get(args.communityId);
     if (!community) {
