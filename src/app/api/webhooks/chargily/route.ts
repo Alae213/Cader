@@ -28,8 +28,110 @@ interface ChargilyWebhookPayload {
       userId: string;
       type: "community" | "classroom" | "platform";
       classroomId?: string;
+      mode?: "test" | "live"; // G-009: Test/live mode verification
+      priceAmount?: number; // EC-18: Store price at checkout creation
     };
   };
+}
+
+// ============================================================================
+// RATE LIMITING (G-002)
+// Simple in-memory rate limiter - for production, use Redis (Upstash)
+// ============================================================================
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+
+function checkRateLimit(ip: string, limit: number = 100, windowMs: number = 60000): boolean {
+  const now = Date.now();
+  const key = ip;
+  const record = rateLimitMap.get(key);
+
+  if (!record || now > record.resetTime) {
+    // First request or window expired - reset
+    rateLimitMap.set(key, { count: 1, resetTime: now + windowMs });
+    return true;
+  }
+
+  if (record.count >= limit) {
+    // Rate limit exceeded
+    return false;
+  }
+
+  // Increment count
+  record.count++;
+  return true;
+}
+
+function getClientIP(req: NextRequest): string {
+  return req.headers.get("x-forwarded-for")?.split(",")[0] || 
+         req.headers.get("x-real-ip") || 
+         "unknown";
+}
+
+// ============================================================================
+// USER EXISTENCE CHECK (G-003)
+// Verify user exists before granting access
+// ============================================================================
+async function verifyUserExists(convex: ConvexHttpClient, userId: string): Promise<boolean> {
+  try {
+    const user = await convex.query(api.functions.users.getUserById, {
+      userId: userId as Id<"users">,
+    });
+    return !!user;
+  } catch {
+    return false;
+  }
+}
+
+// ============================================================================
+// PLATFORM TIER VERIFICATION (G-006)
+// Verify community exists and has correct tier before processing platform subscription
+// ============================================================================
+async function verifyPlatformTier(
+  convex: ConvexHttpClient, 
+  communityId: string
+): Promise<{ valid: boolean; reason?: string }> {
+  try {
+    const community = await convex.query(api.functions.communities.getById, {
+      communityId: communityId as Id<"communities">,
+    });
+
+    if (!community) {
+      return { valid: false, reason: "Community not found" };
+    }
+
+    // If already subscribed, still allow (for renewal)
+    if (community.platformTier === "subscribed") {
+      console.log("Community already subscribed, allowing renewal:", communityId);
+    }
+
+    return { valid: true };
+  } catch (error) {
+    return { valid: false, reason: "Failed to verify community" };
+  }
+}
+
+// ============================================================================
+// TEST/LIVE MODE VERIFICATION (G-009)
+// Reject test checkouts in production
+// ============================================================================
+function verifyMode(metadata: ChargilyWebhookPayload["data"]["metadata"]): { valid: boolean; reason?: string } {
+  if (!metadata?.mode) {
+    // No mode specified - allow for backward compatibility
+    return { valid: true };
+  }
+
+  const isProduction = process.env.NODE_ENV === "production";
+  const isTestMode = metadata.mode === "test";
+
+  if (isProduction && isTestMode) {
+    return { valid: false, reason: "Test mode checkout rejected in production" };
+  }
+
+  if (!isProduction && !isTestMode) {
+    return { valid: false, reason: "Live mode checkout rejected in development" };
+  }
+
+  return { valid: true };
 }
 
 // Create Convex HTTP client for server-side mutations
@@ -90,6 +192,18 @@ async function verifyPaymentAmount(
 
 export async function POST(req: NextRequest) {
   try {
+    // =========================================================================
+    // RATE LIMITING CHECK (G-002)
+    // =========================================================================
+    const clientIP = getClientIP(req);
+    if (!checkRateLimit(clientIP)) {
+      console.error("Rate limit exceeded for IP:", clientIP);
+      return NextResponse.json(
+        { error: "Too many requests" },
+        { status: 429 }
+      );
+    }
+
     const payloadText = await req.text();
     const payloadBuffer = Buffer.from(payloadText);
     const signature = req.headers.get("x-chargily-signature");
@@ -134,6 +248,45 @@ export async function POST(req: NextRequest) {
             { error: "Missing required metadata" },
             { status: 400 }
           );
+        }
+
+        // =========================================================================
+        // TEST/LIVE MODE VERIFICATION (G-009)
+        // =========================================================================
+        const modeCheck = verifyMode(metadata);
+        if (!modeCheck.valid) {
+          console.error("Mode verification failed:", modeCheck.reason);
+          return NextResponse.json(
+            { received: true, warning: modeCheck.reason },
+            { status: 200 }
+          );
+        }
+
+        // =========================================================================
+        // USER EXISTENCE CHECK (G-003)
+        // =========================================================================
+        const userExists = await verifyUserExists(convex, metadata.userId);
+        if (!userExists) {
+          console.error("User not found:", metadata.userId);
+          // Return 200 to prevent retry, but don't grant access
+          return NextResponse.json(
+            { received: true, warning: "User not found - access not granted" },
+            { status: 200 }
+          );
+        }
+
+        // =========================================================================
+        // PLATFORM TIER VERIFICATION (G-006) - for platform subscriptions
+        // =========================================================================
+        if (metadata.type === "platform") {
+          const tierCheck = await verifyPlatformTier(convex, metadata.communityId);
+          if (!tierCheck.valid) {
+            console.error("Platform tier verification failed:", tierCheck.reason);
+            return NextResponse.json(
+              { received: true, warning: tierCheck.reason },
+              { status: 200 }
+            );
+          }
         }
 
         // SECURITY: Verify payment amount matches expected price

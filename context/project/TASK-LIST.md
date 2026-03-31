@@ -429,6 +429,123 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
 | T-CMT-030 | `[x]` | Create LevelBadge component | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | Created at src/components/Feed/LevelBadge.tsx |
+
+---
+
+## Phase 22 — ClassroomViewer Fixes & Edge Cases
+
+### Type Safety Fixes
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CL-FIX-100 | `[x]` | Fix type cast hack on line 110 — use proper conditional typing for userId in queries | [context/features/classrooms.md](../features/classrooms.md) | `userId: undefined as unknown as Id<"users">` is unsafe |
+| T-CL-FIX-101 | `[x]` | Update ModuleData interface — add missing fields (description, videoUrl) that may come from backend | [context/features/classrooms.md](../features/classrooms.md) | Line 46 interface missing fields |
+| T-CL-FIX-102 | `[x]` | Handle undefined currentUser — prevent unnecessary API calls when user is undefined | [context/features/classrooms.md](../features/classrooms.md) | Queries run with undefined userId |
+
+### Race Condition Fixes
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CL-FIX-110 | `[x]` | Fix chapter number calculation — use latest data length instead of stale closure value | [context/features/classrooms.md](../features/classrooms.md) | Line 221-222: handleAddChapter |
+| T-CL-FIX-111 | `[x]` | Fix chapter reorder revert — handle error state properly to avoid flash of empty content | [context/features/classrooms.md](../features/classrooms.md) | Line 396-425: handleChapterDragEnd |
+| T-CL-FIX-112 | `[ ]` | Fix toggle complete race condition — handle rapid toggles correctly in optimistic update | [context/features/classrooms.md](../features/classrooms.md) | Line 248-276: handleToggleComplete |
+
+### Error Handling
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CL-FIX-120 | `[x]` | Add error UI for classroomContent query — show error state instead of nothing when query fails | [context/features/classrooms.md](../features/classrooms.md) | Lines 98-103: useQuery can return errors |
+| T-CL-FIX-121 | `[ ]` | Add error UI for pageContent query — pass real error to LessonContent instead of null | [context/features/classrooms.md](../features/classrooms.md) | Lines 105-112: useQuery error handling |
+| T-CL-FIX-122 | `[ ]` | Add error boundary — wrap ClassroomViewer to catch render errors with user-friendly message | [context/features/classrooms.md](../features/classrooms.md) | No error boundary currently |
+
+### Input Validation
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CL-FIX-130 | `[x]` | Add max-length validation for chapter titles — prevent extremely long titles | [context/features/classrooms.md](../features/classrooms.md) | Line 311: saveChapterTitle |
+| T-CL-FIX-131 | `[x]` | Add duplicate title check for new lessons — warn if "New Lesson" already exists | [context/features/classrooms.md](../features/classrooms.md) | Line 239: handleAddLesson |
+| T-CL-FIX-132 | `[x]` | Add URL validation for video updates — validate YouTube/Vimeo/GDrive format before saving | [context/features/classrooms.md](../features/classrooms.md) | Line 278-292: handleVideoUpdate |
+| T-CL-FIX-133 | `[x]` | Add empty content validation — prevent saving lessons with empty content | [context/features/classrooms.md](../features/classrooms.md) | handleSaveEdit should validate |
+
+### Edge Case Handling
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CL-FIX-140 | `[x]` | Add loading skeleton for classroomContent null state — show skeleton while loading | [context/features/classrooms.md](../features/classrooms.md) | Line 441-457: no loading state shown |
+| T-CL-FIX-141 | `[x]` | Add empty state UI — show encouraging message when modules array is empty | [context/features/classrooms.md](../features/classrooms.md) | No empty state for empty modules |
+| T-CL-FIX-142 | `[x]` | Add selectedPageId cleanup — reset selectedPageId if page was deleted | [context/features/classrooms.md](../features/classrooms.md) | Line 373-374: already handled but verify |
+| T-CL-FIX-143 | `[x]` | Add save completion on navigation away — ensure debounced saves complete before unmount | [context/features/classrooms.md](../features/classrooms.md) | Line 335: debounced save on navigate |
+| T-CL-FIX-144 | `[x]` | Add mobile sidebar state cleanup — close sidebar on unmount | [context/features/classrooms.md](../features/classrooms.md) | No cleanup for isSidebarOpen |
+
+### Memory Leak Fixes
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CL-FIX-150 | `[x]` | Clear chapterDebounceRef on unmount — prevent setState on unmounted component | [context/features/classrooms.md](../features/classrooms.md) | Line 88: no cleanup |
+| T-CL-FIX-151 | `[x]` | Clear lessonDebounceRef on unmount — prevent setState on unmounted component | [context/features/classrooms.md](../features/classrooms.md) | Line 93: no cleanup |
+| T-CL-FIX-152 | `[x]` | Reset isInitialLoad ref on classroomId change — ensure proper initial selection on classroom switch | [context/features/classrooms.md](../features/classrooms.md) | Line 131: persists across classrooms |
+
+### UX Improvements
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CL-FIX-160 | `[x]` | Add loading state to delete buttons — disable during mutation to prevent double-clicks | [context/features/classrooms.md](../features/classrooms.md) | Lines 553-558, 573-576: no loading state |
+| T-CL-FIX-161 | `[ ]` | Add loading skeleton for pageContent — show skeleton while page is fetching | [context/features/classrooms.md](../features/classrooms.md) | No loading skeleton in main content |
+| T-CL-FIX-162 | `[ ]` | Add visual feedback on mobile page selection — focus indicator after sidebar selection | [context/features/classrooms.md](../features/classrooms.md) | Line 471-474: focus moves but no feedback |
+| T-CL-FIX-163 | `[ ]` | Add loading state to save button — show spinner while saving lesson content | [context/features/classrooms.md](../features/classrooms.md) | isSaving exists but button state not updated |
+
+### Accessibility Fixes
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CL-FIX-170 | `[x]` | Add focus trap to delete modals — trap focus inside modal when open | [context/features/classrooms.md](../features/classrooms.md) | Lines 546-561, 566-581: no focus trap |
+| T-CL-FIX-171 | `[x]` | Add aria attributes to modals — add aria-modal="true" and proper labels | [context/features/classrooms.md](../features/classrooms.md) | Delete modals missing ARIA |
+| T-CL-FIX-172 | `[x]` | Add Escape key handler to close modals — close modals on Escape press | [context/features/classrooms.md](../features/classrooms.md) | No keyboard handler for modals |
+| T-CL-FIX-173 | `[x]` | Add focus management for modals — move focus to modal when opened, restore when closed | [context/features/classrooms.md](../features/classrooms.md) | No focus management |
+
+### Import Cleanup
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CL-FIX-180 | `[x]` | Move ChevronLeft import to top — conventional import placement | [context/features/classrooms.md](../features/classrooms.md) | Line 589: imported at bottom |
+| T-CL-FIX-181 | `[x]` | Remove unused Check import — imported but never used | [context/features/classrooms.md](../features/classrooms.md) | Line 15: Check imported |
+
+### Data Consistency
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CL-FIX-190 | `[ ]] | Fix optimistic completion sync — ensure completion status stays in sync between optimistic and real data | [context/features/classrooms.md](../features/classrooms.md) | Line 428-433: isPageCompleted logic |
+| T-CL-FIX-191 | `[ ]] | Fix optimistic chapters sync — handle case where API returns different order than expected | [context/features/classrooms.md](../features/classrooms.md) | Line 136-141: clear optimistic on change |
+
+### Props & Interface Issues
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CL-FIX-200 | `[ ]] | Use isOwner prop consistently — disable edit buttons for non-owners throughout component | [context/features/classrooms.md](../features/classrooms.md) | Line 36: isOwner passed but not always used |
+| T-CL-FIX-201 | `[ ]] | Prevent queries when user undefined — don't run queries with undefined userId | [context/features/classrooms.md](../features/classrooms.md) | Line 98-112: queries run anyway |
+
+### Missing Features
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CL-FIX-210 | `[ ]] | Add undo capability for deletions — store deleted item temporarily for undo | [context/features/classrooms.md](../features/classrooms.md) | No undo after chapter/lesson delete |
+| T-CL-FIX-211 | `[ ]] | Add draft recovery on page load — restore draft from localStorage for crashed sessions | [context/features/classrooms.md](../features/classrooms.md) | Draft used only during editing |
+| T-CL-FIX-212 | `[ ]] | Add optimistic updates for chapter creation — show new chapter immediately | [context/features/classrooms.md](../features/classrooms.md) | No optimistic update for createModule |
+| T-CL-FIX-213 | `[ ]] | Add optimistic updates for lesson creation — show new lesson immediately | [context/features/classrooms.md](../features/classrooms.md) | No optimistic update for createPage |
+
+### Callback Dependency Fixes
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CL-FIX-220 | `[x]` | Fix handleChapterTitleBlur dependencies — remove stale editingChapterTitle from deps | [context/features/classrooms.md](../features/classrooms.md) | Line 343: callback dep issue |
+| T-CL-FIX-221 | `[x]` | Fix handleChapterTitleKeyDown dependencies — remove stale editingChapterTitle from deps | [context/features/classrooms.md](../features/classrooms.md) | Line 352: callback dep issue |
+
+### Conditional Rendering Fixes
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CL-FIX-230 | `[x]` | Fix mobile header loading state — show skeleton instead of "Loading..." when classroomContent is null | [context/features/classrooms.md](../features/classrooms.md) | Line 509: shows text incorrectly |
+| T-CL-FIX-231 | `[x]` | Add loading state for LessonContent — handle loading case when classroomContent is null | [context/features/classrooms.md](../features/classrooms.md) | Line 514: no loading handling |
 | T-CMT-031 | `[x]` | Add level badge to PostCard | [context/features/community-feed.md](../features/community-feed.md) | Show on post author |
 | T-CMT-032 | `[x]` | Add level badge to Comment component | [context/features/comments-inline.md](../features/comments-inline.md) | Show on comment author |
 
@@ -528,29 +645,103 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T-PAY-001 | `[ ]` | Add `paymentReference` field to `memberships` schema | [context/features/payment-edge-cases.md](../features/payment-edge-cases.md) | Store Chargily checkout ID for idempotency |
-| T-PAY-002 | `[ ]` | Add idempotency check in `grantMembership` mutation — check if paymentReference already exists | [context/features/payment-edge-cases.md](../features/payment-edge-cases.md) | Prevent duplicate memberships |
-| T-PAY-003 | `[ ]` | Add rate limiting to webhook endpoint — 100 req/min per IP | [context/features/payment-edge-cases.md](../features/payment-edge-cases.md) | Use Upstash or similar |
-| T-PAY-004 | `[ ]` | Add user existence check in webhook handler before granting access | [context/features/payment-edge-cases.md](../features/payment-edge-cases.md) | Graceful handling if user deleted |
+| T-PAY-001 | `[x]` | Add `paymentReference` field to `memberships` schema | [context/features/payment-edge-cases.md](../features/payment-edge-cases.md) | Already existed in schema |
+| T-PAY-002 | `[x]` | Add idempotency check in `grantMembership` mutation — check if paymentReference already exists | [context/features/payment-edge-cases.md](../features/payment-edge-cases.md) | Prevent duplicate memberships |
+| T-PAY-003 | `[x]` | Add rate limiting to webhook endpoint — 100 req/min per IP | [context/features/payment-edge-cases.md](../features/payment-edge-cases.md) | In-memory rate limiter added |
+| T-PAY-004 | `[x]` | Add user existence check in webhook handler before granting access | [context/features/payment-edge-cases.md](../features/payment-edge-cases.md) | Added getUserById query |
 
 ### Phase 23B — High Priority Fixes
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T-PAY-005 | `[ ]` | Handle checkout expiration in OnboardingModal — poll and show expired message | [context/features/payment-edge-cases.md](../features/payment-edge-cases.md) | EC-19 |
-| T-PAY-006 | `[ ]` | Handle cancel redirect in OnboardingModal — parse status param and show UI | [context/features/payment-edge-cases.md](../features/payment-edge-cases.md) | EC-20 |
-| T-PAY-007 | `[ ]` | Add platform tier verification in webhook before granting subscription | [context/features/payment-edge-cases.md](../features/payment-edge-cases.md) | Verify community exists |
+| T-PAY-005 | `[x]` | Handle checkout expiration in OnboardingModal — poll and show expired message | [context/features/payment-edge-cases.md](../features/payment-edge-cases.md) | EC-19 |
+| T-PAY-006 | `[x]` | Handle cancel redirect in OnboardingModal — parse status param and show UI | [context/features/payment-edge-cases.md](../features/payment-edge-cases.md) | EC-20 |
+| T-PAY-007 | `[x]` | Add platform tier verification in webhook before granting subscription | [context/features/payment-edge-cases.md](../features/payment-edge-cases.md) | Uses getById query |
 
 ### Phase 23C — Medium Priority Fixes
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T-PAY-008 | `[ ]` | Filter deleted classrooms from access queries | [context/features/payment-edge-cases.md](../features/payment-edge-cases.md) | G-007 |
-| T-PAY-009 | `[ ]` | Add test/live mode verification in webhook — reject test checkouts in production | [context/features/payment-edge-cases.md](../features/payment-edge-cases.md) | EC-17 |
-| T-PAY-010 | `[ ]` | Store price in checkout metadata at creation — verify against stored price not current | [context/features/payment-edge-cases.md](../features/payment-edge-cases.md) | EC-18, prevents price manipulation |
-| T-PAY-011 | `[ ]` | Add unique index for `(communityId, userId)` to prevent duplicate memberships | [context/features/payment-edge-cases.md](../features/payment-edge-cases.md) | Database-level duplicate prevention |
-| T-PAY-012 | `[ ]` | Use atomic check for member limit in join mutation | [context/features/payment-edge-cases.md](../features/payment-edge-cases.md) | G-011 |
-| T-PAY-013 | `[ ]` | Create payment history query and UI for members | [context/features/payment-edge-cases.md](../features/payment-edge-cases.md) | G-012 |
+| T-PAY-008 | `[x]` | Filter deleted classrooms from access queries | [context/features/payment-edge-cases.md](../features/payment-edge-cases.md) | G-007 - deleteClassroom already cleans up access |
+| T-PAY-009 | `[x]` | Add test/live mode verification in webhook — reject test checkouts in production | [context/features/payment-edge-cases.md](../features/payment-edge-cases.md) | EC-17 |
+| T-PAY-010 | `[x]` | Store price in checkout metadata at creation — verify against stored price not current | [context/features/payment-edge-cases.md](../features/payment-edge-cases.md) | EC-18, prevents price manipulation |
+| T-PAY-011 | `[x]` | Add unique index for `(communityId, userId)` to prevent duplicate memberships | [context/features/payment-edge-cases.md](../features/payment-edge-cases.md) | Already exists - by_community_and_user |
+| T-PAY-012 | `[x]` | Use atomic check for member limit in join mutation | [context/features/payment-edge-cases.md](../features/payment-edge-cases.md) | G-011 - limit check in canJoinCommunity |
+| T-PAY-013 | `[x]` | Create payment history query and UI for members | [context/features/payment-edge-cases.md](../features/payment-edge-cases.md) | G-012 - getPaymentHistory query added |
+
+---
+
+## Phase 24 — Leaderboard & Gamification Fixes
+
+### Phase 24A — Critical Exploit Fixes (Batch 1)
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-LB-001 | `[ ]` | Add `actorUserId` field to `pointEvents` schema — track who triggered interaction events for audit & anti-abuse | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | schema.ts:160-184 missing this field entirely |
+| T-LB-002 | `[ ]` | Block post self-upvote scoring in `toggleUpvote` — add `post.authorId !== user._id` check before awarding +1 | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | feed.ts:467-475 awards points with no self-check |
+| T-LB-003 | `[ ]` | Block owner/admin upvote scoring — check voter role in `toggleUpvote` and `toggleCommentUpvote`, award 0 points if voter is owner/admin | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | feed.ts:467-475, 576-584 never check voter role |
+| T-LB-004 | `[ ]` | Add reversal event on post deletion — append `-2` point event when post is deleted, also reverse accumulated upvote points | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | feed.ts:778-843 deletes post but creates no reversal |
+| T-LB-005 | `[ ]` | Add reversal event on comment deletion — append `-1` point event when comment is deleted | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | feed.ts:846-901 deletes comment but creates no reversal |
+
+### Phase 24B — Critical Logic Fixes (Batch 2)
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-LB-006 | `[ ]` | Fix lesson completion to be per-lesson-ever — deduplicate by `(userId, pageId)` not `(userId, classroomId, day)` | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | leaderboard.ts:378-394 checks per day & classroom |
+| T-LB-007 | `[ ]` | Enforce level-based classroom access — check `user.level >= classroom.minLevel` in `getClassroom`, `getClassroomContent`, `getPageContent` | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | classrooms.ts:58-61, 247-248 only checks active status |
+| T-LB-008 | `[ ]` | Create app-open streak mutation — trigger on first app open per day, award +1/+2/+3 by streak day | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | No mutation exists. awardStreakBonus uses any activity |
+| T-LB-009 | `[ ]` | Clamp all point totals to minimum 0 — wrap `Math.max(0, sum)` in getLeaderboard, getUserPoints, and all derivations | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | leaderboard.ts:76, 147 can produce negative totals |
+| T-LB-010 | `[ ]` | Exclude owner/admin from leaderboard ranking — filter out `role === "owner" || role === "admin"` before sorting | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | leaderboard.ts:73-76 includes them with 0 points |
+
+### Phase 24C — Leaderboard Quality (Batch 3)
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-LB-011 | `[ ]` | Implement tiebreaker in leaderboard sort — most recent point earned first, then alphabetical by display name | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | leaderboard.ts:92 sorts only by points |
+| T-LB-012 | `[ ]` | Add viewer's pinned row — always show current user's row below Top N list if not already visible | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | LeaderboardTab.tsx missing pinned row logic |
+| T-LB-013 | `[ ]` | Fix `getLeaderboard` to use `limit` parameter — truncate results after sorting instead of returning all members | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | leaderboard.ts:34 limit is a no-op |
+| T-LB-014 | `[ ]` | Align event type names with spec — rename to `post_created_awarded`, `post_created_reversed`, `comment_created_awarded`, `post_upvote_received`, `post_upvote_reversed`, etc. | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | schema.ts:164-175 uses short names, can't distinguish post vs comment upvotes |
+| T-LB-015 | `[ ]` | Fix lesson dedup to use `pageId` as sourceId — pass actual lesson/page ID not classroomId | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | leaderboard.ts:389 uses classroomId, 401-407 doesn't set sourceId |
+
+### Phase 24D — Timing & Delays (Batch 4)
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-LB-016 | `[ ]` | Implement 10-minute visibility delay for post point awards — schedule award or check visibility before awarding +2 | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | leaderboard.ts:247-255 awards instantly |
+| T-LB-017 | `[ ]` | Implement 2-minute visibility delay for comment point awards — same pattern as post delay | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | leaderboard.ts:303 awards instantly after length check |
+| T-LB-018 | `[ ]` | Fix streak bonus values — Days 1-3: +1, Days 4-6: +2, Day 7+: +3 (not Day 1: +1, Day 2: +2, Day 3+: +3) | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | leaderboard.ts:468 formula is wrong |
+| T-LB-019 | `[ ]` | Fix streak to track app opens not any activity — create separate `recordAppOpen` mutation for streak tracking | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | leaderboard.ts:161-173 counts any point event |
+| T-LB-020 | `[ ]` | Add timezone handling for streak day boundaries — use member's saved timezone, fallback to UTC | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | No timezone field on user/membership schema |
+
+### Phase 24E — Schema & Performance (Batch 5)
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-LB-021 | `[ ]` | Add composite indexes on `pointEvents` — `(communityId, userId)`, `(userId, eventType, sourceId)`, `(userId, communityId, createdAt)` | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | schema.ts:182-184 only has single-field indexes |
+| T-LB-022 | `[ ]` | Expand `sourceType` enum to include `"lesson"` and `"streak"` — allow filtering non-post/comment events | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | schema.ts:178 only allows "post" or "comment" |
+| T-LB-023 | `[ ]` | Optimize `getLeaderboard` — use Convex aggregation or incremental counters instead of O(N) in-memory queries | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | leaderboard.ts:45-87 loads all members + events |
+| T-LB-024 | `[ ]` | Create scheduler configuration for streak bonus — set up cron job or scheduled Convex function | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | Mutation exists but no scheduler configured |
+| T-LB-025 | `[ ]` | Add reversal events for upvote points on bulk post delete — when post deleted, also reverse all accumulated upvote points | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | feed.ts:819-826 deletes upvotes but no reversal events |
+
+### Phase 24F — UI Polish (Batch 6)
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-LB-026 | `[ ]` | Standardize level badge to `[Level X]` format on leaderboard — replace `<Badge>L{level}</Badge>` with `<LevelBadge>` component | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | LeaderboardTab.tsx:141-143 uses generic Badge |
+| T-LB-027 | `[ ]` | Add required UX copy — "Level is based on all-time points" and "Leaderboard rank changes based on selected time filter" | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | LeaderboardTab.tsx missing both strings |
+| T-LB-028 | `[ ]` | Fix progress panel — horizontal stepped progress bar, "Max level reached" state at Level 5, "X points to Level Y" label | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | LeaderboardTab.tsx:198-261 uses circular badge + linear bar |
+| T-LB-029 | `[ ]` | Create MembersTab component with level badges on member rows | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | Component doesn't exist yet |
+| T-LB-030 | `[ ]` | Create ProfileCard/Modal component with level badge | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | Component doesn't exist yet |
+
+### Phase 24G — Cleanup (Batch 7)
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-LB-031 | `[ ]` | Remove unused `upvote_given` event type from schema | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | schema.ts:168 not in spec |
+| T-LB-032 | `[ ]` | Fix `commentId` parameter type in `awardCommentPoints` — change from `v.string()` to `v.id("comments")` | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | leaderboard.ts:265 type mismatch |
+| T-LB-033 | `[ ]` | Fix `classroomId` parameter type in `awardLessonPoints` — change from `v.string()` to proper lesson/page ID type | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | leaderboard.ts:343 type mismatch |
+| T-LB-034 | `[ ]` | Add index on `classrooms.minLevel` for level-based filtering | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | schema.ts:201 no index |
+| T-LB-035 | `[ ]` | Handle banned/soft-deleted users exclusion from leaderboard — filter out users with deleted/banned status | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | getLeaderboard only checks membership status |
 
 ---
 

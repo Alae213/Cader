@@ -4,13 +4,14 @@ import { useState, useEffect } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useAuth, useUser } from "@clerk/nextjs";
+import { useSearchParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/Dialog";
 import { Heading, Text } from "@/components/ui/Text";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
-import { Loader2, CheckCircle, AlertCircle, CreditCard } from "lucide-react";
+import { Loader2, CheckCircle, AlertCircle, CreditCard, XCircle } from "lucide-react";
 
 interface Community {
   _id: string;
@@ -27,12 +28,17 @@ interface OnboardingModalProps {
   onComplete?: () => void;
 }
 
+type PaymentStatus = "idle" | "pending" | "success" | "cancelled" | "expired";
+
 export function OnboardingModal({ community, open, onOpenChange, onComplete }: OnboardingModalProps) {
   const { userId } = useAuth();
   const { user } = useUser();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [step, setStep] = useState<1 | 2 | "pending">(1);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("idle");
   
   // Form state
   const [displayName, setDisplayName] = useState("");
@@ -58,6 +64,37 @@ export function OnboardingModal({ community, open, onOpenChange, onComplete }: O
     api.functions.users.getUserByClerkId,
     userId ? { clerkId: userId } : "skip"
   );
+
+  // =========================================================================
+  // CHECKOUT STATUS CHECK (EC-19, EC-20)
+  // Check URL params for payment status when modal opens
+  // =========================================================================
+  useEffect(() => {
+    if (open) {
+      const status = searchParams.get("status");
+      const joined = searchParams.get("joined");
+      
+      if (status === "cancelled") {
+        // EC-20: Handle cancel redirect
+        setPaymentStatus("cancelled");
+        setStep(2); // Go back to billing step
+      } else if (status === "expired") {
+        // EC-19: Handle checkout expiration
+        setPaymentStatus("expired");
+      } else if (joined === "true") {
+        // Payment was successful
+        setPaymentStatus("success");
+      }
+      
+      // Clear URL params after reading
+      if (status || joined) {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("status");
+        url.searchParams.delete("joined");
+        window.history.replaceState({}, "", url.toString());
+      }
+    }
+  }, [open, searchParams]);
 
   // Initialize display name from Clerk user
   useEffect(() => {
@@ -105,6 +142,7 @@ export function OnboardingModal({ community, open, onOpenChange, onComplete }: O
     
     setIsLoading(true);
     setError("");
+    setPaymentStatus("idle");
     
     try {
       // Create Chargily checkout
@@ -113,7 +151,7 @@ export function OnboardingModal({ community, open, onOpenChange, onComplete }: O
         userId: convexUser._id as any,
         type: "community",
         successUrl: `${window.location.origin}/${community.slug}?joined=true`,
-        cancelUrl: `${window.location.origin}/${community.slug}`,
+        cancelUrl: `${window.location.origin}/${community.slug}?status=cancelled`,
       });
       
       if (result.checkoutUrl) {
@@ -132,9 +170,45 @@ export function OnboardingModal({ community, open, onOpenChange, onComplete }: O
     }
   };
 
+  // Reset payment status when going back to step 1
+  const handleBack = () => {
+    setPaymentStatus("idle");
+    setStep(1);
+  };
+
   // Mutations
   const mutateFreeJoin = useMutation(api.functions.memberships.grantMembershipWithDetails);
   const createCheckout = useMutation(api.functions.payments.createChargilyCheckout);
+
+  // Render payment status message
+  const renderPaymentStatusMessage = () => {
+    switch (paymentStatus) {
+      case "cancelled":
+        return (
+          <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-yellow-600" />
+              <Text size="sm" className="text-yellow-800">
+                Payment was cancelled. You can try again or contact the community owner.
+              </Text>
+            </div>
+          </div>
+        );
+      case "expired":
+        return (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+            <div className="flex items-center gap-2">
+              <XCircle className="w-5 h-5 text-red-600" />
+              <Text size="sm" className="text-red-800">
+                Checkout expired. Please try again to complete your payment.
+              </Text>
+            </div>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
 
   // Check member limit
   if (memberLimitCheck?.atLimit && !memberLimitCheck.isSubscribed) {
@@ -234,6 +308,9 @@ export function OnboardingModal({ community, open, onOpenChange, onComplete }: O
         {/* Step 2: Billing (Paid Communities) */}
         {step === 2 && (
           <div className="space-y-4">
+            {/* Payment Status Message */}
+            {renderPaymentStatusMessage()}
+
             {/* Order Summary */}
             <div className="p-4 bg-bg-elevated rounded-lg space-y-3">
               <div className="flex justify-between">
@@ -272,7 +349,7 @@ export function OnboardingModal({ community, open, onOpenChange, onComplete }: O
               <Button 
                 variant="secondary" 
                 className="flex-1"
-                onClick={() => setStep(1)}
+                onClick={handleBack}
                 disabled={isLoading}
               >
                 Back

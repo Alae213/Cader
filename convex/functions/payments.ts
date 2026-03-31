@@ -138,6 +138,8 @@ export const createChargilyCheckout = mutation({
         userId: args.userId,
         type: args.type,
         classroomId: args.classroomId || "",
+        mode, // G-009: Include mode for test/live verification
+        priceAmount: amount * 100, // EC-18: Store price at checkout creation
       },
     };
     
@@ -199,5 +201,81 @@ export const grantClassroomAccess = mutation({
       paymentReference: args.paymentReference,
       createdAt: Date.now(),
     });
+  },
+});
+
+// Get payment history for a user (G-012)
+export const getPaymentHistory = query({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    // Get all memberships for this user
+    const allMemberships = await ctx.db
+      .query("memberships")
+      .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    // Filter to only paid memberships (non-free with payment reference)
+    const memberships = allMemberships.filter(
+      (m) => m.subscriptionType && m.subscriptionType !== "free" && m.paymentReference
+    );
+
+    // Get all classroom access for this user
+    const allClassroomAccess = await ctx.db
+      .query("classroomAccess")
+      .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    // Filter to only purchased access with payment reference
+    const classroomAccess = allClassroomAccess.filter(
+      (a) => a.paymentReference && a.accessType === "purchased"
+    );
+
+    // Build community payment history
+    const communityPayments = await Promise.all(
+      memberships.map(async (m) => {
+        const community = await ctx.db.get(m.communityId);
+        return {
+          type: "community" as const,
+          id: m._id,
+          communityId: m.communityId,
+          communityName: community?.name || "Unknown",
+          amount: community?.priceDzd || 0,
+          currency: "DZD" as const,
+          status: m.status,
+          subscriptionType: m.subscriptionType,
+          paymentReference: m.paymentReference,
+          date: m.subscriptionStartDate || m.createdAt,
+        };
+      })
+    );
+
+    // Build classroom payment history
+    const classroomPayments = await Promise.all(
+      classroomAccess.map(async (a) => {
+        const classroom = await ctx.db.get(a.classroomId);
+        const community = classroom ? await ctx.db.get(classroom.communityId) : null;
+        return {
+          type: "classroom" as const,
+          id: a._id,
+          classroomId: a.classroomId,
+          classroomName: classroom?.title || "Unknown",
+          communityName: community?.name || "Unknown",
+          amount: classroom?.priceDzd || 0,
+          currency: "DZD" as const,
+          status: "active" as const,
+          paymentReference: a.paymentReference,
+          date: a.purchasedAt || a.createdAt,
+        };
+      })
+    );
+
+    // Combine and sort by date (newest first)
+    const allPayments = [...communityPayments, ...classroomPayments].sort(
+      (a, b) => b.date - a.date
+    );
+
+    return allPayments;
   },
 });

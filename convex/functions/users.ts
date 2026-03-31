@@ -55,6 +55,15 @@ export const getUserByClerkId = query({
   },
 });
 
+// Get user by ID (for webhook verification)
+export const getUserById = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    return user;
+  },
+});
+
 // Get user profile with communities and level
 export const getUserProfile = query({
   args: { userId: v.id("users") },
