@@ -2,6 +2,64 @@ import { mutation, query } from "../_generated/server";
 import { v } from "convex/values";
 import { safeDecrypt } from "../lib/encryption";
 
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "object" && error !== null && "message" in error) {
+    return String((error as { message: unknown }).message);
+  }
+  return fallback;
+}
+
+interface ChargilyCheckoutArgs {
+  apiKey: string;
+  amount: number;
+  description: string;
+  email: string;
+  displayName: string;
+  successUrl: string;
+  cancelUrl: string;
+  metadata: Record<string, string>;
+}
+
+async function createChargilySession(args: ChargilyCheckoutArgs) {
+  const mode = process.env.CHARGILY_MODE === "live" ? "live" : "test";
+  const baseUrl = mode === "live"
+    ? "https://pay.chargily.net/api/v2"
+    : "https://pay.chargily.net/test/api/v2";
+
+  const nameParts = args.displayName.split(" ");
+  const checkoutData = {
+    amount: args.amount,
+    currency: "dzd",
+    description: args.description,
+    patient: {
+      email: args.email,
+      first_name: nameParts[0] || "User",
+      last_name: nameParts.slice(1).join(" ") || "",
+    },
+    success_url: args.successUrl,
+    failure_url: args.cancelUrl,
+    metadata: { ...args.metadata, mode },
+  };
+
+  const response = await fetch(`${baseUrl}/checkouts`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${args.apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(checkoutData),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ message: "" }));
+    throw new Error(errorData.message || `Chargily API error: ${response.status}`);
+  }
+
+  const checkout = await response.json() as { checkout_url: string; id: string };
+  return { checkoutUrl: checkout.checkout_url, checkoutId: checkout.id };
+}
+
 // Get expected price for webhook verification
 export const getExpectedPrice = query({
   args: {
@@ -28,7 +86,7 @@ export const getExpectedPrice = query({
   },
 });
 
-// Validate Chargily API keys (runs in browser/edge, uses fetch)
+// Validate Chargily API keys
 export const validateChargilyKeys = mutation({
   args: {
     apiKey: v.string(),
@@ -36,7 +94,6 @@ export const validateChargilyKeys = mutation({
   },
   handler: async (_ctx, args) => {
     try {
-      // Test the keys by calling Chargily's API
       const response = await fetch("https://pay.chargily.net/api/v2/checkouts", {
         method: "GET",
         headers: {
@@ -44,20 +101,16 @@ export const validateChargilyKeys = mutation({
           "Content-Type": "application/json",
         },
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: "" }));
-        return {
-          valid: false,
-          error: errorData.message || `API returned ${response.status}`,
-        };
+        return { valid: false, error: errorData.message || `API returned ${response.status}` };
       }
-      
-      // Verify webhook secret format
+
       if (!args.webhookSecret || args.webhookSecret.length < 10) {
         return { valid: false, error: "Invalid webhook secret format" };
       }
-      
+
       return { valid: true, message: "API keys validated successfully" };
     } catch (error) {
       return {
@@ -68,7 +121,7 @@ export const validateChargilyKeys = mutation({
   },
 });
 
-// Create Chargily checkout session (uses fetch, works in Convex)
+// Create Chargily checkout session (community/classroom payments)
 export const createChargilyCheckout = mutation({
   args: {
     communityId: v.id("communities"),
@@ -79,31 +132,26 @@ export const createChargilyCheckout = mutation({
     cancelUrl: v.string(),
   },
   handler: async (ctx, args) => {
-    // Get the community
     const community = await ctx.db.get(args.communityId);
     if (!community) throw new Error("Community not found");
-    
-    // Get the user
+
     const user = await ctx.db.get(args.userId);
     if (!user) throw new Error("User not found");
-    
-    // Check if community has Chargily keys
+
     const isPaidCommunity = ["monthly", "annual", "one_time"].includes(community.pricingType || "");
     if (isPaidCommunity && !community.chargilyApiKey) {
       throw new Error("This community is not configured for payments. Contact the owner.");
     }
-    
-    // Get and decrypt Chargily API key
+
     const encryptedApiKey = community.chargilyApiKey;
     if (!encryptedApiKey) throw new Error("Community payment configuration not found");
-    
+
     const chargilyApiKey = await safeDecrypt(encryptedApiKey);
     if (!chargilyApiKey) throw new Error("Failed to decrypt payment configuration");
-    
-    // Determine price
+
     let amount: number;
     let description: string;
-    
+
     if (args.type === "classroom" && args.classroomId) {
       const classroom = await ctx.db.get(args.classroomId);
       if (!classroom) throw new Error("Classroom not found");
@@ -113,60 +161,29 @@ export const createChargilyCheckout = mutation({
       amount = community.priceDzd || 0;
       description = `Community: ${community.name}`;
     }
-    
+
     if (amount <= 0) throw new Error("Invalid price for this purchase");
-    
-    // Create checkout via Chargily API (using fetch)
-    const mode = process.env.CHARGILY_MODE === "live" ? "live" : "test";
-    const baseUrl = mode === "live" 
-      ? "https://pay.chargily.net/api/v2" 
-      : "https://pay.chargily.net/test/api/v2";
-    
-    const checkoutData = {
-      amount: amount * 100, // Chargily expects amount in centimes
-      currency: "dzd",
+
+    return createChargilySession({
+      apiKey: chargilyApiKey,
+      amount: amount * 100,
       description,
-      patient: {
-        email: user.email,
-        first_name: user.displayName?.split(" ")[0] || "User",
-        last_name: user.displayName?.split(" ").slice(1).join(" ") || "",
-      },
-      success_url: args.successUrl,
-      failure_url: args.cancelUrl,
+      email: user.email,
+      displayName: user.displayName || "User",
+      successUrl: args.successUrl,
+      cancelUrl: args.cancelUrl,
       metadata: {
         communityId: args.communityId,
         userId: args.userId,
         type: args.type,
         classroomId: args.classroomId || "",
-        mode, // G-009: Include mode for test/live verification
-        priceAmount: amount * 100, // EC-18: Store price at checkout creation
+        priceAmount: String(amount * 100),
       },
-    };
-    
-    const response = await fetch(`${baseUrl}/checkouts`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${chargilyApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(checkoutData),
     });
-    
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ message: "" }));
-      throw new Error(errorData.message || `Chargily API error: ${response.status}`);
-    }
-    
-    const checkout = await response.json() as { checkout_url: string; id: string };
-    
-    return {
-      checkoutUrl: checkout.checkout_url,
-      checkoutId: checkout.id,
-    };
   },
 });
 
-// Create platform subscription checkout (uses PLATFORM Chargily keys from env)
+// Create platform subscription checkout
 export const createPlatformSubscriptionCheckout = mutation({
   args: {
     communityId: v.id("communities"),
@@ -175,74 +192,38 @@ export const createPlatformSubscriptionCheckout = mutation({
     cancelUrl: v.string(),
   },
   handler: async (ctx, args) => {
-    // Get the community
     const community = await ctx.db.get(args.communityId);
     if (!community) throw new Error("Community not found");
 
-    // Check if user is the owner
     const user = await ctx.db.get(args.userId);
     if (!user) throw new Error("User not found");
     if (community.ownerId !== user._id) throw new Error("Only the owner can subscribe");
-
-    // Check if already subscribed
     if (community.platformTier === "subscribed") throw new Error("Already subscribed");
 
-    // Get PLATFORM Chargily API key from environment (not community's keys)
     const platformApiKey = process.env.CHARGILY_PLATFORM_API_KEY;
     if (!platformApiKey) throw new Error("Platform payment configuration not found");
 
-    const mode = process.env.CHARGILY_MODE === "live" ? "live" : "test";
-    const baseUrl = mode === "live"
-      ? "https://pay.chargily.net/api/v2"
-      : "https://pay.chargily.net/test/api/v2";
-
-    // Platform subscription: 2000 DZD/month = 200000 centimes
     const amount = 2000 * 100;
 
-    const checkoutData = {
+    return createChargilySession({
+      apiKey: platformApiKey,
       amount,
-      currency: "dzd",
       description: `Platform subscription: ${community.name}`,
-      patient: {
-        email: user.email,
-        first_name: user.displayName?.split(" ")[0] || "User",
-        last_name: user.displayName?.split(" ").slice(1).join(" ") || "",
-      },
-      success_url: args.successUrl,
-      failure_url: args.cancelUrl,
+      email: user.email,
+      displayName: user.displayName || "User",
+      successUrl: args.successUrl,
+      cancelUrl: args.cancelUrl,
       metadata: {
         communityId: args.communityId,
         userId: args.userId,
         type: "platform",
-        mode,
-        priceAmount: amount,
+        priceAmount: String(amount),
       },
-    };
-
-    const response = await fetch(`${baseUrl}/checkouts`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${platformApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(checkoutData),
     });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ message: "" }));
-      throw new Error(errorData.message || `Chargily API error: ${response.status}`);
-    }
-
-    const checkout = await response.json() as { checkout_url: string; id: string };
-
-    return {
-      checkoutUrl: checkout.checkout_url,
-      checkoutId: checkout.id,
-    };
   },
 });
 
-// Cancel platform subscription (downgrade to free tier)
+// Cancel platform subscription
 export const cancelPlatformSubscription = mutation({
   args: {
     communityId: v.id("communities"),
@@ -270,7 +251,7 @@ export const cancelPlatformSubscription = mutation({
   },
 });
 
-// Grant classroom access after successful payment (called from webhook)
+// Grant classroom access after successful payment
 export const grantClassroomAccess = mutation({
   args: {
     classroomId: v.id("classrooms"),
@@ -308,35 +289,30 @@ export const grantClassroomAccess = mutation({
   },
 });
 
-// Get payment history for a user (G-012)
+// Get payment history for a user
 export const getPaymentHistory = query({
   args: {
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    // Get all memberships for this user
     const allMemberships = await ctx.db
       .query("memberships")
       .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
       .collect();
 
-    // Filter to only paid memberships (non-free with payment reference)
     const memberships = allMemberships.filter(
       (m) => m.subscriptionType && m.subscriptionType !== "free" && m.paymentReference
     );
 
-    // Get all classroom access for this user
     const allClassroomAccess = await ctx.db
       .query("classroomAccess")
       .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
       .collect();
 
-    // Filter to only purchased access with payment reference
     const classroomAccess = allClassroomAccess.filter(
       (a) => a.paymentReference && a.accessType === "purchased"
     );
 
-    // Build community payment history
     const communityPayments = await Promise.all(
       memberships.map(async (m) => {
         const community = await ctx.db.get(m.communityId);
@@ -355,7 +331,6 @@ export const getPaymentHistory = query({
       })
     );
 
-    // Build classroom payment history
     const classroomPayments = await Promise.all(
       classroomAccess.map(async (a) => {
         const classroom = await ctx.db.get(a.classroomId);
@@ -375,11 +350,6 @@ export const getPaymentHistory = query({
       })
     );
 
-    // Combine and sort by date (newest first)
-    const allPayments = [...communityPayments, ...classroomPayments].sort(
-      (a, b) => b.date - a.date
-    );
-
-    return allPayments;
+    return [...communityPayments, ...classroomPayments].sort((a, b) => b.date - a.date);
   },
 });

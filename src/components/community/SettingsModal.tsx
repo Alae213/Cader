@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useAuth } from "@clerk/nextjs";
@@ -10,10 +10,15 @@ import { Heading, Text } from "@/components/ui/Text";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Avatar } from "@/components/shared/Avatar";
-import { 
-  Shield, CreditCard, AlertTriangle, LogOut, Trash2, 
-  Loader2, Tags, Plus, X, Pencil, Bell, Mail, Smartphone, MessageSquare, AtSign, Users
+import {
+  Shield, CreditCard, AlertTriangle, LogOut, Trash2,
+  Loader2, Tags, Plus, X, Pencil, Bell, Mail, MessageSquare, AtSign, Users
 } from "lucide-react";
+
+const CATEGORY_COLORS = [
+  "#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6",
+  "#EC4899", "#06B6D4", "#84CC16", "#F97316", "#6366F1"
+];
 
 interface SettingsModalProps {
   open: boolean;
@@ -24,21 +29,57 @@ interface SettingsModalProps {
 
 type Section = "notifications" | "admins" | "billing" | "danger" | "account" | "categories";
 
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "object" && error !== null && "message" in error) {
+    return String((error as { message: unknown }).message);
+  }
+  return fallback;
+}
+
+interface NotificationToggleProps {
+  icon: React.ReactNode;
+  label: string;
+  description?: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}
+
+function NotificationToggle({ icon, label, description, checked, onChange }: NotificationToggleProps) {
+  return (
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <div className="text-text-secondary">{icon}</div>
+        <div>
+          <Text size="sm">{label}</Text>
+          {description && <Text size="0" theme="muted">{description}</Text>}
+        </div>
+      </div>
+      <label className="relative inline-flex items-center cursor-pointer">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(e) => onChange(e.target.checked)}
+          className="sr-only peer"
+        />
+        <div className="w-11 h-6 bg-bg-elevated peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
+      </label>
+    </div>
+  );
+}
+
 export function SettingsModal({ open, onOpenChange, communitySlug, initialSection }: SettingsModalProps) {
   const [activeSection, setActiveSection] = useState<Section>(initialSection || "account");
   const { userId: clerkId, signOut } = useAuth();
 
-  // Fetch current user
   const currentUser = useQuery(api.functions.users.getUserByClerkId, clerkId ? { clerkId } : "skip");
 
-  // Fetch community if in community context
   const community = useQuery(
-    api.functions.communities.getBySlug, 
+    api.functions.communities.getBySlug,
     communitySlug ? { slug: communitySlug } : "skip"
   );
 
-  // Compute next billing date (30 days from now) - use lazy init to compute once
-  const [nextBillingDate] = useState(() => 
+  const [nextBillingDate] = useState(() =>
     new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString("ar-DZ", {
       year: "numeric",
       month: "long",
@@ -46,71 +87,51 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
     })
   );
 
-  // Fetch memberships for admin list
   const memberships = useQuery(
     api.functions.memberships.listMembers,
     community?._id ? { communityId: community._id } : "skip"
   );
 
-  // Check if user is owner/admin of current community
   const isOwner = community?.ownerId === currentUser?._id;
   const isAdmin = memberships?.some((m) => m && m.userId === currentUser?._id && m.role === "admin") ?? false;
 
-  // Compute default section based on permissions
-  const getDefaultSection = (): Section => {
-    if (initialSection) return initialSection;
-    if (communitySlug && isOwner) return "admins";
-    return "account";
-  };
-
-  // Set default section when community/user data loads
-  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!initialSection) {
-      const defaultSection = getDefaultSection();
-      setActiveSection(defaultSection);
+      if (communitySlug && isOwner) {
+        setActiveSection("admins");
+      } else {
+        setActiveSection("account");
+      }
     }
-  }, [communitySlug, isOwner, isAdmin]);
-  /* eslint-enable react-hooks/set-state-in-effect */
+  }, [communitySlug, isOwner, isAdmin, initialSection]);
 
-  // Mutations
   const addAdmin = useMutation(api.functions.memberships.addAdmin);
   const removeAdmin = useMutation(api.functions.memberships.removeAdmin);
   const deleteCommunity = useMutation(api.functions.communities.deleteCommunity);
   const deleteAccountMutation = useMutation(api.functions.users.deleteAccount);
   const createPlatformCheckout = useMutation(api.functions.payments.createPlatformSubscriptionCheckout);
   const cancelSubscription = useMutation(api.functions.payments.cancelPlatformSubscription);
-  
-  // Category mutations
   const createCategory = useMutation(api.functions.categories.createCategory);
   const updateCategory = useMutation(api.functions.categories.updateCategory);
   const deleteCategory = useMutation(api.functions.categories.deleteCategory);
 
-  // Fetch categories
   const categories = useQuery(
     api.functions.categories.listCategories,
     community?._id ? { communityId: community._id } : "skip"
   );
 
-  // Fetch notification preferences
   const notificationPrefs = useQuery(api.functions.notifications.getNotificationPreferences);
   const updateNotificationPrefs = useMutation(api.functions.notifications.updateNotificationPreferences);
 
-  // Local state for forms
   const [searchQuery, setSearchQuery] = useState("");
   const [adminToRemove, setAdminToRemove] = useState<string | null>(null);
-  
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
-  
-  // Hold-to-confirm delete state
   const [holdProgress, setHoldProgress] = useState(0);
   const [isHolding, setIsHolding] = useState(false);
   const holdTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  
-  // Category state
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryColor, setNewCategoryColor] = useState("#3B82F6");
@@ -119,13 +140,11 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
   const [editCategoryColor, setEditCategoryColor] = useState("");
   const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null);
 
-  // Set initial values when user loads
-
   const handleAddAdmin = async (membershipId: string) => {
     try {
       await addAdmin({ membershipId: membershipId as never });
       toast.success("Admin added successfully");
-    } catch (error) {
+    } catch {
       toast.error("Failed to add admin");
     }
   };
@@ -134,7 +153,7 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
     try {
       await removeAdmin({ membershipId: membershipId as never });
       toast.success("Admin removed successfully");
-    } catch (error) {
+    } catch {
       toast.error("Failed to remove admin");
     }
     setAdminToRemove(null);
@@ -146,17 +165,11 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
     try {
       await deleteCommunity({ communityId: community._id });
       toast.success("Community deleted");
-      setDeleteConfirm(""); // Reset confirmation
+      setDeleteConfirm("");
       window.location.href = "/";
     } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : typeof error === "object" && error !== null && "message" in error
-            ? String((error as { message: unknown }).message)
-            : "Failed to delete community";
-      toast.error(message);
-      setDeleteConfirm(""); // Reset on failure so user can retry
+      toast.error(getErrorMessage(error, "Failed to delete community"));
+      setDeleteConfirm("");
     }
     setIsDeleting(false);
   };
@@ -172,18 +185,11 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
     try {
       await deleteAccountMutation({});
       toast.success("Account deleted");
-      // Sign out and redirect to home
       signOut(() => {
         window.location.href = "/";
       });
     } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : typeof error === "object" && error !== null && "message" in error
-            ? String((error as { message: unknown }).message)
-            : "Failed to delete account";
-      toast.error(message);
+      toast.error(getErrorMessage(error, "Failed to delete account"));
     }
     setIsDeletingAccount(false);
     setShowDeleteAccountConfirm(false);
@@ -200,13 +206,7 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
       });
       window.open(result.checkoutUrl, "_blank");
     } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : typeof error === "object" && error !== null && "message" in error
-            ? String((error as { message: unknown }).message)
-            : "Failed to create checkout";
-      toast.error(message);
+      toast.error(getErrorMessage(error, "Failed to create checkout"));
     }
   };
 
@@ -216,17 +216,10 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
       await cancelSubscription({ communityId: community._id });
       toast.success("Subscription cancelled");
     } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : typeof error === "object" && error !== null && "message" in error
-            ? String((error as { message: unknown }).message)
-            : "Failed to cancel subscription";
-      toast.error(message);
+      toast.error(getErrorMessage(error, "Failed to cancel subscription"));
     }
   };
 
-  // Hold-to-confirm delete handlers
   const handleHoldStart = () => {
     if (deleteConfirm !== community?.name || isDeleting) return;
     setIsHolding(true);
@@ -239,7 +232,7 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
           handleDeleteCommunity();
           return 100;
         }
-        return prev + 2; // 50 intervals × 100ms = 5 seconds
+        return prev + 2;
       });
     }, 100);
   };
@@ -253,14 +246,12 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
     setHoldProgress(0);
   };
 
-  // Cleanup hold timer on unmount
   useEffect(() => {
     return () => {
       if (holdTimerRef.current) clearInterval(holdTimerRef.current);
     };
   }, []);
 
-  // Category handlers
   const handleAddCategory = async () => {
     if (!community?._id || !newCategoryName.trim()) return;
     try {
@@ -273,7 +264,7 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
       setNewCategoryColor("#3B82F6");
       setIsAddingCategory(false);
       toast.success("Category added");
-    } catch (error) {
+    } catch {
       toast.error("Failed to add category");
     }
   };
@@ -289,7 +280,7 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
       setEditCategoryName("");
       setEditCategoryColor("");
       toast.success("Category updated");
-    } catch (error) {
+    } catch {
       toast.error("Failed to update category");
     }
   };
@@ -298,17 +289,24 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
     try {
       await deleteCategory({ categoryId: categoryId as never });
       toast.success("Category deleted");
-    } catch (error) {
+    } catch {
       toast.error("Failed to delete category");
     }
   };
 
-  // Type-safe membership handling
   const adminMembers = (memberships || []).filter((m) => m && (m.role === "admin" || m.role === "owner"));
   const regularMembers = (memberships || []).filter((m) => m && m.role === "member");
-  const filteredMembers = regularMembers.filter((m) => 
+  const filteredMembers = regularMembers.filter((m) =>
     m && m.displayName?.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const handleNotificationChange = async (key: string, value: boolean) => {
+    try {
+      await updateNotificationPrefs({ [key]: value });
+    } catch {
+      toast.error("Failed to update preferences");
+    }
+  };
 
   const renderSection = () => {
     switch (activeSection) {
@@ -319,128 +317,44 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
               Choose how you want to be notified about activity.
             </Text>
 
-            {/* Global toggles */}
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Mail className="h-5 w-5 text-text-secondary" />
-                  <div>
-                    <Text size="sm">Email Notifications</Text>
-                    <Text size="0" theme="muted">Receive notifications via email</Text>
-                  </div>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={notificationPrefs?.emailEnabled ?? true}
-                    onChange={async (e) => {
-                      try {
-                        await updateNotificationPrefs({ emailEnabled: e.target.checked });
-                      } catch {
-                        toast.error("Failed to update preferences");
-                      }
-                    }}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-bg-elevated peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
-                </label>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Bell className="h-5 w-5 text-text-secondary" />
-                  <div>
-                    <Text size="sm">In-App Notifications</Text>
-                    <Text size="0" theme="muted">Show notifications within the app</Text>
-                  </div>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={notificationPrefs?.inAppEnabled ?? true}
-                    onChange={async (e) => {
-                      try {
-                        await updateNotificationPrefs({ inAppEnabled: e.target.checked });
-                      } catch {
-                        toast.error("Failed to update preferences");
-                      }
-                    }}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-bg-elevated peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
-                </label>
-              </div>
+              <NotificationToggle
+                icon={<Mail className="h-5 w-5" />}
+                label="Email Notifications"
+                description="Receive notifications via email"
+                checked={notificationPrefs?.emailEnabled ?? true}
+                onChange={(v) => handleNotificationChange("emailEnabled", v)}
+              />
+              <NotificationToggle
+                icon={<Bell className="h-5 w-5" />}
+                label="In-App Notifications"
+                description="Show notifications within the app"
+                checked={notificationPrefs?.inAppEnabled ?? true}
+                onChange={(v) => handleNotificationChange("inAppEnabled", v)}
+              />
             </div>
 
-            {/* Event-specific toggles */}
             <div className="pt-4 border-t border-white/[0.06]">
               <Text size="sm" theme="secondary" className="mb-4">Notification Types</Text>
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <MessageSquare className="h-5 w-5 text-text-secondary" />
-                    <Text size="sm">Comments on my posts</Text>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={notificationPrefs?.commentOnPost ?? true}
-                      onChange={async (e) => {
-                        try {
-                          await updateNotificationPrefs({ commentOnPost: e.target.checked });
-                        } catch {
-                          toast.error("Failed to update preferences");
-                        }
-                      }}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-bg-elevated peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
-                  </label>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <AtSign className="h-5 w-5 text-text-secondary" />
-                    <Text size="sm">@Mentions</Text>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={notificationPrefs?.mention ?? true}
-                      onChange={async (e) => {
-                        try {
-                          await updateNotificationPrefs({ mention: e.target.checked });
-                        } catch {
-                          toast.error("Failed to update preferences");
-                        }
-                      }}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-bg-elevated peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
-                  </label>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Users className="h-5 w-5 text-text-secondary" />
-                    <Text size="sm">New members join my community</Text>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={notificationPrefs?.newMember ?? true}
-                      onChange={async (e) => {
-                        try {
-                          await updateNotificationPrefs({ newMember: e.target.checked });
-                        } catch {
-                          toast.error("Failed to update preferences");
-                        }
-                      }}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-bg-elevated peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
-                  </label>
-                </div>
+                <NotificationToggle
+                  icon={<MessageSquare className="h-5 w-5" />}
+                  label="Comments on my posts"
+                  checked={notificationPrefs?.commentOnPost ?? true}
+                  onChange={(v) => handleNotificationChange("commentOnPost", v)}
+                />
+                <NotificationToggle
+                  icon={<AtSign className="h-5 w-5" />}
+                  label="@Mentions"
+                  checked={notificationPrefs?.mention ?? true}
+                  onChange={(v) => handleNotificationChange("mention", v)}
+                />
+                <NotificationToggle
+                  icon={<Users className="h-5 w-5" />}
+                  label="New members join my community"
+                  checked={notificationPrefs?.newMember ?? true}
+                  onChange={(v) => handleNotificationChange("newMember", v)}
+                />
               </div>
             </div>
           </div>
@@ -457,15 +371,10 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
         }
         return (
           <div className="space-y-4">
-            <Text size="sm" theme="secondary" className="mb-4">
-              Current Admins
-            </Text>
+            <Text size="sm" theme="secondary" className="mb-4">Current Admins</Text>
             {adminMembers.map((member) => {
               if (!member) return null;
-              
-              // EC-8: Check if this is the last admin
               const isLastAdmin = member.role === "admin" && adminMembers.filter(m => m?.role === "admin").length === 1;
-              
               return (
                 <div key={member.membershipId} className="flex items-center justify-between p-3 rounded-lg bg-bg-elevated">
                   <div className="flex items-center gap-3">
@@ -489,23 +398,17 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
                 </div>
               );
             })}
-            
-            {/* Admin removal confirmation */}
+
             {adminToRemove && (
               <div className="p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
                 <Text size="sm" className="mb-2">Are you sure you want to remove this admin?</Text>
                 <div className="flex gap-2">
-                  <Button variant="secondary" size="sm" onClick={() => setAdminToRemove(null)}>
-                    Cancel
-                  </Button>
-                  <Button variant="danger" size="sm" onClick={() => handleRemoveAdmin(adminToRemove)}>
-                    Confirm
-                  </Button>
+                  <Button variant="secondary" size="sm" onClick={() => setAdminToRemove(null)}>Cancel</Button>
+                  <Button variant="danger" size="sm" onClick={() => handleRemoveAdmin(adminToRemove)}>Confirm</Button>
                 </div>
               </div>
             )}
 
-            {/* Add admin search */}
             <div className="mt-6">
               <Text size="sm" theme="secondary" className="mb-2">Add New Admin</Text>
               <Input
@@ -521,9 +424,7 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
                       <Avatar src={member.avatarUrl} name={member.displayName} size="sm" />
                       <Text size="sm">{member.displayName}</Text>
                     </div>
-                    <Button variant="secondary" size="sm" onClick={() => handleAddAdmin(member.membershipId)}>
-                      Add
-                    </Button>
+                    <Button variant="secondary" size="sm" onClick={() => handleAddAdmin(member.membershipId)}>Add</Button>
                   </div>
                 ))}
               </div>
@@ -549,7 +450,7 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
         }
         const memberCount = community.memberCount || 0;
         const isAtLimit = memberCount >= 50;
-        
+
         return (
           <div className="space-y-4">
             <div className="p-4 rounded-lg bg-bg-elevated">
@@ -558,7 +459,7 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
                 {community.platformTier === "subscribed" ? "Subscribed" : "Free"}
               </Heading>
             </div>
-            
+
             <div className="p-4 rounded-lg bg-bg-elevated">
               <Text size="sm" theme="secondary">Members Used</Text>
               <Heading size="h4" className="mt-1">
@@ -569,9 +470,7 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
             {community.platformTier === "subscribed" && (
               <div className="p-4 rounded-lg bg-bg-elevated">
                 <Text size="sm" theme="secondary">Next Billing Date</Text>
-                <Heading size="h4" className="mt-1">
-                  {nextBillingDate}
-                </Heading>
+                <Heading size="h4" className="mt-1">{nextBillingDate}</Heading>
                 <Text size="0" theme="muted" className="mt-1">2,000 DZD/month</Text>
               </div>
             )}
@@ -611,12 +510,11 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
             </div>
           );
         }
-        
-        // Check for active paying members
-        const activePayingMembers = (memberships || []).filter((m) => 
+
+        const activePayingMembers = (memberships || []).filter((m) =>
           m && m.subscriptionType && m.subscriptionType !== "free"
         ).length;
-        
+
         return (
           <div className="space-y-4">
             <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30">
@@ -627,7 +525,7 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
               <Text size="sm" theme="secondary" className="mb-4">
                 Once you delete a community, there is no going back. All members will lose access.
               </Text>
-              
+
               {activePayingMembers > 0 ? (
                 <div className="p-3 rounded-lg bg-red-500/20">
                   <Text size="sm">
@@ -644,7 +542,6 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
                     className="mb-2"
                   />
                   <div className="relative">
-                    {/* Progress bar background */}
                     <div className="absolute inset-0 rounded-lg bg-red-500/20 overflow-hidden">
                       <div
                         className="h-full bg-red-500/40 transition-[width] duration-100 ease-linear"
@@ -669,9 +566,7 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
                       {isHolding ? `Hold... ${Math.round(holdProgress / 20)}s` : "Delete Community"}
                     </Button>
                   </div>
-                  <Text size="0" theme="muted" className="text-center mt-1">
-                    Hold for 5 seconds to confirm
-                  </Text>
+                  <Text size="0" theme="muted" className="text-center mt-1">Hold for 5 seconds to confirm</Text>
                 </>
               )}
             </div>
@@ -685,7 +580,7 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
               <LogOut className="h-4 w-4 mr-2" />
               Sign Out
             </Button>
-            
+
             <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30">
               <div className="flex items-center gap-2 mb-2">
                 <AlertTriangle className="h-5 w-5 text-red-500" />
@@ -694,42 +589,19 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
               <Text size="sm" theme="secondary" className="mb-4">
                 This will permanently delete your account and remove you from all communities.
               </Text>
-              
+
               {showDeleteAccountConfirm ? (
                 <div className="space-y-3">
-                  <Text size="sm" className="font-medium">
-                    Are you sure? This cannot be undone.
-                  </Text>
+                  <Text size="sm" className="font-medium">Are you sure? This cannot be undone.</Text>
                   <div className="flex gap-2">
-                    <Button 
-                      variant="secondary" 
-                      size="sm" 
-                      onClick={() => setShowDeleteAccountConfirm(false)}
-                      className="flex-1"
-                    >
-                      Cancel
-                    </Button>
-                    <Button 
-                      variant="danger" 
-                      size="sm" 
-                      onClick={handleDeleteAccount}
-                      disabled={isDeletingAccount}
-                      className="flex-1"
-                    >
-                      {isDeletingAccount ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        "Yes, Delete"
-                      )}
+                    <Button variant="secondary" size="sm" onClick={() => setShowDeleteAccountConfirm(false)} className="flex-1">Cancel</Button>
+                    <Button variant="danger" size="sm" onClick={handleDeleteAccount} disabled={isDeletingAccount} className="flex-1">
+                      {isDeletingAccount ? <Loader2 className="h-4 w-4 animate-spin" /> : "Yes, Delete"}
                     </Button>
                   </div>
                 </div>
               ) : (
-                <Button 
-                  variant="danger" 
-                  className="w-full"
-                  onClick={() => setShowDeleteAccountConfirm(true)}
-                >
+                <Button variant="danger" className="w-full" onClick={() => setShowDeleteAccountConfirm(true)}>
                   <Trash2 className="h-4 w-4 mr-2" />
                   Delete My Account
                 </Button>
@@ -754,31 +626,19 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
             </div>
           );
         }
-        
-        const categoryColors = [
-          "#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", 
-          "#EC4899", "#06B6D4", "#84CC16", "#F97316", "#6366F1"
-        ];
-        
+
         return (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <Text size="sm" theme="secondary">
-                {categories?.length || 0} / 10 categories
-              </Text>
+              <Text size="sm" theme="secondary">{categories?.length || 0} / 10 categories</Text>
               {(categories?.length || 0) < 10 && (
-                <Button 
-                  variant="secondary" 
-                  size="sm" 
-                  onClick={() => setIsAddingCategory(true)}
-                >
+                <Button variant="secondary" size="sm" onClick={() => setIsAddingCategory(true)}>
                   <Plus className="h-4 w-4 mr-1" />
                   Add
                 </Button>
               )}
             </div>
-            
-            {/* Add category form */}
+
             {isAddingCategory && (
               <div className="p-4 rounded-lg bg-bg-elevated space-y-3">
                 <Text size="sm" theme="secondary">New Category</Text>
@@ -789,39 +649,26 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
                   maxLength={30}
                 />
                 <div className="flex gap-2 flex-wrap">
-                  {categoryColors.map((color) => (
+                  {CATEGORY_COLORS.map((color) => (
                     <button
                       key={color}
                       onClick={() => setNewCategoryColor(color)}
-                      className={`w-6 h-6 rounded-full border-2 ${
-                        newCategoryColor === color ? "border-white" : "border-transparent"
-                      }`}
+                      className={`w-6 h-6 rounded-full border-2 ${newCategoryColor === color ? "border-white" : "border-transparent"}`}
                       style={{ backgroundColor: color }}
                       aria-label={`Select color ${color}`}
                     />
                   ))}
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" onClick={handleAddCategory}>
-                    Add
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => {
-                    setIsAddingCategory(false);
-                    setNewCategoryName("");
-                  }}>
-                    Cancel
-                  </Button>
+                  <Button size="sm" onClick={handleAddCategory}>Add</Button>
+                  <Button variant="ghost" size="sm" onClick={() => { setIsAddingCategory(false); setNewCategoryName(""); }}>Cancel</Button>
                 </div>
               </div>
             )}
-            
-            {/* Category list */}
+
             <div className="space-y-2">
               {(categories || []).map((cat) => cat && (
-                <div 
-                  key={cat._id} 
-                  className="flex items-center justify-between p-3 rounded-lg bg-bg-elevated"
-                >
+                <div key={cat._id} className="flex items-center justify-between p-3 rounded-lg bg-bg-elevated">
                   {editingCategoryId === cat._id ? (
                     <div className="flex-1 flex items-center gap-2">
                       <Input
@@ -831,51 +678,30 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
                         maxLength={30}
                       />
                       <div className="flex gap-1">
-                        {categoryColors.map((color) => (
+                        {CATEGORY_COLORS.map((color) => (
                           <button
                             key={color}
                             onClick={() => setEditCategoryColor(color)}
-                            className={`w-5 h-5 rounded-full border-2 ${
-                              editCategoryColor === color ? "border-white" : "border-transparent"
-                            }`}
+                            className={`w-5 h-5 rounded-full border-2 ${editCategoryColor === color ? "border-white" : "border-transparent"}`}
                             style={{ backgroundColor: color }}
                             aria-label={`Select color ${color}`}
                           />
                         ))}
                       </div>
-                      <Button size="sm" onClick={() => handleUpdateCategory(cat._id)}>
-                        Save
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => setEditingCategoryId(null)}>
-                        Cancel
-                      </Button>
+                      <Button size="sm" onClick={() => handleUpdateCategory(cat._id)}>Save</Button>
+                      <Button variant="ghost" size="sm" onClick={() => setEditingCategoryId(null)}>Cancel</Button>
                     </div>
                   ) : (
                     <>
                       <div className="flex items-center gap-3">
-                        <div 
-                          className="w-3 h-3 rounded-full" 
-                          style={{ backgroundColor: cat.color }}
-                        />
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cat.color }} />
                         <Text size="sm">{cat.name}</Text>
                       </div>
                       <div className="flex items-center gap-1">
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => {
-                            setEditingCategoryId(cat._id);
-                            setEditCategoryName(cat.name);
-                            setEditCategoryColor(cat.color);
-                          }}
-                        >
+                        <Button variant="ghost" size="sm" onClick={() => { setEditingCategoryId(cat._id); setEditCategoryName(cat.name); setEditCategoryColor(cat.color); }}>
                           <Pencil className="h-4 w-4" />
                         </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => setCategoryToDelete(cat._id)}
-                        >
+                        <Button variant="ghost" size="sm" onClick={() => setCategoryToDelete(cat._id)}>
                           <X className="h-4 w-4 text-red-500" />
                         </Button>
                       </div>
@@ -884,31 +710,19 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
                 </div>
               ))}
             </div>
-            
-            {/* Category delete confirmation */}
+
             {categoryToDelete && (
               <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30">
-                <Text size="sm" className="mb-2">
-                  Are you sure you want to delete this category? Posts in this category will no longer have a category assigned.
-                </Text>
+                <Text size="sm" className="mb-2">Are you sure you want to delete this category? Posts in this category will no longer have a category assigned.</Text>
                 <div className="flex gap-2">
-                  <Button variant="secondary" size="sm" onClick={() => setCategoryToDelete(null)}>
-                    Cancel
-                  </Button>
-                  <Button variant="danger" size="sm" onClick={() => {
-                    handleDeleteCategory(categoryToDelete);
-                    setCategoryToDelete(null);
-                  }}>
-                    Delete
-                  </Button>
+                  <Button variant="secondary" size="sm" onClick={() => setCategoryToDelete(null)}>Cancel</Button>
+                  <Button variant="danger" size="sm" onClick={() => { handleDeleteCategory(categoryToDelete); setCategoryToDelete(null); }}>Delete</Button>
                 </div>
               </div>
             )}
-            
+
             {(categories?.length || 0) >= 10 && (
-              <Text size="sm" theme="muted" className="text-center">
-                Maximum 10 categories reached
-              </Text>
+              <Text size="sm" theme="muted" className="text-center">Maximum 10 categories reached</Text>
             )}
           </div>
         );
@@ -931,18 +745,15 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl w-[95vw] max-h-[85vh] overflow-hidden flex flex-col">
         <DialogTitle>Settings</DialogTitle>
-        
+
         <div className="flex flex-1 overflow-hidden mt-4">
-          {/* Sidebar - hidden on mobile, show as column on larger screens */}
           <div className="hidden md:flex w-48 flex-shrink-0 border-r border-border pr-4 space-y-1 flex-col">
             {sections.map((section) => (
               <button
                 key={section.id}
                 onClick={() => setActiveSection(section.id)}
                 className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
-                  activeSection === section.id
-                    ? "bg-primary text-white"
-                    : "text-text-secondary hover:bg-bg-elevated"
+                  activeSection === section.id ? "bg-primary text-white" : "text-text-secondary hover:bg-bg-elevated"
                 }`}
               >
                 {section.icon}
@@ -951,16 +762,13 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
             ))}
           </div>
 
-          {/* Mobile: section tabs */}
           <div className="md:hidden flex overflow-x-auto gap-2 mb-4 pb-2">
             {sections.map((section) => (
               <button
                 key={section.id}
                 onClick={() => setActiveSection(section.id)}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-colors ${
-                  activeSection === section.id
-                    ? "bg-primary text-white"
-                    : "text-text-secondary bg-bg-elevated"
+                  activeSection === section.id ? "bg-primary text-white" : "text-text-secondary bg-bg-elevated"
                 }`}
               >
                 {section.icon}
@@ -969,7 +777,6 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
             ))}
           </div>
 
-          {/* Content */}
           <div className="flex-1 overflow-y-auto pl-4">
             <Heading size="h4" className="mb-4">
               {sections.find(s => s.id === activeSection)?.label}

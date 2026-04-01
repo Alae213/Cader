@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useAuth, useUser } from "@clerk/nextjs";
@@ -21,47 +21,35 @@ interface ProfilePanelProps {
 
 export function ProfilePanel({ userId, open, onOpenChange }: ProfilePanelProps) {
   const { userId: clerkId } = useAuth();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { user: clerkUser } = useUser();
   const [showClerkProfile, setShowClerkProfile] = useState(false);
 
-  // Resolve target user ID
   const targetClerkId = userId || clerkId || "";
   const isOwnProfile = targetClerkId === clerkId;
 
-  // Fetch target user from Convex
   const targetUser = useQuery(
     api.functions.users.getUserByClerkId,
     targetClerkId ? { clerkId: targetClerkId } : "skip"
   );
 
-  // Fetch activity
   const activityData = useQuery(
     api.functions.users.getUserActivity,
     targetUser?._id ? { userId: targetUser._id } : "skip"
   );
 
-  // Fetch profile data (communities, level, etc.)
   const profileData = useQuery(
     api.functions.users.getUserProfile,
     targetUser?._id ? { userId: targetUser._id } : "skip"
   );
 
-  // Mutations
   const updateProfile = useMutation(api.functions.users.updateUserProfile);
 
-  // Local state for inline editing
   const [displayName, setDisplayName] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
-
-  // Activity month navigation
-  const [activityMonthOffset, setActivityMonthOffset] = useState(0); // 0 = current month, -1 = last month, etc.
-
-  // Auto-save timer ref
+  const [activityMonthOffset, setActivityMonthOffset] = useState(0);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Initialize form values when user data loads
   useEffect(() => {
     if (targetUser) {
       setDisplayName(targetUser.displayName || "");
@@ -69,7 +57,6 @@ export function ProfilePanel({ userId, open, onOpenChange }: ProfilePanelProps) 
     }
   }, [targetUser?._id, targetUser?.displayName]);
 
-  // Reset state when panel closes
   useEffect(() => {
     if (!open) {
       setIsSaving(false);
@@ -82,16 +69,14 @@ export function ProfilePanel({ userId, open, onOpenChange }: ProfilePanelProps) 
     }
   }, [open]);
 
-  // Debounced auto-save
-  const triggerAutoSave = useCallback(() => {
+  const triggerAutoSave = () => {
     if (!isOwnProfile || !targetUser?._id) return;
-
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(async () => {
       if (!hasChanges) return;
       await doSave();
     }, 1500);
-  }, [isOwnProfile, targetUser?._id, displayName, hasChanges]);
+  };
 
   const doSave = async () => {
     if (!targetUser?._id) return;
@@ -101,10 +86,7 @@ export function ProfilePanel({ userId, open, onOpenChange }: ProfilePanelProps) 
       if (!trimmed) throw new Error("Display name cannot be empty");
       if (trimmed.length > 100) throw new Error("Display name must be 100 characters or less");
 
-      await updateProfile({
-        userId: targetUser._id,
-        displayName: trimmed,
-      });
+      await updateProfile({ userId: targetUser._id, displayName: trimmed });
       setHasChanges(false);
       toast.success("Profile updated");
     } catch (error) {
@@ -113,14 +95,12 @@ export function ProfilePanel({ userId, open, onOpenChange }: ProfilePanelProps) 
     setIsSaving(false);
   };
 
-  // Handle input changes with auto-save trigger
-  const handleInputChange = (field: "displayName", value: string) => {
-    if (field === "displayName") setDisplayName(value);
+  const handleDisplayNameChange = (value: string) => {
+    setDisplayName(value);
     setHasChanges(true);
     triggerAutoSave();
   };
 
-  // Handle Enter key to save immediately
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && hasChanges && isOwnProfile) {
       e.preventDefault();
@@ -132,7 +112,6 @@ export function ProfilePanel({ userId, open, onOpenChange }: ProfilePanelProps) 
     }
   };
 
-  // Body scroll lock
   useEffect(() => {
     if (open) {
       document.body.style.overflow = "hidden";
@@ -140,7 +119,6 @@ export function ProfilePanel({ userId, open, onOpenChange }: ProfilePanelProps) 
     }
   }, [open]);
 
-  // Close on Escape
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
@@ -160,7 +138,6 @@ export function ProfilePanel({ userId, open, onOpenChange }: ProfilePanelProps) 
     }
   };
 
-  // Focus trap
   useEffect(() => {
     if (!open) return;
     const panel = document.querySelector("[data-profile-panel]") as HTMLElement;
@@ -172,23 +149,25 @@ export function ProfilePanel({ userId, open, onOpenChange }: ProfilePanelProps) 
     const last = focusable[focusable.length - 1];
     const handler = (e: KeyboardEvent) => {
       if (e.key !== "Tab") return;
-      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
-      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last?.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first?.focus();
+      }
     };
     document.addEventListener("keydown", handler);
     setTimeout(() => first?.focus(), 100);
     return () => document.removeEventListener("keydown", handler);
   }, [open]);
 
-  // Activity grid generation — shows 6 months at a time with navigation
   const getActivityGrid = () => {
     const activityMap = new Map<string, number>();
     activityData?.activity?.forEach((a) => activityMap.set(a.date, a.count));
 
-    // Calculate the start date: 6 months ago from the current month, shifted by offset
     const today = new Date();
     const startMonth = new Date(today.getFullYear(), today.getMonth() - 5 + activityMonthOffset, 1);
-    // Adjust to start from the Sunday before the 1st
     const current = new Date(startMonth);
     current.setDate(current.getDate() - current.getDay());
 
@@ -198,7 +177,10 @@ export function ProfilePanel({ userId, open, onOpenChange }: ProfilePanelProps) 
     while (current <= endDate) {
       const week: { date: string; count: number }[] = [];
       for (let i = 0; i < 7; i++) {
-        week.push({ date: current.toISOString().split("T")[0], count: activityMap.get(current.toISOString().split("T")[0]) || 0 });
+        week.push({
+          date: current.toISOString().split("T")[0],
+          count: activityMap.get(current.toISOString().split("T")[0]) || 0,
+        });
         current.setDate(current.getDate() + 1);
       }
       weeks.push(week);
@@ -208,7 +190,6 @@ export function ProfilePanel({ userId, open, onOpenChange }: ProfilePanelProps) 
 
   const activityGrid = getActivityGrid();
 
-  // Get month labels for the visible range
   const getMonthLabels = () => {
     const today = new Date();
     const labels: string[] = [];
@@ -241,17 +222,34 @@ export function ProfilePanel({ userId, open, onOpenChange }: ProfilePanelProps) 
   if (!targetUser && open) {
     return (
       <>
-        <div className={`fixed inset-0 bg-black/40 z-50 transition-opacity duration-300 ${open ? "opacity-100" : "opacity-0 pointer-events-none"}`} onClick={handleClose} />
-        <div data-profile-panel role="dialog" aria-modal="true" aria-label="Profile panel"
+        <div
+          className={`fixed inset-0 bg-black/40 z-50 transition-opacity duration-300 ${open ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+          onClick={handleClose}
+        />
+        <div
+          data-profile-panel
+          role="dialog"
+          aria-modal="true"
+          aria-label="Profile panel"
           className={`fixed top-0 right-0 h-full w-full sm:w-96 bg-bg-base border-l border-white/[0.06] z-50 transition-transform duration-300 ease-out ${open ? "translate-x-0" : "translate-x-full"}`}
-          style={{ boxShadow: open ? "-8px 0 32px rgba(0,0,0,0.4)" : "none", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+          style={{ boxShadow: open ? "-8px 0 32px rgba(0,0,0,0.4)" : "none", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+        >
           <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06] pt-[max(1rem,env(safe-area-inset-top))]">
             <Heading size="h4">Profile</Heading>
-            <button onClick={handleClose} className="p-1.5 rounded-lg hover:bg-bg-elevated" aria-label="Close"><X className="h-5 w-5 text-text-secondary" /></button>
+            <button onClick={handleClose} className="p-1.5 rounded-lg hover:bg-bg-elevated" aria-label="Close">
+              <X className="h-5 w-5 text-text-secondary" />
+            </button>
           </div>
           <div className="px-5 py-6 space-y-6 animate-pulse">
-            <div className="flex flex-col items-center"><div className="h-20 w-20 rounded-full bg-bg-elevated mb-3" /><div className="h-5 w-32 rounded bg-bg-elevated mb-1" /><div className="h-3 w-24 rounded bg-bg-elevated" /></div>
-            <div className="space-y-3"><div className="h-3 w-20 rounded bg-bg-elevated" /><div className="h-10 rounded-lg bg-bg-elevated" /></div>
+            <div className="flex flex-col items-center">
+              <div className="h-20 w-20 rounded-full bg-bg-elevated mb-3" />
+              <div className="h-5 w-32 rounded bg-bg-elevated mb-1" />
+              <div className="h-3 w-24 rounded bg-bg-elevated" />
+            </div>
+            <div className="space-y-3">
+              <div className="h-3 w-20 rounded bg-bg-elevated" />
+              <div className="h-10 rounded-lg bg-bg-elevated" />
+            </div>
           </div>
         </div>
       </>
@@ -262,13 +260,23 @@ export function ProfilePanel({ userId, open, onOpenChange }: ProfilePanelProps) 
   if (!targetUser) {
     return (
       <>
-        <div className={`fixed inset-0 bg-black/40 z-50 transition-opacity duration-300 ${open ? "opacity-100" : "opacity-0 pointer-events-none"}`} onClick={handleClose} />
-        <div data-profile-panel role="dialog" aria-modal="true" aria-label="Profile panel"
+        <div
+          className={`fixed inset-0 bg-black/40 z-50 transition-opacity duration-300 ${open ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+          onClick={handleClose}
+        />
+        <div
+          data-profile-panel
+          role="dialog"
+          aria-modal="true"
+          aria-label="Profile panel"
           className={`fixed top-0 right-0 h-full w-full sm:w-96 bg-bg-base border-l border-white/[0.06] z-50 transition-transform duration-300 ease-out ${open ? "translate-x-0" : "translate-x-full"}`}
-          style={{ boxShadow: open ? "-8px 0 32px rgba(0,0,0,0.4)" : "none" }}>
+          style={{ boxShadow: open ? "-8px 0 32px rgba(0,0,0,0.4)" : "none" }}
+        >
           <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
             <Heading size="h4">Profile</Heading>
-            <button onClick={handleClose} className="p-1.5 rounded-lg hover:bg-bg-elevated" aria-label="Close"><X className="h-5 w-5 text-text-secondary" /></button>
+            <button onClick={handleClose} className="p-1.5 rounded-lg hover:bg-bg-elevated" aria-label="Close">
+              <X className="h-5 w-5 text-text-secondary" />
+            </button>
           </div>
           <div className="flex flex-col items-center justify-center h-64">
             <div className="h-20 w-20 rounded-full bg-bg-elevated mb-4 flex items-center justify-center">
@@ -290,30 +298,40 @@ export function ProfilePanel({ userId, open, onOpenChange }: ProfilePanelProps) 
   return (
     <>
       {/* Backdrop */}
-      <div className={`fixed inset-0 bg-black/40 z-50 transition-opacity duration-300 ${open ? "opacity-100" : "opacity-0 pointer-events-none"}`} onClick={handleClose} />
+      <div
+        className={`fixed inset-0 bg-black/40 z-50 transition-opacity duration-300 ${open ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+        onClick={handleClose}
+      />
 
       {/* Panel */}
-      <div data-profile-panel role="dialog" aria-modal="true" aria-label="Profile panel"
+      <div
+        data-profile-panel
+        role="dialog"
+        aria-modal="true"
+        aria-label="Profile panel"
         className={`fixed top-0 right-0 h-full w-full sm:w-96 bg-bg-base border-l border-white/[0.06] z-50 transition-transform duration-300 ease-out ${open ? "translate-x-0" : "translate-x-full"}`}
-        style={{ boxShadow: open ? "-8px 0 32px rgba(0,0,0,0.4)" : "none", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
-        
+        style={{ boxShadow: open ? "-8px 0 32px rgba(0,0,0,0.4)" : "none", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06] pt-[max(1rem,env(safe-area-inset-top))]">
           <Heading size="h4">{isOwnProfile ? "Your Profile" : user.displayName}</Heading>
-          <button onClick={handleClose} className="p-1.5 rounded-lg hover:bg-bg-elevated" aria-label="Close"><X className="h-5 w-5 text-text-secondary" /></button>
+          <button onClick={handleClose} className="p-1.5 rounded-lg hover:bg-bg-elevated" aria-label="Close">
+            <X className="h-5 w-5 text-text-secondary" />
+          </button>
         </div>
 
         {/* Content */}
         <div className="overflow-y-auto h-[calc(100%-57px)] px-5 py-6 space-y-6">
-          
           {/* Avatar & Basic Info */}
           <div className="flex flex-col items-center text-center">
             <div className="relative mb-3">
               <Avatar src={user.avatarUrl} name={displayName || user.displayName} size="xl" className="h-20 w-20" />
               {isOwnProfile && (
-                <button onClick={() => setShowClerkProfile(true)}
+                <button
+                  onClick={() => setShowClerkProfile(true)}
                   className="absolute bottom-0 right-0 p-1.5 rounded-full bg-bg-elevated hover:bg-bg-muted transition-colors"
-                  aria-label="Change profile image">
+                  aria-label="Change profile image"
+                >
                   <Camera className="h-3.5 w-3.5 text-text-secondary" />
                 </button>
               )}
@@ -334,9 +352,18 @@ export function ProfilePanel({ userId, open, onOpenChange }: ProfilePanelProps) 
             <div className="space-y-3" onKeyDown={handleKeyDown}>
               <div>
                 <Text size="sm" theme="secondary" className="mb-1">Display Name</Text>
-                <Input value={displayName} onChange={(e) => handleInputChange("displayName", e.target.value)} maxLength={100} />
+                <Input
+                  value={displayName}
+                  onChange={(e) => handleDisplayNameChange(e.target.value)}
+                  maxLength={100}
+                />
               </div>
-              {isSaving && <div className="flex items-center gap-2 text-text-muted"><Loader2 className="h-4 w-4 animate-spin" /><Text size="sm">Saving...</Text></div>}
+              {isSaving && (
+                <div className="flex items-center gap-2 text-text-muted">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Text size="sm">Saving...</Text>
+                </div>
+              )}
             </div>
           )}
 
@@ -362,7 +389,7 @@ export function ProfilePanel({ userId, open, onOpenChange }: ProfilePanelProps) 
                 </button>
               </div>
             </div>
-            
+
             {/* Month labels */}
             <div className="flex justify-between mb-1 px-0.5">
               {monthLabels.map((label, i) => (
@@ -374,7 +401,11 @@ export function ProfilePanel({ userId, open, onOpenChange }: ProfilePanelProps) 
               {activityGrid.map((week, wi) => (
                 <div key={wi} className="flex flex-col gap-0.5">
                   {week.map((day, di) => (
-                    <div key={di} className={`w-2.5 h-2.5 rounded-sm ${getActivityColor(day.count)}`} title={`${day.date}: ${day.count} activities`} />
+                    <div
+                      key={di}
+                      className={`w-2.5 h-2.5 rounded-sm ${getActivityColor(day.count)}`}
+                      title={`${day.date}: ${day.count} activities`}
+                    />
                   ))}
                 </div>
               ))}
@@ -401,8 +432,11 @@ export function ProfilePanel({ userId, open, onOpenChange }: ProfilePanelProps) 
             {joinedCommunities.length > 0 ? (
               <div className="grid grid-cols-2 gap-2">
                 {(joinedCommunities as Array<{ _id: string; name: string; slug: string; logoUrl?: string }>).map((c) => (
-                  <button key={c._id} onClick={() => handleCommunityClick(c.slug)}
-                    className="flex items-center gap-2 p-2 rounded-lg bg-bg-elevated hover:bg-bg-muted transition-colors text-left w-full">
+                  <button
+                    key={c._id}
+                    onClick={() => handleCommunityClick(c.slug)}
+                    className="flex items-center gap-2 p-2 rounded-lg bg-bg-elevated hover:bg-bg-muted transition-colors text-left w-full"
+                  >
                     <Avatar src={c.logoUrl} name={c.name} size="sm" />
                     <Text size="sm" className="truncate flex-1">{c.name}</Text>
                   </button>
@@ -419,8 +453,11 @@ export function ProfilePanel({ userId, open, onOpenChange }: ProfilePanelProps) 
               <Text size="sm" theme="secondary" className="mb-2">Communities Created ({ownedCommunities.length})</Text>
               <div className="grid grid-cols-2 gap-2">
                 {ownedCommunities.map((c: { _id: string; name: string; slug: string; logoUrl?: string }) => (
-                  <button key={c._id} onClick={() => handleCommunityClick(c.slug)}
-                    className="flex items-center gap-2 p-2 rounded-lg bg-bg-elevated hover:bg-bg-muted transition-colors text-left w-full">
+                  <button
+                    key={c._id}
+                    onClick={() => handleCommunityClick(c.slug)}
+                    className="flex items-center gap-2 p-2 rounded-lg bg-bg-elevated hover:bg-bg-muted transition-colors text-left w-full"
+                  >
                     <Avatar src={c.logoUrl} name={c.name} size="sm" />
                     <Text size="sm" className="truncate flex-1">{c.name}</Text>
                   </button>
@@ -437,7 +474,9 @@ export function ProfilePanel({ userId, open, onOpenChange }: ProfilePanelProps) 
           <div className="bg-bg-base rounded-xl max-w-lg w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
               <Heading size="h4">Update Profile Image</Heading>
-              <button onClick={() => setShowClerkProfile(false)} className="p-1.5 rounded-lg hover:bg-bg-elevated"><X className="h-5 w-5 text-text-secondary" /></button>
+              <button onClick={() => setShowClerkProfile(false)} className="p-1.5 rounded-lg hover:bg-bg-elevated">
+                <X className="h-5 w-5 text-text-secondary" />
+              </button>
             </div>
             <div className="p-4">
               <UserProfile routing="hash" appearance={{ elements: { rootBox: "w-full" } }} />
