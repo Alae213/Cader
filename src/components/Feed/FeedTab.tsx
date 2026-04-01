@@ -7,7 +7,6 @@ import { useAuth, useUser } from "@clerk/nextjs";
 import { toast } from "sonner";
 import { Heading, Text } from "@/components/ui/Text";
 import { Button } from "@/components/ui/Button";
-// Card and CardContent removed - using borderless design
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Input } from "@/components/ui/Input";
 import { TextArea } from "@/components/ui/TextArea";
@@ -81,6 +80,14 @@ const SORT_OPTIONS: { value: SortOption; label: string; icon: typeof Clock }[] =
   { value: "newest", label: "Newest first", icon: Clock },
   { value: "most_liked", label: "Most liked", icon: Heart },
   { value: "most_commented", label: "Most commented", icon: MessageCircle },
+];
+
+const POST_TYPES: { value: "text" | "image" | "video" | "gif" | "poll"; label: string; icon: React.ReactNode }[] = [
+  { value: "text", label: "Text", icon: null },
+  { value: "image", label: "Image", icon: <ImageIcon className="w-4 h-4" /> },
+  { value: "video", label: "Video", icon: <Video className="w-4 h-4" /> },
+  { value: "gif", label: "GIF", icon: <Gift className="w-4 h-4" /> },
+  { value: "poll", label: "Poll", icon: <BarChart3 className="w-4 h-4" /> },
 ];
 
 // Invite Friend Modal Component
@@ -168,8 +175,8 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   
-  // Inline composer state — setShowComposer is used to track expanded state
-  const setShowComposer = useState(false)[1];
+  // Inline composer state
+  const [_composerOpen, setComposerOpen] = useState(false);
   const [composerExpanded, setComposerExpanded] = useState(false);
   const composerRef = useRef<HTMLDivElement>(null);
   
@@ -217,14 +224,16 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
   const pollEndDateRef = useRef(pollEndDate);
 
   // Keep refs in sync
-  useEffect(() => { composerExpandedRef.current = composerExpanded; }, [composerExpanded]);
-  useEffect(() => { contentRef.current = content; }, [content]);
-  useEffect(() => { imageUrlsRef.current = imageUrls; }, [imageUrls]);
-  useEffect(() => { videoUrlRef.current = videoUrl; }, [videoUrl]);
-  useEffect(() => { gifUrlRef.current = gifUrl; }, [gifUrl]);
-  useEffect(() => { pollQuestionRef.current = pollQuestion; }, [pollQuestion]);
-  useEffect(() => { pollOptionsRef.current = pollOptions; }, [pollOptions]);
-  useEffect(() => { pollEndDateRef.current = pollEndDate; }, [pollEndDate]);
+  useEffect(() => {
+    composerExpandedRef.current = composerExpanded;
+    contentRef.current = content;
+    imageUrlsRef.current = imageUrls;
+    videoUrlRef.current = videoUrl;
+    gifUrlRef.current = gifUrl;
+    pollQuestionRef.current = pollQuestion;
+    pollOptionsRef.current = pollOptions;
+    pollEndDateRef.current = pollEndDate;
+  }, [composerExpanded, content, imageUrls, videoUrl, gifUrl, pollQuestion, pollOptions, pollEndDate]);
 
   // Mutations
   const createPost = useMutation(api.functions.feed.createPost);
@@ -323,7 +332,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
         
         if (composerExpandedRef.current && !hasContent) {
           setComposerExpanded(false);
-          setShowComposer(false);
+          setComposerOpen(false);
         }
       }
 
@@ -676,7 +685,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
       
       toast.success("Post created!");
       setComposerExpanded(false);
-      setShowComposer(false);
+      setComposerOpen(false);
       resetComposer();
       // Reset pagination to show the new post at the top
       setCursor(undefined);
@@ -707,7 +716,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
 
   // Handle expand composer
   const handleExpandComposer = () => {
-    setShowComposer(true);
+    setComposerOpen(true);
     setComposerExpanded(true);
   };
 
@@ -733,9 +742,6 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
   // Separate pinned and regular posts from accumulated posts
   const pinnedPosts = allPosts.filter((post: Post) => post.isPinned);
   const regularPosts = allPosts.filter((post: Post) => !post.isPinned);
-
-  // Find current sort option index
-  // currentSortIndex removed — no longer needed after dropdown refactor
 
   if (postsResult === undefined) {
     return (
@@ -810,70 +816,23 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
                   
                   {/* Post Type Selector */}
                   <div className="flex gap-2 pb-3 border-b border-border overflow-x-auto" role="group" aria-label="Post type">
-                    <button
-                      type="button"
-                      onClick={() => setPostType("text")}
-                      aria-pressed={postType === "text"}
-                      className={`p-2 rounded-md transition-colors ${
-                        postType === "text" 
-                          ? "bg-primary text-white" 
-                          : "bg-bg-elevated hover:bg-bg-muted"
-                      }`}
-                    >
-                      <Text size="sm">Text</Text>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPostType("image")}
-                      aria-pressed={postType === "image"}
-                      className={`p-2 rounded-md transition-colors flex items-center gap-1 ${
-                        postType === "image" 
-                          ? "bg-primary text-white" 
-                          : "bg-bg-elevated hover:bg-bg-muted"
-                      }`}
-                    >
-                      <ImageIcon className="w-4 h-4" />
-                      <Text size="sm">Image</Text>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPostType("video")}
-                      aria-pressed={postType === "video"}
-                      className={`p-2 rounded-md transition-colors flex items-center gap-1 ${
-                        postType === "video" 
-                          ? "bg-primary text-white" 
-                          : "bg-bg-elevated hover:bg-bg-muted"
-                      }`}
-                    >
-                      <Video className="w-4 h-4" />
-                      <Text size="sm">Video</Text>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPostType("gif")}
-                      aria-pressed={postType === "gif"}
-                      className={`p-2 rounded-md transition-colors flex items-center gap-1 ${
-                        postType === "gif" 
-                          ? "bg-primary text-white" 
-                          : "bg-bg-elevated hover:bg-bg-muted"
-                      }`}
-                    >
-                      <Gift className="w-4 h-4" />
-                      <Text size="sm">GIF</Text>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPostType("poll")}
-                      aria-pressed={postType === "poll"}
-                      className={`p-2 rounded-md transition-colors flex items-center gap-1 ${
-                        postType === "poll" 
-                          ? "bg-primary text-white" 
-                          : "bg-bg-elevated hover:bg-bg-muted"
-                      }`}
-                    >
-                      <BarChart3 className="w-4 h-4" />
-                      <Text size="sm">Poll</Text>
-                    </button>
+                    {POST_TYPES.map((type) => (
+                      <button
+                        key={type.value}
+                        type="button"
+                        onClick={() => setPostType(type.value)}
+                        aria-label={`Create ${type.label.toLowerCase()} post`}
+                        aria-pressed={postType === type.value}
+                        className={`px-4 py-2.5 min-h-[44px] rounded-lg transition-colors flex items-center gap-1 ${
+                          postType === type.value 
+                            ? "bg-primary text-white" 
+                            : "bg-bg-elevated hover:bg-bg-muted"
+                        }`}
+                      >
+                        {type.icon}
+                        <Text size="sm">{type.label}</Text>
+                      </button>
+                    ))}
                   </div>
 
                   {/* Content based on post type */}
@@ -958,7 +917,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
                                   type="button"
                                   onClick={() => removeImage(i)}
                                   aria-label="Remove image"
-                                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  className="absolute -top-2 -right-2 bg-destructive text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
                                 >
                                   <X className="w-3 h-3" />
                                 </button>
@@ -982,7 +941,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
                             value={videoUrl}
                             onChange={(e) => setVideoUrl(e.target.value)}
                             placeholder="Paste YouTube, Vimeo, or Google Drive link"
-                            className={videoUrl && !isValidVideoUrl(videoUrl) ? "border-red-500" : ""}
+                            className={videoUrl && !isValidVideoUrl(videoUrl) ? "border-destructive" : ""}
                           />
                           {videoUrl && !isValidVideoUrl(videoUrl) && (
                             <Text size="2" theme="error" className="mt-1">Invalid URL. Use YouTube, Vimeo, or Google Drive</Text>
@@ -1036,7 +995,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
                                   type="button"
                                   onClick={() => removePollOption(i)}
                                   aria-label="Remove option"
-                                  className="p-2 text-red-500 hover:bg-red-50 rounded shrink-0"
+                                  className="p-2 text-destructive hover:bg-destructive/10 rounded shrink-0"
                                 >
                                   <X className="w-4 h-4" />
                                 </button>
@@ -1047,7 +1006,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
                             <button
                               type="button"
                               onClick={addPollOption}
-                              className="flex items-center gap-1 text-primary hover:underline"
+                              className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm text-text-secondary hover:bg-bg-muted transition-colors"
                             >
                               <Plus className="w-4 h-4" />
                               <Text size="sm">Add option</Text>
@@ -1100,7 +1059,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
 
                   {/* Error */}
                   {error && (
-                    <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                    <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md" role="alert">
                       <Text size="sm" theme="error">{error}</Text>
                     </div>
                   )}
@@ -1112,7 +1071,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
                       size="sm"
                       onClick={() => {
                         setComposerExpanded(false);
-                        setShowComposer(false);
+                        setComposerOpen(false);
                         resetComposer();
                       }}
                     >
@@ -1134,9 +1093,10 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
         {/* Category Filter and Sort Row - Second */}
         <div className="flex gap-2 mb-4 items-center flex-wrap">
           {/* Category Pills */}
-          <div className="flex gap-2 overflow-x-auto pb-2 flex-1 items-center">
+          <div className="flex gap-2 overflow-x-auto pb-2 flex-1 items-center" role="group" aria-label="Filter by category">
             <button
               onClick={() => setSelectedCategoryId(null)}
+              aria-label="Show all categories"
               className={`px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors shrink-0 ${
                 selectedCategoryId === null
                   ? "bg-primary text-white"
@@ -1149,6 +1109,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
               <button
                 key={cat._id}
                 onClick={() => setSelectedCategoryId(cat._id)}
+                aria-label={`Filter by ${cat.name}`}
                 className={`px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors flex items-center gap-2 shrink-0 ${
                   selectedCategoryId === cat._id
                     ? "bg-primary text-white"
@@ -1168,9 +1129,11 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
           <div className="relative shrink-0">
             <button
               onClick={() => setShowSortDropdown(!showSortDropdown)}
+              aria-expanded={showSortDropdown}
+              aria-haspopup="listbox"
               className={`px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors flex items-center gap-2 ${
                 selectedSort !== "newest"
-                  ? "bg-blue-500 text-white"
+                  ? "bg-primary text-white"
                   : "bg-bg-elevated text-text-secondary hover:bg-bg-muted"
               }`}
             >
@@ -1181,7 +1144,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
             
             {/* Sort Dropdown Menu */}
             {showSortDropdown && (
-              <div className="absolute right-0 top-full mt-1 z-[100] rounded-lg bg-bg-elevated p-1">
+              <div className="absolute right-0 top-full mt-1 z-[100] rounded-lg bg-bg-elevated p-1" role="listbox" aria-label="Sort options">
                 {SORT_OPTIONS.map((option) => (
                   <button
                     key={option.value}
@@ -1189,6 +1152,8 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
                       setSelectedSort(option.value);
                       setShowSortDropdown(false);
                     }}
+                    role="option"
+                    aria-selected={selectedSort === option.value}
                     className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors ${
                       selectedSort === option.value
                         ? "bg-primary/10 text-primary"
