@@ -296,7 +296,6 @@ function ChapterHeader({
 // Lesson Item Component
 function LessonItem({
   page,
-  moduleId,
   isSelected,
   isOwner,
   isCompleted,
@@ -434,7 +433,6 @@ export function ClassroomSidebar({
   setDeleteConfirmChapter,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   handleDeleteChapter,
-  deleteConfirmLesson,
   setDeleteConfirmLesson,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   handleDeleteLesson,

@@ -217,7 +217,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   
   // Inline composer state
-  const [_composerOpen, setComposerOpen] = useState(false);
+  const [, setComposerOpen] = useState(false);
   const [composerExpanded, setComposerExpanded] = useState(false);
   const composerRef = useRef<HTMLDivElement>(null);
   

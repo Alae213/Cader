@@ -227,7 +227,7 @@ export const awardPostPoints = mutation({
     communityId: v.id("communities"),
     postId: v.id("posts"),
   },
-  handler: async (_ctx, _args) => {
+  handler: async () => {
     return null;
   },
 });
@@ -240,7 +240,7 @@ export const awardCommentPoints = mutation({
     commentId: v.string(),
     contentLength: v.number(),
   },
-  handler: async (_ctx, _args) => {
+  handler: async () => {
     return null;
   },
 });
@@ -401,7 +401,7 @@ export const awardStreakBonus = mutation({
   args: {
     communityId: v.id("communities"),
   },
-  handler: async (_ctx, _args) => {
+  handler: async () => {
     return { processed: 0 };
   },
 });

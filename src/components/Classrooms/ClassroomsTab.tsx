@@ -13,15 +13,6 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { ClassroomViewer } from "./ClassroomViewer";
 import { ClassroomCard } from "./ClassroomCard";
-import { ThumbnailUpload } from "../community/ThumbnailUpload";
-
-// Classroom access type labels
-const accessTypeLabels = {
-  open: "Open",
-  level: "Level Required",
-  price: "Paid",
-  level_and_price: "Level + Paid",
-};
 
 // Access type options for select
 const accessTypeOptions = [
@@ -187,11 +178,6 @@ export function ClassroomsTab({ communityId, isOwner, currentUser: providedUser 
       message: "Are you sure you want to delete this classroom? All content will be lost.",
       classroomId,
     });
-  }, []);
-
-  // Memoized handler for closing viewer
-  const handleCloseViewer = useCallback(() => {
-    setSelectedClassroomId(null);
   }, []);
 
   // If a classroom is selected, show the viewer

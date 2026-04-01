@@ -11,7 +11,6 @@ interface LessonItemProps {
     videoUrl?: string;
     isViewed?: boolean;
   };
-  moduleId: string;
   isSelected: boolean;
   isOwner: boolean;
   onSelect: () => void;
@@ -20,7 +19,6 @@ interface LessonItemProps {
 
 export function LessonItem({
   page,
-  moduleId,
   isSelected,
   isOwner,
   onSelect,

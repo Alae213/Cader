@@ -4,26 +4,20 @@ import { useState, useCallback, memo } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
-import { useAuth } from "@clerk/nextjs";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../../convex/_generated/api";
+import { Id } from "../../../convex/_generated/dataModel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui";
-import { Heading, Text } from "@/components/ui/Text";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Text } from "@/components/ui/Text";
+import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { ClassroomViewer } from "../Classrooms/ClassroomViewer";
 import { ThumbnailUpload } from "./ThumbnailUpload";
-
-// Classroom access type labels
-const accessTypeLabels = {
-  open: "Open",
-  level: "Level Required",
-  price: "Paid",
-  level_and_price: "Level + Paid",
-};
 
 // Access type options for select
 const accessTypeOptions = [
@@ -189,11 +183,6 @@ export function ClassroomsTab({ communityId, isOwner, currentUser: providedUser 
       message: "Are you sure you want to delete this classroom? All content will be lost.",
       classroomId,
     });
-  }, []);
-
-  // Memoized handler for closing viewer
-  const handleCloseViewer = useCallback(() => {
-    setSelectedClassroomId(null);
   }, []);
 
   // If a classroom is selected, show the viewer

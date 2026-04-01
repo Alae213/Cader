@@ -141,12 +141,10 @@ function Text({
   children, 
   theme, 
   className, 
-  size 
 }: { 
   children: React.ReactNode; 
   theme?: string; 
   className?: string;
-  size?: number;
 }) {
   const themeClasses: Record<string, string> = {
     muted: "text-text-muted",

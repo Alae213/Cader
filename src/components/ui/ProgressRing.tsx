@@ -1,7 +1,5 @@
 "use client";
 
-import { Text } from "@/components/ui/Text";
-
 interface ProgressRingProps {
   progress: number; // 0-100
   size?: number;

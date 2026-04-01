@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import { useAuth, useUser } from "@clerk/nextjs";
+import { useAuth } from "@clerk/nextjs";
 import { UserProfile } from "@clerk/nextjs";
 import { toast } from "sonner";
 import { Heading, Text } from "@/components/ui/Text";
@@ -21,7 +21,6 @@ interface ProfilePanelProps {
 
 export function ProfilePanel({ userId, open, onOpenChange }: ProfilePanelProps) {
   const { userId: clerkId } = useAuth();
-  const { user: clerkUser } = useUser();
   const [showClerkProfile, setShowClerkProfile] = useState(false);
 
   const targetClerkId = userId || clerkId || "";
@@ -55,7 +54,7 @@ export function ProfilePanel({ userId, open, onOpenChange }: ProfilePanelProps) 
       setDisplayName(targetUser.displayName || "");
       setHasChanges(false);
     }
-  }, [targetUser?._id, targetUser?.displayName]);
+  }, [targetUser]);
 
   useEffect(() => {
     if (!open) {
@@ -119,16 +118,7 @@ export function ProfilePanel({ userId, open, onOpenChange }: ProfilePanelProps) 
     }
   }, [open]);
 
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") handleClose();
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [open, hasChanges]);
-
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     if (hasChanges && isOwnProfile) {
       if (confirm("You have unsaved changes. Close anyway?")) {
         onOpenChange(false);
@@ -136,7 +126,16 @@ export function ProfilePanel({ userId, open, onOpenChange }: ProfilePanelProps) 
     } else {
       onOpenChange(false);
     }
-  };
+  }, [hasChanges, isOwnProfile, onOpenChange]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") handleClose();
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [open, handleClose]);
 
   useEffect(() => {
     if (!open) return;

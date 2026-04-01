@@ -1,8 +1,10 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import { useState, useRef, useCallback } from "react";
 import ReactCrop, { Crop, PixelCrop, centerCrop, makeAspectCrop } from "react-image-crop";
-import { Upload, X, Check, Image as ImageIcon } from "lucide-react";
+import { Check } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Text } from "@/components/ui/Text";
 import { toast } from "sonner";
@@ -174,6 +176,8 @@ export function ThumbnailUpload({ currentUrl, communityName, onSave }: Thumbnail
               aspect={ASPECT_RATIO}
               className="[&_.reactCrop__crop-selection]:!border-2 [&_.reactCrop__crop-selection]:!border-white [&_.reactCrop__crop-selection]:!shadow-lg [&_.reactCrop__crop-selection]:!shadow-black/50 [&_.reactCrop__handles]:!w-3 [&_.reactCrop__handles]:!h-3 [&_.reactCrop__handles]:!bg-white [&_.reactCrop__handles]:!border-2 [&_.reactCrop__handles]:!border-accent [&_.reactCrop__handles]:!rounded-full [&_.reactCrop__crop-selection]:!rounded-lg"
             >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 ref={imgRef}
                 src={imageSrc}

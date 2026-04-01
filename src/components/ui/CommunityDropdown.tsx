@@ -8,7 +8,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/Button";
 import { Dropdown } from "@/components/ui/dropdown";
 import { MenuItem } from "@/components/ui/menu-item";
-import type { LucideIcon } from "lucide-react";
 
 export interface Community {
   id: string;

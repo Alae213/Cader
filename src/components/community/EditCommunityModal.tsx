@@ -133,7 +133,7 @@ export function EditCommunityModal({ open, onOpenChange, community }: EditCommun
     } else {
       setSlugAvailable(null);
     }
-  }, [slugExists, slug.length, community.slug]);
+  }, [slugExists, slug.length, community.slug, slug]);
 
   // Generate slug from name
   const generateSlug = useCallback((communityName: string) => {
@@ -178,7 +178,7 @@ export function EditCommunityModal({ open, onOpenChange, community }: EditCommun
       if (!validation.valid) {
         setChargilyError(validation.error || "Invalid Chargily keys");
       }
-    } catch (err) {
+    } catch {
       setChargilyError("Failed to validate keys");
     } finally {
       setValidatingKeys(false);

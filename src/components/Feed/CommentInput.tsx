@@ -299,6 +299,7 @@ export function CommentInput({
             <div className="flex flex-wrap gap-2 mt-2">
               {mediaUrls.map((url, i) => (
                 <div key={i} className="relative group">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img 
                     src={url} 
                     alt="" 

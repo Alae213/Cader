@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import Image from "next/image";
+import { useCallback } from "react";
 import { useMutation } from "convex/react";
 import { Id } from "../../../convex/_generated/dataModel";
 import { api } from "../../../convex/_generated/api";
@@ -435,7 +434,6 @@ interface SortableLessonProps {
 
 function SortableLesson({
   page,
-  moduleId,
   isOwner,
   selectedPageId,
   editingLessonId,

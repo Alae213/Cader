@@ -179,7 +179,6 @@ export const createPost = mutation({
     // Extract mentions from content
     // Note: mentions are stored as string[] but schema expects Id<"users">[]
     // For MVP, we store empty array - full implementation would look up usernames
-    const mentionMatches = sanitizedContent.match(/@(\w+)/g) || [];
     // Skip mention lookup for now - would need a searchMembers query
     const mentionedUserIds: Id<"users">[] = [];
 

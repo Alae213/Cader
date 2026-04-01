@@ -13,9 +13,8 @@ import {
   DialogDescription,
   DialogBody,
   DialogFooter,
-  DialogClose,
 } from "@/components/ui/Dialog";
-import { Heading, Text } from "@/components/ui/Text";
+import { Text } from "@/components/ui/Text";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui";

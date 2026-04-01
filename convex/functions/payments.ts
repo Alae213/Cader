@@ -2,14 +2,6 @@ import { mutation, query } from "../_generated/server";
 import { v } from "convex/values";
 import { safeDecrypt } from "../lib/encryption";
 
-function getErrorMessage(error: unknown, fallback: string): string {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "object" && error !== null && "message" in error) {
-    return String((error as { message: unknown }).message);
-  }
-  return fallback;
-}
-
 interface ChargilyCheckoutArgs {
   apiKey: string;
   amount: number;

@@ -3,12 +3,12 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { SignInButton, SignUpButton } from "@clerk/nextjs";
+import { SignInButton } from "@clerk/nextjs";
 import { User, Settings, HelpCircle, LogOut } from "lucide-react";
 import { CommunityDropdown } from "@/components/ui/CommunityDropdown";
 import { Avatar } from "@/components/shared/Avatar";
 import { Button } from "@/components/ui/Button";
-import { Dropdown, DropdownSeparator } from "@/components/ui/dropdown";
+import { Dropdown } from "@/components/ui/dropdown";
 import { MenuItem } from "@/components/ui/menu-item";
 
 interface Community {

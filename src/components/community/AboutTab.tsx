@@ -9,7 +9,6 @@ import { Text } from "@/components/ui/Text";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card, CardContent } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
 import { Users, Edit3, Play, Lock, Star, Ticket, X, Check } from "lucide-react";
 import { QuickInfoCard } from "./QuickInfoCard";
 import { EditCommunityModal } from "./EditCommunityModal";

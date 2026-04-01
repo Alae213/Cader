@@ -17,16 +17,7 @@ export function ShortDescription({ value = "", isOwner, onSave }: ShortDescripti
   const [isFocused, setIsFocused] = useState(false);
   
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  // Auto-grow textarea height
-  const adjustHeight = () => {
-    const textarea = textareaRef.current;
-    if (textarea) {
-      textarea.style.height = "auto";
-      textarea.style.height = textarea.scrollHeight + "px";
-    }
-  };
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   // Sync when value changes from parent
   useEffect(() => {

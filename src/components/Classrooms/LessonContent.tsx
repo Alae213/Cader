@@ -50,7 +50,6 @@ export function LessonContent({
   pageContent,
   selectedPageId,
   isOwner,
-  isSidebarOpen,
   mainContentRef,
   onOpenSidebar,
   onToggleComplete,

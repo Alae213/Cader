@@ -2,11 +2,11 @@
 
 import { useRef, useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { Home, Users, FileText, Trophy } from "lucide-react";
+import { Home, FileText, Trophy } from "lucide-react";
 import { Tabs as TabsPrimitive, TabsList as TabsListPrimitive, TabsTrigger as TabsTriggerPrimitive } from "@/components/animate-ui/primitives/animate/tabs";
 import { useTabs } from "@/components/animate-ui/primitives/animate/tabs";
 import { cn } from "@/lib/utils";
-import { Heading, Text } from "@/components/ui/Text";
+import { Text } from "@/components/ui/Text";
 
 const STORAGE_KEY_PREFIX = "cader_tab_";
 
@@ -54,11 +54,9 @@ function saveTabPreference(communitySlug: string, tab: string) {
 // Custom TabsList that contains the underline
 function TabListWithUnderline({ 
   children, 
-  tabs,
   className 
 }: { 
   children: React.ReactNode; 
-  tabs: Tab[];
   className?: string;
 }) {
   const { activeValue } = useTabs();
@@ -154,7 +152,6 @@ export function TabNav({
   communitySlug, 
   isOwner = false,
   isMember = false,
-  isAuthenticated = false,
   activeTab, 
   onTabChange,
   variant = "both"
@@ -188,7 +185,6 @@ export function TabNav({
               onValueChange={handleTabChange}
             >
               <TabListWithUnderline 
-                tabs={tabs}
                 className="flex h-auto w-full justify-start gap-3 overflow-x-auto bg-transparent p-0 scrollbar-hide"
               >
                 {tabs.map((tab) => (
@@ -250,7 +246,7 @@ export function TabNav({
 }
 
 // Helper function to get initial tab from localStorage
-export function getInitialTab(communitySlug: string, isOwner: boolean, isMember: boolean = false, isAuthenticated: boolean = false): string {
+export function getInitialTab(communitySlug: string, isOwner: boolean, isMember: boolean = false): string {
   const publicTabsList = ["about"];
   const memberTabsList = ["community", "classrooms", "leaderboard", "about"];
   const ownerTabsList = [...memberTabsList];

@@ -56,7 +56,6 @@ export function CommunityShell({
   children, 
   showTabs = false, 
   isOwner = false,
-  isAdmin = false,
   isMember = false,
   isAuthenticated = false,
   aboutTabProps,
@@ -64,7 +63,6 @@ export function CommunityShell({
   userCommunities = [],
   onCreateCommunity,
   onExploreCommunities,
-  onLogout
 }: CommunityShellProps) {
   const { user: clerkUser } = useUser();
   
@@ -77,7 +75,6 @@ export function CommunityShell({
   // Convert null to undefined for type compatibility
   const currentUser = currentUserQuery ?? undefined;
   
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showProfilePanel, setShowProfilePanel] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showExploreModal, setShowExploreModal] = useState(false);

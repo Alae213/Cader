@@ -103,7 +103,8 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
         setActiveSection("account");
       }
     }
-  }, [communitySlug, isOwner, isAdmin, initialSection]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  }, [communitySlug, isOwner, initialSection]);
 
   const addAdmin = useMutation(api.functions.memberships.addAdmin);
   const removeAdmin = useMutation(api.functions.memberships.removeAdmin);

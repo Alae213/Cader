@@ -21,7 +21,7 @@ import {
   arrayMove,
   sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
-import { ChevronLeft, Menu, AlertCircle, Play, Trash2 } from "lucide-react";
+import { ChevronLeft, Menu, AlertCircle } from "lucide-react";
 
 interface ClassroomViewerProps {
   classroomId: string;
@@ -193,7 +193,10 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
   }, [classroomId]);
 
   // Get current modules (optimistic or real)
-  const modules = optimisticChapters || classroomContent?.modules || [];
+  const modules = useMemo(
+    () => optimisticChapters || classroomContent?.modules || [],
+    [optimisticChapters, classroomContent?.modules]
+  );
 
   useEffect(() => {
     // Clear optimistic chapters when data changes
@@ -376,7 +379,7 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
         description: pageContent.description,
       });
       toast.success("Video updated");
-    } catch (err) {
+    } catch {
       toast.error("Failed to update video");
     }
   }, [selectedPageId, pageContent, updatePageContent]);
@@ -391,7 +394,7 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
         videoUrl: pageContent.videoUrl,
         description: description,
       });
-    } catch (err) {
+    } catch {
       toast.error("Failed to save description");
     }
   }, [selectedPageId, pageContent, updatePageContent]);
@@ -412,7 +415,7 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
           chapterId: chapterId as Id<"modules">,
           title: newTitle.trim(),
         });
-      } catch (err) {
+      } catch {
         toast.error("Failed to update chapter title");
       } finally {
         setEditingChapterId(null);
@@ -436,7 +439,7 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
     if (editingChapterTitle.trim()) {
       saveChapterTitle(chapterId, editingChapterTitle, true);
     }
-  }, [saveChapterTitle]);
+  }, [saveChapterTitle, editingChapterTitle]);
 
   const handleChapterTitleKeyDown = useCallback((e: React.KeyboardEvent, chapterId: string) => {
     if (e.key === "Enter") {
@@ -445,7 +448,7 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
     } else if (e.key === "Escape") {
       setEditingChapterId(null);
     }
-  }, [saveChapterTitle]);
+  }, [saveChapterTitle, editingChapterTitle]);
 
   // Delete chapter handler
   const handleDeleteChapter = useCallback(async () => {
@@ -456,7 +459,7 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
       setDeleteConfirmChapter(null);
       setOpenChapterMenu(null);
       toast.success("Chapter deleted");
-    } catch (err) {
+    } catch {
       toast.error("Failed to delete chapter");
     } finally {
       setIsDeletingChapter(false);
@@ -474,7 +477,7 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
         setSelectedPageId(null);
       }
       toast.success("Lesson deleted");
-    } catch (err) {
+    } catch {
       toast.error("Failed to delete lesson");
     } finally {
       setIsDeletingLesson(false);
