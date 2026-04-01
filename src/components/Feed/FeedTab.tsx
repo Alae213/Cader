@@ -739,9 +739,9 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
     setPollOptions(newOptions);
   };
 
-  // Separate pinned and regular posts from accumulated posts
-  const pinnedPosts = allPosts.filter((post: Post) => post.isPinned);
-  const regularPosts = allPosts.filter((post: Post) => !post.isPinned);
+  // Separate pinned and regular posts from accumulated posts (memoized to avoid re-filter on every render)
+  const pinnedPosts = useMemo(() => allPosts.filter((post: Post) => post.isPinned), [allPosts]);
+  const regularPosts = useMemo(() => allPosts.filter((post: Post) => !post.isPinned), [allPosts]);
 
   if (postsResult === undefined) {
     return (
@@ -997,7 +997,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
                                   type="button"
                                   onClick={() => removePollOption(i)}
                                   aria-label="Remove option"
-                                  className="p-2 text-destructive hover:bg-destructive/10 rounded shrink-0"
+                                  className="min-h-[44px] min-w-[44px] flex items-center justify-center text-destructive hover:bg-destructive/10 rounded shrink-0"
                                 >
                                   <X className="w-4 h-4" />
                                 </button>
