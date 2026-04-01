@@ -172,6 +172,30 @@ function InviteFriendModal({
   );
 }
 
+// S7: Extracted avatar component to eliminate duplication + P1/P3: width/height/loading attributes
+function ComposerAvatar({ user }: { user: ReturnType<typeof useUser>["user"] }) {
+  if (user?.imageUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={user.imageUrl}
+        alt="Your avatar"
+        width={40}
+        height={40}
+        loading="lazy"
+        className="w-10 h-10 rounded-full object-cover shrink-0"
+      />
+    );
+  }
+  return (
+    <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+      <Text fontWeight="semibold" size="sm">
+        {user?.firstName?.[0] || user?.username?.[0] || "?"}
+      </Text>
+    </div>
+  );
+}
+
 export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
   const { userId } = useAuth();
   const { user } = useUser();
@@ -834,40 +858,14 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
                   className="w-full flex items-center gap-3 text-left px-4 py-3 rounded-lg bg-bg-elevated hover:bg-bg-muted transition-colors"
                 >
                   {/* User Avatar */}
-                  {user?.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={user.imageUrl}
-                      alt="Your avatar"
-                      className="w-10 h-10 rounded-full object-cover shrink-0"
-                    />
-                  ) : (
-                    <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
-                      <Text fontWeight="semibold" size="sm">
-                        {user?.firstName?.[0] || user?.username?.[0] || "?"}
-                      </Text>
-                    </div>
-                  )}
+                  <ComposerAvatar user={user} />
                   <Text theme="muted" className="line-clamp-1">What&apos;s on your mind?</Text>
                 </button>
               ) : (
                 <div className={`space-y-4 ${prefersReducedMotion ? '' : 'animate-in fade-in slide-in-from-top-2 duration-200'}`}>
                   {/* User Avatar and Name in expanded view */}
                   <div className="flex items-center gap-3">
-                    {user?.imageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={user.imageUrl}
-                        alt="Your avatar"
-                        className="w-10 h-10 rounded-full object-cover shrink-0"
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
-                        <Text fontWeight="semibold" size="sm">
-                          {user?.firstName?.[0] || user?.username?.[0] || "?"}
-                        </Text>
-                      </div>
-                    )}
+                    <ComposerAvatar user={user} />
                     <div className="flex-1 min-w-0">
                       <Text fontWeight="semibold" className="truncate">
                         {user?.fullName || user?.username || "User"}
@@ -978,6 +976,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
                                 <img 
                                   src={url} 
                                   alt={`Image preview ${i + 1}`} 
+                                  loading="lazy"
                                   className="w-20 h-20 object-cover rounded-lg border border-border" 
                                 />
                                 <button
@@ -1136,7 +1135,9 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
                                   : "bg-bg-elevated hover:bg-bg-muted"
                               }`}
                               style={{ 
-                                backgroundColor: composerCategoryId === cat._id ? cat.color : undefined 
+                                backgroundColor: composerCategoryId === cat._id ? cat.color : undefined,
+                                // S6: Add opacity overlay for better dark mode compatibility
+                                ...(composerCategoryId === cat._id ? { mixBlendMode: 'normal' } : {})
                               }}
                             >
                               {cat.name}
