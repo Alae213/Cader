@@ -761,9 +761,9 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
   }
 
   return (
-    <div className="flex gap-6 flex-col lg:flex-row w-full">
+    <div className="flex gap-6 flex-col lg:flex-row w-full min-h-dvh">
       {/* Main Feed Column - Full width */}
-      <div className="flex-1 min-w-0 w-full max-w-3xl">
+      <div className="flex-1 min-w-0 w-full max-w-3xl mx-auto">
               {/* Post Composer - First */}
         {isMember && (
           <div className="rounded-2xl p-5 mb-3 bg-bg-elevated" ref={composerRef}>
@@ -883,7 +883,8 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
                             </Text>
                           </div>
                         ) : (
-                          <div 
+                          <button
+                            type="button"
                             onClick={() => imageInputRef.current?.click()}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter' || e.key === ' ') {
@@ -891,15 +892,17 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
                                 imageInputRef.current?.click();
                               }
                             }}
-                            role="button"
-                            tabIndex={0}
                             aria-label="Upload images"
-                            className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 hover:bg-bg-elevated/50 transition-colors"
+                            className={`w-full border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                              isUploadingImages
+                                ? "border-border bg-bg-elevated/50 pointer-events-none cursor-not-allowed"
+                                : "border-border cursor-pointer hover:border-primary/50 hover:bg-bg-elevated/50"
+                            }`}
                           >
                             <ImagePlus className="w-8 h-8 mx-auto text-text-muted mb-2" />
                             <Text size="sm" theme="muted">Click to upload images</Text>
                             <Text size="2" theme="muted">Max 10MB per image (will be compressed)</Text>
-                          </div>
+                          </button>
                         )}
                         
                         {/* Image previews */}
@@ -910,14 +913,14 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img 
                                   src={url} 
-                                  alt="" 
+                                  alt={`Image preview ${i + 1}`} 
                                   className="w-20 h-20 object-cover rounded-lg border border-border" 
                                 />
                                 <button
                                   type="button"
                                   onClick={() => removeImage(i)}
                                   aria-label="Remove image"
-                                  className="absolute -top-2 -right-2 bg-destructive text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  className="absolute -top-2 -right-2 bg-destructive text-white rounded-full min-h-[44px] min-w-[44px] flex items-center justify-center -m-1 opacity-0 group-hover:opacity-100 transition-opacity"
                                 >
                                   <X className="w-3 h-3" />
                                 </button>
@@ -979,10 +982,9 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
                           <Text size="sm" fontWeight="medium">Options</Text>
                           {pollOptions.map((option, i) => (
                             <div key={i} className="flex gap-2 items-center">
-                              <button
-                                type="button"
-                                className="w-5 h-5 rounded-full border-2 border-border bg-bg-elevated shrink-0"
-                                disabled
+                              <span
+                                aria-hidden="true"
+                                className="w-5 h-5 rounded-full border-2 border-border bg-bg-elevated shrink-0 block"
                               />
                               <Input
                                 value={option}
@@ -1080,6 +1082,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
                     <Button 
                       onClick={handleComposerSubmit} 
                       disabled={isLoading}
+                      aria-busy={isLoading}
                       size="sm"
                     >
                       {isLoading ? "Posting..." : "Post"}
@@ -1093,7 +1096,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
         {/* Category Filter and Sort Row - Second */}
         <div className="flex gap-2 mb-4 items-center flex-wrap">
           {/* Category Pills */}
-          <div className="flex gap-2 overflow-x-auto pb-2 flex-1 items-center" role="group" aria-label="Filter by category">
+          <div className="flex gap-2 overflow-x-auto pb-2 flex-1 items-center [mask-image:linear-gradient(to_right,black_calc(100%-1rem),transparent)] [-webkit-mask-image:linear-gradient(to_right,black_calc(100%-1rem),transparent)]" role="group" aria-label="Filter by category">
             <button
               onClick={() => setSelectedCategoryId(null)}
               aria-label="Show all categories"
@@ -1144,7 +1147,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
             
             {/* Sort Dropdown Menu */}
             {showSortDropdown && (
-              <div className="absolute right-0 top-full mt-1 z-[100] rounded-lg bg-bg-elevated p-1" role="listbox" aria-label="Sort options">
+              <div className="absolute right-0 top-full mt-1 z-[100] rounded-lg bg-bg-elevated p-1 max-w-[calc(100vw-2rem)]" role="listbox" aria-label="Sort options">
                 {SORT_OPTIONS.map((option) => (
                   <button
                     key={option.value}
@@ -1232,107 +1235,54 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
       </div>
 
       {/* Right Sidebar - QuickInfoCard */}
-      <div className="w-full lg:w-80 shrink-0">
-        {/* Mobile: Show at top */}
-        <div className="lg:hidden">
-          {communityData ? (
-            <QuickInfoCard
-              community={communityData}
-              isOwner={isOwner}
-              isMember={isMember}
-              streak={communityStats?.streak || 0}
-              onJoinClick={() => {}}
-              onEditClick={() => setShowEditModal(true)}
-              onInviteClick={() => setShowInviteModal(true)}
-              onThumbnailChange={async (data) => {
-                try {
-                  await updateCommunity({
-                    communityId: communityIdTyped,
-                    logoUrl: data,
-                  });
-                  toast.success("Thumbnail updated!");
-                } catch (err) {
-                  toast.error(err instanceof Error ? err.message : "Failed to update thumbnail");
-                }
-              }}
-              onTaglineChange={async (value) => {
-                try {
-                  await updateCommunity({
-                    communityId: communityIdTyped,
-                    tagline: value,
-                  });
-                  toast.success("Description updated!");
-                } catch (err) {
-                  toast.error(err instanceof Error ? err.message : "Failed to update description");
-                }
-              }}
-              onLinksChange={async (links) => {
-                try {
-                  await updateCommunity({
-                    communityId: communityIdTyped,
-                    links: links,
-                  });
-                  toast.success("Links updated!");
-                } catch (err) {
-                  toast.error(err instanceof Error ? err.message : "Failed to update links");
-                }
-              }}
-            />
-          ) : (
-            <Skeleton className="h-64" />
-          )}
-        </div>
-        
-        {/* Desktop: Show on right */}
-        <div className="hidden lg:block">
-          {communityData ? (
-            <QuickInfoCard
-              community={communityData}
-              isOwner={isOwner}
-              isMember={isMember}
-              streak={communityStats?.streak || 0}
-              onJoinClick={() => {}}
-              onEditClick={() => setShowEditModal(true)}
-              onInviteClick={() => setShowInviteModal(true)}
-              onThumbnailChange={async (data) => {
-                try {
-                  await updateCommunity({
-                    communityId: communityIdTyped,
-                    logoUrl: data,
-                  });
-                  toast.success("Thumbnail updated!");
-                } catch (err) {
-                  toast.error(err instanceof Error ? err.message : "Failed to update thumbnail");
-                }
-              }}
-              onTaglineChange={async (value) => {
-                try {
-                  await updateCommunity({
-                    communityId: communityIdTyped,
-                    tagline: value,
-                  });
-                  toast.success("Description updated!");
-                } catch (err) {
-                  toast.error(err instanceof Error ? err.message : "Failed to update description");
-                }
-              }}
-              onLinksChange={async (links) => {
-                try {
-                  await updateCommunity({
-                    communityId: communityIdTyped,
-                    links: links,
-                  });
-                  toast.success("Links updated!");
-                } catch (err) {
-                  toast.error(err instanceof Error ? err.message : "Failed to update links");
-                }
-              }}
-            />
-          ) : (
-            <Skeleton className="h-64" />
-          )}
-        </div>
-        </div>
+      <div className="w-full lg:w-80 shrink-0 order-first lg:order-none">
+        {communityData ? (
+          <QuickInfoCard
+            community={communityData}
+            isOwner={isOwner}
+            isMember={isMember}
+            streak={communityStats?.streak || 0}
+            onJoinClick={() => {}}
+            onEditClick={() => setShowEditModal(true)}
+            onInviteClick={() => setShowInviteModal(true)}
+            onThumbnailChange={async (data) => {
+              try {
+                await updateCommunity({
+                  communityId: communityIdTyped,
+                  logoUrl: data,
+                });
+                toast.success("Thumbnail updated!");
+              } catch (err) {
+                toast.error(err instanceof Error ? err.message : "Failed to update thumbnail");
+              }
+            }}
+            onTaglineChange={async (value) => {
+              try {
+                await updateCommunity({
+                  communityId: communityIdTyped,
+                  tagline: value,
+                });
+                toast.success("Description updated!");
+              } catch (err) {
+                toast.error(err instanceof Error ? err.message : "Failed to update description");
+              }
+            }}
+            onLinksChange={async (links) => {
+              try {
+                await updateCommunity({
+                  communityId: communityIdTyped,
+                  links: links,
+                });
+                toast.success("Links updated!");
+              } catch (err) {
+                toast.error(err instanceof Error ? err.message : "Failed to update links");
+              }
+            }}
+          />
+        ) : (
+          <Skeleton className="h-64" />
+        )}
+      </div>
 
       {/* Invite Friend Modal */}
       <InviteFriendModal
