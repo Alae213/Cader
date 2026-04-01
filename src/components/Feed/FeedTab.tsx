@@ -14,6 +14,8 @@ import { TextArea } from "@/components/ui/TextArea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody } from "@/components/ui/Dialog";
 import { PostCard } from "./PostCard";
 import { QuickInfoCard } from "@/components/community/QuickInfoCard";
+import { EditCommunityModal } from "@/components/community/EditCommunityModal";
+import { ProfilePanel } from "@/components/community/ProfilePanel";
 import { 
   ArrowUpDown, 
   Clock, 
@@ -195,6 +197,12 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
   // Invite modal state
   const [showInviteModal, setShowInviteModal] = useState(false);
 
+  // Edit community modal state
+  const [showEditModal, setShowEditModal] = useState(false);
+
+  // Profile panel state
+  const [profileUserId, setProfileUserId] = useState<string | null>(null);
+
   // File input ref for image upload
   const imageInputRef = useRef<HTMLInputElement>(null);
 
@@ -220,6 +228,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
 
   // Mutations
   const createPost = useMutation(api.functions.feed.createPost);
+  const updateCommunity = useMutation(api.functions.communities.updateCommunity);
   
   // Fetch posts with pagination (Fix #1)
   const postsResult = useQuery(
@@ -1213,6 +1222,8 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
                     communityId={communityId}
                     currentUserId={userId}
                     isAdmin={isAdmin}
+                    isOwner={isOwner}
+                    onAuthorClick={(clerkId: string) => setProfileUserId(clerkId)}
                   />
                 ))}
                 {/* Divider if there are regular posts */}
@@ -1230,6 +1241,8 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
                 communityId={communityId}
                 currentUserId={userId}
                 isAdmin={isAdmin}
+                isOwner={isOwner}
+                onAuthorClick={(clerkId: string) => setProfileUserId(clerkId)}
               />
             ))}
 
@@ -1261,8 +1274,41 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
               isMember={isMember}
               streak={communityStats?.streak || 0}
               onJoinClick={() => {}}
-              onEditClick={() => {}}
+              onEditClick={() => setShowEditModal(true)}
               onInviteClick={() => setShowInviteModal(true)}
+              onThumbnailChange={async (data) => {
+                try {
+                  await updateCommunity({
+                    communityId: communityIdTyped,
+                    logoUrl: data,
+                  });
+                  toast.success("Thumbnail updated!");
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Failed to update thumbnail");
+                }
+              }}
+              onTaglineChange={async (value) => {
+                try {
+                  await updateCommunity({
+                    communityId: communityIdTyped,
+                    tagline: value,
+                  });
+                  toast.success("Description updated!");
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Failed to update description");
+                }
+              }}
+              onLinksChange={async (links) => {
+                try {
+                  await updateCommunity({
+                    communityId: communityIdTyped,
+                    links: links,
+                  });
+                  toast.success("Links updated!");
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Failed to update links");
+                }
+              }}
             />
           ) : (
             <Skeleton className="h-64" />
@@ -1278,8 +1324,41 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
               isMember={isMember}
               streak={communityStats?.streak || 0}
               onJoinClick={() => {}}
-              onEditClick={() => {}}
+              onEditClick={() => setShowEditModal(true)}
               onInviteClick={() => setShowInviteModal(true)}
+              onThumbnailChange={async (data) => {
+                try {
+                  await updateCommunity({
+                    communityId: communityIdTyped,
+                    logoUrl: data,
+                  });
+                  toast.success("Thumbnail updated!");
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Failed to update thumbnail");
+                }
+              }}
+              onTaglineChange={async (value) => {
+                try {
+                  await updateCommunity({
+                    communityId: communityIdTyped,
+                    tagline: value,
+                  });
+                  toast.success("Description updated!");
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Failed to update description");
+                }
+              }}
+              onLinksChange={async (links) => {
+                try {
+                  await updateCommunity({
+                    communityId: communityIdTyped,
+                    links: links,
+                  });
+                  toast.success("Links updated!");
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Failed to update links");
+                }
+              }}
             />
           ) : (
             <Skeleton className="h-64" />
@@ -1293,6 +1372,22 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
         onOpenChange={setShowInviteModal}
         communityName={communityData?.name || "Community"}
         communitySlug={communitySlug}
+      />
+
+      {/* Edit Community Modal */}
+      {communityData && (
+        <EditCommunityModal
+          open={showEditModal}
+          onOpenChange={setShowEditModal}
+          community={communityData}
+        />
+      )}
+
+      {/* Profile Panel */}
+      <ProfilePanel
+        userId={profileUserId || undefined}
+        open={!!profileUserId}
+        onOpenChange={(open) => { if (!open) setProfileUserId(null); }}
       />
     </div>
   );

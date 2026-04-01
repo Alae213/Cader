@@ -629,15 +629,112 @@ export const deleteCommunity = mutation({
       throw new Error(`You have ${activePayingMembers.length} active paying members. Please remove or refund them before deleting.`);
     }
 
-    // Delete all memberships
+    const communityId = args.communityId;
+
+    // 1. Delete all memberships
     for (const membership of memberships) {
       await ctx.db.delete(membership._id);
     }
 
-    // Delete the community
-    await ctx.db.delete(args.communityId);
+    // 2. Delete all categories for this community
+    const categories = await ctx.db
+      .query("categories")
+      .withIndex("by_community_id", (q) => q.eq("communityId", communityId))
+      .collect();
+    for (const category of categories) {
+      await ctx.db.delete(category._id);
+    }
 
-    return args.communityId;
+    // 3. Delete all posts and their related data (comments, upvotes)
+    const posts = await ctx.db
+      .query("posts")
+      .withIndex("by_community_id", (q) => q.eq("communityId", communityId))
+      .collect();
+    
+    for (const post of posts) {
+      // Delete comments on this post
+      const comments = await ctx.db
+        .query("comments")
+        .withIndex("by_post_id", (q) => q.eq("postId", post._id))
+        .collect();
+      for (const comment of comments) {
+        // Delete comment upvotes
+        const commentUpvotes = await ctx.db
+          .query("commentUpvotes")
+          .withIndex("by_comment_id", (q) => q.eq("commentId", comment._id))
+          .collect();
+        for (const upvote of commentUpvotes) {
+          await ctx.db.delete(upvote._id);
+        }
+        await ctx.db.delete(comment._id);
+      }
+      // Delete post upvotes
+      const upvotes = await ctx.db
+        .query("upvotes")
+        .withIndex("by_post_id", (q) => q.eq("postId", post._id))
+        .collect();
+      for (const upvote of upvotes) {
+        await ctx.db.delete(upvote._id);
+      }
+      // Delete point events for this post
+      const pointEvents = await ctx.db
+        .query("pointEvents")
+        .filter((q) => q.and(
+          q.eq(q.field("communityId"), communityId),
+          q.eq(q.field("sourceId"), post._id.toString())
+        ))
+        .collect();
+      for (const event of pointEvents) {
+        await ctx.db.delete(event._id);
+      }
+      await ctx.db.delete(post._id);
+    }
+
+    // 4. Delete all classrooms and their related data
+    const classrooms = await ctx.db
+      .query("classrooms")
+      .withIndex("by_community_id", (q) => q.eq("communityId", communityId))
+      .collect();
+
+    for (const classroom of classrooms) {
+      // Delete chapters (modules)
+      const chapters = await ctx.db
+        .query("modules")
+        .withIndex("by_classroom_id", (q) => q.eq("classroomId", classroom._id))
+        .collect();
+
+      for (const chapter of chapters) {
+        // Delete lessons (pages)
+        const lessons = await ctx.db
+          .query("pages")
+          .withIndex("by_module_id", (q) => q.eq("moduleId", chapter._id))
+          .collect();
+        for (const lesson of lessons) {
+          await ctx.db.delete(lesson._id);
+        }
+        await ctx.db.delete(chapter._id);
+      }
+
+      // Delete classroom access records
+      const accessRecords = await ctx.db
+        .query("classroomAccess")
+        .withIndex("by_classroom_id", (q) => q.eq("classroomId", classroom._id))
+        .collect();
+      for (const access of accessRecords) {
+        await ctx.db.delete(access._id);
+      }
+
+      await ctx.db.delete(classroom._id);
+    }
+
+    // 5. Delete all notifications for this community
+    // (We can't filter by communityId directly, so we skip this for now)
+    // Notifications are scoped to users, not communities
+
+    // 6. Delete the community
+    await ctx.db.delete(communityId);
+
+    return communityId;
   },
 });
 

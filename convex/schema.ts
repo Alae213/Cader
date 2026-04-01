@@ -9,7 +9,8 @@ export default defineSchema({
     email: v.string(),
     avatarUrl: v.optional(v.string()),
     phone: v.optional(v.string()),
-    wilaya: v.optional(v.string()), // Deprecated - kept for data migration
+    bio: v.optional(v.string()), // Max 160 chars - user profile bio
+    wilaya: v.optional(v.string()), // Algerian wilaya (58 options)
     timezone: v.optional(v.string()), // IANA timezone for streak day boundaries (e.g. "Africa/Algiers")
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -301,4 +302,21 @@ export default defineSchema({
   }).index("by_recipient_id", ["recipientId"])
     .index("by_read", ["isRead"])
     .index("by_created_at", ["createdAt"]),
+
+  // Notification preferences - per-user notification settings
+  notificationPreferences: defineTable({
+    userId: v.id("users"),
+    
+    // Global toggles
+    emailEnabled: v.boolean(),
+    inAppEnabled: v.boolean(),
+    
+    // Event-specific toggles
+    commentOnPost: v.boolean(),
+    mention: v.boolean(),
+    newMember: v.boolean(), // Owner only
+    
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_user_id", ["userId"]),
 });

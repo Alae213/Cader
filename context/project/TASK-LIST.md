@@ -26,13 +26,13 @@ Tasks currently being worked on or up next.
 
 <!-- Claude: keep this section short — max 5-7 tasks at a time -->
 
-| # | Status | Task | Feature | Notes |
-|---|--------|------|---------|-------|
-| T-SET-001 | `[~]` | Add body scroll lock to ProfilePanel | [context/features/profile-drawer.md](../features/profile-drawer.md) | P-01: Prevent background scroll when panel is open |
-| T-SET-002 | `[ ]` | Add auth guard on ProfilePanel render | [context/features/profile-drawer.md](../features/profile-drawer.md) | P-02: Don't render for unauthenticated users |
-| T-SET-003 | `[ ]` | Fix updateUserProfile auth bypass | [context/features/settings.md](../features/settings.md) | S-04, B-01: CRITICAL - verify caller owns userId |
-| T-SET-004 | `[ ]` | Implement deleteAccount mutation | [context/features/settings.md](../features/settings.md) | S-01, B-02: GDPR compliance |
-| T-SET-005 | `[ ]` | Fix deleteCommunity cascade | [context/features/settings.md](../features/settings.md) | S-03, B-03: Clean up orphaned data |
+All planned tasks complete. Remaining items are minor polish:
+- S-11: Clean up unused `currentUser` in SettingsModal
+- S-15: Billing tier display for future "locked" state
+- S-17: Member search "show more" option
+- S-18: Mobile tab bar scroll indicator
+- D-02: Cross-panel data sync
+- D-03: ProfilePanel close on community navigation
 
 ---
 
@@ -429,6 +429,40 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 
 ---
 
+## Phase 25 — ProfilePanel Merge (ProfileModal → ProfilePanel) (T-PP-001 to T-PP-015)
+
+### Backend & Schema
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-PP-001 | `[x]` | Expand getUserActivity to include all signals | [context/features/profile-drawer.md](../features/profile-drawer.md) | Add upvotes, lesson completions, streak days |
+| T-PP-002 | `[x]` | Add bio field to users schema | [context/features/profile-drawer.md](../features/profile-drawer.md) | Optional string, max 160 chars |
+| T-PP-003 | `[x]` | Update updateUserProfile mutation to accept bio | [context/features/profile-drawer.md](../features/profile-drawer.md) | Add bio arg + validation |
+| T-PP-004 | `[x]` | Add wilaya field to users schema (restore from deprecated) | [context/features/profile-drawer.md](../features/profile-drawer.md) | 58 Algerian wilayas |
+| T-PP-005 | `[x]` | Update updateUserProfile mutation to accept wilaya | [context/features/profile-drawer.md](../features/profile-drawer.md) | Add wilaya arg |
+
+### Frontend — ProfilePanel Rewrite
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-PP-006 | `[x]` | Rewrite ProfilePanel to accept userId prop (Clerk ID) | [context/features/profile-drawer.md](../features/profile-drawer.md) | Support self + other users |
+| T-PP-007 | `[x]` | Add activity map (GitHub-style grid) to ProfilePanel | [context/features/profile-drawer.md](../features/profile-drawer.md) | Horizontal scroll, 52 weeks, all signals |
+| T-PP-008 | `[x]` | Add communities section to ProfilePanel | [context/features/profile-drawer.md](../features/profile-drawer.md) | Joined + Created, open in new tab |
+| T-PP-009 | `[x]` | Add inline editing for own profile (displayName, bio, wilaya) | [context/features/profile-drawer.md](../features/profile-drawer.md) | Auto-save: 1.5s debounce + blur + Enter |
+| T-PP-010 | `[x]` | Add "Change profile image" button (Clerk UserProfile modal) | [context/features/profile-drawer.md](../features/profile-drawer.md) | Trigger Clerk's built-in modal |
+| T-PP-011 | `[x]` | Hide edit UI when viewing other users | [context/features/profile-drawer.md](../features/profile-drawer.md) | isOwnProfile gate |
+| T-PP-012 | `[x]` | Handle deleted user display | [context/features/profile-drawer.md](../features/profile-drawer.md) | "Deleted User" placeholder |
+
+### Integration & Cleanup
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-PP-013 | `[x]` | Wire LeaderboardTab avatar click → open ProfilePanel | [context/features/profile-drawer.md](../features/profile-drawer.md) | Added clerkId to leaderboard query |
+| T-PP-014 | `[x]` | Wire FeedTab post author click → open ProfilePanel | [context/features/profile-drawer.md](../features/profile-drawer.md) | Added clerkId to feed query + onAuthorClick prop |
+| T-PP-015 | `[x]` | Delete ProfileModal.tsx entirely | [context/features/profile-drawer.md](../features/profile-drawer.md) | File removed |
+
+---
+
 ## Phase 24 — Settings & Profile New Features (T-SET-NEW-001 to T-SET-NEW-XXX)
 
 ### New Features from Spec
@@ -436,12 +470,12 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
 | T-SET-NEW-001 | `[x]` | Build ProfilePanel right-side slide-out (already done) | [context/features/profile-drawer.md](../features/profile-drawer.md) | Done - ProfilePanel.tsx created |
-| T-SET-NEW-002 | `[ ]` | Add Notifications section to SettingsModal | [context/features/settings.md](../features/settings.md) | Email/in-app toggles, per-event toggles |
-| T-SET-NEW-003 | `[ ]` | Add Bio field to ProfilePanel (spec says 160 chars) | [context/features/profile-drawer.md](../features/profile-drawer.md) | Update updateUserProfile mutation |
-| T-SET-NEW-004 | `[ ]` | Add Wilaya dropdown to ProfilePanel (58 options) | [context/features/profile-drawer.md](../features/profile-drawer.md) | Restore wilaya field from deprecated |
-| T-SET-NEW-005 | `[ ]` | Wire Billing Subscribe/Cancel buttons to Chargily | [context/features/settings.md](../features/settings.md) | Currently non-functional CTAs |
-| T-SET-NEW-006 | `[ ]` | Add "hold button 5 seconds" to Danger Zone delete | [context/features/settings.md](../features/settings.md) | Spec calls for hold-to-confirm |
-| T-SET-NEW-007 | `[ ]` | Show next billing date in Billing section | [context/features/settings.md](../features/settings.md) | Not currently displayed |
+| T-SET-NEW-002 | `[x]` | Add Notifications section to SettingsModal | [context/features/settings.md](../features/settings.md) | Email/in-app toggles, per-event toggles |
+| T-SET-NEW-003 | `[x]` | Add Bio field to ProfilePanel (spec says 160 chars) | [context/features/profile-drawer.md](../features/profile-drawer.md) | Done - bio field in schema + mutation |
+| T-SET-NEW-004 | `[x]` | Add Wilaya dropdown to ProfilePanel (58 options) | [context/features/profile-drawer.md](../features/profile-drawer.md) | Done - 58 wilayas in ProfilePanel |
+| T-SET-NEW-005 | `[x]` | Wire Billing Subscribe/Cancel buttons to Chargily | [context/features/settings.md](../features/settings.md) | Platform subscription checkout wired |
+| T-SET-NEW-006 | `[x]` | Add "hold button 5 seconds" to Danger Zone delete | [context/features/settings.md](../features/settings.md) | Hold-to-confirm with progress bar |
+| T-SET-NEW-007 | `[x]` | Show next billing date in Billing section | [context/features/settings.md](../features/settings.md) | Displays next billing date for subscribed tier |
 
 ### Phase 21 — Inline Comments Redesign (Whop-Inspired)
 

@@ -36,7 +36,7 @@ to the About tab.
 3. If no stored tab exists AND user is a member → default to Community (feed) tab
 4. If no stored tab exists AND user is unauthenticated or non-member → default to About tab
 5. If stored tab exists but user is unauthenticated or non-member → ignore stored tab, show About tab (EC-13)
-6. If stored tab exists but the tab is now inaccessible (e.g. Analysis tab, now not admin) → fall back to Community tab
+6. If stored tab exists but the tab is now inaccessible (e.g. user lost membership) → fall back to Community tab
 
 ### localStorage Key Format
 
@@ -44,7 +44,7 @@ to the About tab.
 cader:tab:[communitySlug]
 ```
 
-Values: `about` | `community` | `classrooms` | `members` | `leaderboard` | `analysis`
+Values: `about` | `community` | `classrooms` | `members` | `leaderboard`
 
 ---
 
@@ -53,7 +53,6 @@ Values: `about` | `community` | `classrooms` | `members` | `leaderboard` | `anal
 - EC-13: localStorage tab state is a UI hint only. Access is always validated server-side. A member who was removed from a community gets About only, regardless of what localStorage says.
 - Tab state is never reflected in the URL.
 - Tab state is per-community (keyed by slug) — switching between communities does not interfere.
-- Analysis tab: if stored tab is `analysis` but user is no longer an admin, fall back to Community.
 - Old/stale localStorage keys (for communities that no longer exist) are harmless — they are read, the community fails to load, and the user is shown a 404 or "Community not found" state.
 
 ---

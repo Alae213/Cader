@@ -36,6 +36,8 @@ export interface CommentData {
   createdAt: number;
   author: CommentAuthor | null;
   hasUpvoted?: boolean;
+  authorIsOwner?: boolean;
+  authorIsAdmin?: boolean;
   replies?: CommentData[];
 }
 
@@ -45,6 +47,7 @@ interface CommentProps {
   communityId: string;
   currentUserId?: string | null;
   isAdmin?: boolean;
+  isOwner?: boolean;
   depth?: number;
   maxDepth?: number;
   onReply?: (commentId: string) => void;
@@ -56,15 +59,19 @@ export function Comment({
   communityId,
   currentUserId, 
   isAdmin = false,
+  isOwner = false,
   depth = 0,
   maxDepth = 2,
   onReply 
 }: CommentProps) {
   const { userId } = useAuth();
+  
+  // Combine owner + admin as "moderator" - same features
+  const isModerator = isOwner || isAdmin;
   const [showMenu, setShowMenu] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [localUpvoteCount, setLocalUpvoteCount] = useState(comment.upvoteCount || 0);
-  const [hasUpvoted, setHasUpvoted] = useState(comment.hasUpvoted || false);
+  const [localUpvoteCount, setLocalUpvoteCount] = useState(comment.upvoteCount ?? 0);
+  const [hasUpvoted, setHasUpvoted] = useState(comment.hasUpvoted ?? false);
 
   const toggleCommentUpvote = useMutation(api.functions.feed.toggleCommentUpvote);
   const deleteComment = useMutation(api.functions.feed.deleteComment);
@@ -155,7 +162,7 @@ export function Comment({
   const canDelete = userId && (
     comment.authorId === currentUserId || // comment author
     postAuthorId === currentUserId || // post author
-    isAdmin // admin/owner
+    isModerator // admin/owner
   );
 
   // Check if user can reply (not at max depth)
@@ -201,9 +208,9 @@ export function Comment({
               </span>
             )}
 
-            {/* Admin badge */}
-            {isAdmin && comment.authorId === currentUserId && (
-              <span className="px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 text-xs font-medium">
+            {/* Moderator badge (Owner or Admin) - show for comment author if they are owner/admin */}
+            {(comment.authorIsOwner || comment.authorIsAdmin) && (
+              <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 text-xs font-medium">
                 Admin
               </span>
             )}
@@ -249,7 +256,7 @@ export function Comment({
             >
               <ThumbsUp className={`w-3.5 h-3.5 ${hasUpvoted ? "fill-current" : ""}`} />
               <Text size="1" fontWeight="medium" className="tabular-nums">
-                {localUpvoteCount}
+                {Number.isFinite(localUpvoteCount) ? localUpvoteCount : 0}
               </Text>
             </button>
 

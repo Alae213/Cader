@@ -166,6 +166,110 @@ export const createChargilyCheckout = mutation({
   },
 });
 
+// Create platform subscription checkout (uses PLATFORM Chargily keys from env)
+export const createPlatformSubscriptionCheckout = mutation({
+  args: {
+    communityId: v.id("communities"),
+    userId: v.id("users"),
+    successUrl: v.string(),
+    cancelUrl: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Get the community
+    const community = await ctx.db.get(args.communityId);
+    if (!community) throw new Error("Community not found");
+
+    // Check if user is the owner
+    const user = await ctx.db.get(args.userId);
+    if (!user) throw new Error("User not found");
+    if (community.ownerId !== user._id) throw new Error("Only the owner can subscribe");
+
+    // Check if already subscribed
+    if (community.platformTier === "subscribed") throw new Error("Already subscribed");
+
+    // Get PLATFORM Chargily API key from environment (not community's keys)
+    const platformApiKey = process.env.CHARGILY_PLATFORM_API_KEY;
+    if (!platformApiKey) throw new Error("Platform payment configuration not found");
+
+    const mode = process.env.CHARGILY_MODE === "live" ? "live" : "test";
+    const baseUrl = mode === "live"
+      ? "https://pay.chargily.net/api/v2"
+      : "https://pay.chargily.net/test/api/v2";
+
+    // Platform subscription: 2000 DZD/month = 200000 centimes
+    const amount = 2000 * 100;
+
+    const checkoutData = {
+      amount,
+      currency: "dzd",
+      description: `Platform subscription: ${community.name}`,
+      patient: {
+        email: user.email,
+        first_name: user.displayName?.split(" ")[0] || "User",
+        last_name: user.displayName?.split(" ").slice(1).join(" ") || "",
+      },
+      success_url: args.successUrl,
+      failure_url: args.cancelUrl,
+      metadata: {
+        communityId: args.communityId,
+        userId: args.userId,
+        type: "platform",
+        mode,
+        priceAmount: amount,
+      },
+    };
+
+    const response = await fetch(`${baseUrl}/checkouts`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${platformApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(checkoutData),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: "" }));
+      throw new Error(errorData.message || `Chargily API error: ${response.status}`);
+    }
+
+    const checkout = await response.json() as { checkout_url: string; id: string };
+
+    return {
+      checkoutUrl: checkout.checkout_url,
+      checkoutId: checkout.id,
+    };
+  },
+});
+
+// Cancel platform subscription (downgrade to free tier)
+export const cancelPlatformSubscription = mutation({
+  args: {
+    communityId: v.id("communities"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+    if (!user) throw new Error("User not found");
+
+    const community = await ctx.db.get(args.communityId);
+    if (!community) throw new Error("Community not found");
+    if (community.ownerId !== user._id) throw new Error("Only the owner can cancel subscription");
+
+    await ctx.db.patch(args.communityId, {
+      platformTier: "free",
+      updatedAt: Date.now(),
+    });
+
+    return true;
+  },
+});
+
 // Grant classroom access after successful payment (called from webhook)
 export const grantClassroomAccess = mutation({
   args: {

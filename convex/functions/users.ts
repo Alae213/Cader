@@ -147,7 +147,7 @@ export const getUserProfile = query({
   },
 });
 
-// Get user activity for the past year
+// Get user activity for the past year (platform-wide: all signals)
 export const getUserActivity = query({
   args: { 
     userId: v.id("users"),
@@ -169,25 +169,52 @@ export const getUserActivity = query({
     const posts = await postsQuery.collect();
 
     // Get comments by user
-    const commentsQuery = ctx.db
+    const comments = await ctx.db
       .query("comments")
       .withIndex("by_author_id", (q) => q.eq("authorId", args.userId))
-      .filter((q) => q.gte(q.field("createdAt"), oneYearAgo));
+      .filter((q) => q.gte(q.field("createdAt"), oneYearAgo))
+      .collect();
 
-    const comments = await commentsQuery.collect();
+    // Get upvotes given by user
+    const upvotes = await ctx.db
+      .query("upvotes")
+      .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
+      .filter((q) => q.gte(q.field("createdAt"), oneYearAgo))
+      .collect();
 
-    // Combine posts and comments into daily activity
+    // Get lesson completions
+    const lessonCompletions = await ctx.db
+      .query("lessonProgress")
+      .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
+      .filter((q) => q.gte(q.field("completedAt"), oneYearAgo))
+      .collect();
+
+    // Get streak days from pointEvents
+    const streakEvents = await ctx.db
+      .query("pointEvents")
+      .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
+      .filter((q) => q.gte(q.field("createdAt"), oneYearAgo))
+      .collect();
+
+    const streakDays = streakEvents.filter(e => 
+      e.eventType === "streak_day_awarded" || 
+      e.eventType === "streak_bonus" ||
+      e.eventType === "streak_reversal"
+    );
+
+    // Combine all signals into daily activity
     const activityByDate: Record<string, number> = {};
 
-    posts.forEach((post) => {
-      const date = new Date(post.createdAt).toISOString().split("T")[0];
+    const addActivity = (timestamp: number) => {
+      const date = new Date(timestamp).toISOString().split("T")[0];
       activityByDate[date] = (activityByDate[date] || 0) + 1;
-    });
+    };
 
-    comments.forEach((comment) => {
-      const date = new Date(comment.createdAt).toISOString().split("T")[0];
-      activityByDate[date] = (activityByDate[date] || 0) + 1;
-    });
+    posts.forEach((post) => addActivity(post.createdAt));
+    comments.forEach((comment) => addActivity(comment.createdAt));
+    upvotes.forEach((upvote) => addActivity(upvote.createdAt));
+    lessonCompletions.forEach((lesson) => addActivity(lesson.completedAt));
+    streakDays.forEach((event) => addActivity(event.createdAt));
 
     // Convert to array format for the heat map
     const activity = Object.entries(activityByDate).map(([date, count]) => ({
@@ -198,6 +225,9 @@ export const getUserActivity = query({
     return {
       postsCount: posts.length,
       commentsCount: comments.length,
+      upvotesCount: upvotes.length,
+      lessonsCount: lessonCompletions.length,
+      streakDaysCount: streakDays.length,
       activity,
     };
   },
@@ -209,14 +239,58 @@ export const updateUserProfile = mutation({
     userId: v.id("users"),
     displayName: v.optional(v.string()),
     avatarUrl: v.optional(v.string()),
+    bio: v.optional(v.string()),
+    wilaya: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    // Get authenticated user
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("You must be signed in to update your profile");
+    }
+
+    // Get the current user from our database
+    const currentUser = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!currentUser) {
+      throw new Error("User not found");
+    }
+
+    // Verify the caller owns this profile
+    if (currentUser._id !== args.userId) {
+      throw new Error("You can only update your own profile");
+    }
+
+    // Validate displayName if provided
+    if (args.displayName !== undefined) {
+      const trimmed = args.displayName.trim();
+      if (trimmed.length === 0) {
+        throw new Error("Display name cannot be empty");
+      }
+      if (trimmed.length > 100) {
+        throw new Error("Display name must be 100 characters or less");
+      }
+      args.displayName = trimmed;
+    }
+
+    // Validate bio if provided
+    if (args.bio !== undefined) {
+      if (args.bio.length > 160) {
+        throw new Error("Bio must be 160 characters or less");
+      }
+    }
+
     const updates: Record<string, unknown> = {
       updatedAt: Date.now(),
     };
 
     if (args.displayName !== undefined) updates.displayName = args.displayName;
     if (args.avatarUrl !== undefined) updates.avatarUrl = args.avatarUrl;
+    if (args.bio !== undefined) updates.bio = args.bio;
+    if (args.wilaya !== undefined) updates.wilaya = args.wilaya;
 
     await ctx.db.patch(args.userId, updates);
     return true;
@@ -231,3 +305,85 @@ function getLevelFromPoints(points: number): number {
   if (points >= 20) return 2;
   return 1;
 }
+
+// Delete user account - remove from all communities, clear personal data, delete user record
+export const deleteAccount = mutation({
+  args: {},
+  handler: async (ctx) => {
+    // Get authenticated user
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("You must be signed in to delete your account");
+    }
+
+    // Get the user from our database
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // 1. Remove from all memberships (set status to deleted)
+    const memberships = await ctx.db
+      .query("memberships")
+      .withIndex("by_user_id", (q) => q.eq("userId", user._id))
+      .collect();
+
+    for (const membership of memberships) {
+      await ctx.db.patch(membership._id, {
+        status: "deleted" as never,
+        updatedAt: Date.now(),
+      });
+    }
+
+    // 2. Delete notification records where user is recipient
+    const notifications = await ctx.db
+      .query("notifications")
+      .withIndex("by_recipient_id", (q) => q.eq("recipientId", user._id))
+      .collect();
+
+    for (const notification of notifications) {
+      await ctx.db.delete(notification._id);
+    }
+
+    // 3. Delete point events for this user
+    const pointEvents = await ctx.db
+      .query("pointEvents")
+      .withIndex("by_user_id", (q) => q.eq("userId", user._id))
+      .collect();
+
+    for (const event of pointEvents) {
+      await ctx.db.delete(event._id);
+    }
+
+    // 4. Delete lesson progress for this user
+    const lessonProgress = await ctx.db
+      .query("lessonProgress")
+      .withIndex("by_user_id", (q) => q.eq("userId", user._id))
+      .collect();
+
+    for (const progress of lessonProgress) {
+      await ctx.db.delete(progress._id);
+    }
+
+    // 5. Delete classroom access for this user
+    const classroomAccess = await ctx.db
+      .query("classroomAccess")
+      .withIndex("by_user_id", (q) => q.eq("userId", user._id))
+      .collect();
+
+    for (const access of classroomAccess) {
+      await ctx.db.delete(access._id);
+    }
+
+    // 6. Delete the user record
+    // Note: Posts and comments remain with dangling authorId references.
+    // Frontend handles this by checking if author exists and showing "Deleted User"
+    await ctx.db.delete(user._id);
+
+    return true;
+  },
+});

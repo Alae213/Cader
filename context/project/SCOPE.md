@@ -93,9 +93,6 @@ These are the things Cader must do on day one to be a usable product.
 - [ ] Account: sign out, delete account
 - [ ] Minimum 1 admin enforced — last admin cannot self-remove (EC-8)
 
-**Analysis Tab**
-- [ ] Owner-only tab: "Coming soon" placeholder — no analytics built in v1
-
 **Tab Persistence**
 - [ ] Tab state stored in localStorage keyed by community slug
 - [ ] localStorage is a UI hint only — access always re-validated server-side (EC-13)
@@ -111,7 +108,7 @@ These are deliberate deferrals — not forgotten, just not v1.
 |---|---|
 | Arabic / French language support | i18n complexity; target tech-savvy creators use English/French professionally |
 | Light mode | Dark mode only simplifies CSS token system for MVP (see ADR-006) |
-| Full analytics dashboard (Analysis tab) | Placeholder only in v1 — real data requires more instrumentation |
+| Full analytics dashboard | Placeholder removed from v1 — real data requires more instrumentation |
 | Creator revenue analytics (payouts, earnings overview) | Chargily handles this natively in creator's own dashboard |
 | Native video upload / hosting | Expensive infrastructure; embed URLs cover the need (see ADR-007) |
 | Mobile apps (iOS / Android) | Web-first MVP; mobile-responsive web covers the learner persona |
@@ -155,7 +152,7 @@ These are off the table entirely, not just deferred.
 - [ ] Do we need a basic report system (flag post/comment/user) in v1, or is "admin delete" enough for launch?
 
 ### Member Roles & Permissions
-- [ ] Permission model — owner + admins only, or a third role (moderator)? Who can: create classrooms, pin posts, manage categories, view payment history, access Analysis tab?
+- [ ] Permission model — owner + admins only, or a third role (moderator)? Who can: create classrooms, pin posts, manage categories, view payment history?
 
 ### File/Media Storage
 - [ ] Where do uploaded images and lesson attachments go? Convex file storage? UploadThing? S3? What max file size?

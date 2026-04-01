@@ -59,7 +59,6 @@
   /classrooms             ← Classroom-specific components
   /Members                ← Members-scoped components
   /Leaderboard            ← Leaderboard-scoped components
-  /Analysis               ← Analysis-scoped components
   /modals                 ← All modal components
   /layout                 ← Shell, top bar, tab navigation
   /shared                 ← Reused across features (Avatar, LevelBadge, etc.)

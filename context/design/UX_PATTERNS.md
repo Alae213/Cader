@@ -28,7 +28,7 @@
 ### Tab Navigation Bar
 - Below the top bar on Desktop , fixed in bottom on mobile 
 - Uses Frosted UI `Tabs` component — `Tabs.List` + `Tabs.Trigger` + `Tabs.Content`
-- Tabs: About | Community | Classrooms | Members | Leaderboard | Analysis (owner only)
+- Tabs: About | Community | Classrooms | Members | Leaderboard
 - Hidden when viewer is unauthenticated or not a member
 
 ### Back Navigation

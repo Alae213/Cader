@@ -110,6 +110,7 @@ export const getLeaderboard = query({
 
         return {
           userId: user._id,
+          clerkId: user.clerkId,
           displayName: user.displayName,
           avatarUrl: user.avatarUrl,
           role: membership.role,
@@ -131,6 +132,7 @@ export const getLeaderboard = query({
 
       memberPoints.push({
         userId: user._id,
+        clerkId: user.clerkId,
         displayName: user.displayName,
         avatarUrl: user.avatarUrl,
         role: membership.role,

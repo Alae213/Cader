@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { LevelBadge } from "@/components/Feed/LevelBadge";
+import { ProfilePanel } from "@/components/community/ProfilePanel";
 
 interface LeaderboardTabProps {
   communityId: string;
@@ -22,6 +23,7 @@ export function LeaderboardTab({ communityId }: LeaderboardTabProps) {
   const { userId: clerkId } = useAuth();
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   const [showMore, setShowMore] = useState(false);
+  const [profileUserId, setProfileUserId] = useState<string | null>(null);
 
   // Get current user points
   const currentUserPoints = useQuery(
@@ -126,12 +128,14 @@ export function LeaderboardTab({ communityId }: LeaderboardTabProps) {
                 </div>
 
                 {/* Avatar */}
-                <Avatar
-                  src={entry.avatarUrl}
-                  name={entry.displayName}
-                  fallback={entry.displayName.substring(0, 2).toUpperCase()}
-                  className="w-10 h-10"
-                />
+                <button onClick={() => setProfileUserId(entry.clerkId)} className="cursor-pointer">
+                  <Avatar
+                    src={entry.avatarUrl}
+                    name={entry.displayName}
+                    fallback={entry.displayName.substring(0, 2).toUpperCase()}
+                    className="w-10 h-10"
+                  />
+                </button>
 
                 {/* Name and level */}
                 <div className="flex-1 min-w-0">
@@ -189,12 +193,14 @@ export function LeaderboardTab({ communityId }: LeaderboardTabProps) {
                     #{pinnedRow.rank}
                   </Text>
                 </div>
-                <Avatar
-                  src={pinnedRow.avatarUrl}
-                  name={pinnedRow.displayName}
-                  fallback={pinnedRow.displayName.substring(0, 2).toUpperCase()}
-                  className="w-10 h-10"
-                />
+                <button onClick={() => setProfileUserId(pinnedRow.clerkId)} className="cursor-pointer">
+                  <Avatar
+                    src={pinnedRow.avatarUrl}
+                    name={pinnedRow.displayName}
+                    fallback={pinnedRow.displayName.substring(0, 2).toUpperCase()}
+                    className="w-10 h-10"
+                  />
+                </button>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <Text size="2" className="font-medium text-text-primary truncate">
@@ -329,6 +335,13 @@ export function LeaderboardTab({ communityId }: LeaderboardTabProps) {
           </div>
         </div>
       </div>
+
+      {/* Profile Panel */}
+      <ProfilePanel
+        userId={profileUserId || undefined}
+        open={!!profileUserId}
+        onOpenChange={(open) => { if (!open) setProfileUserId(null); }}
+      />
     </div>
   );
 }

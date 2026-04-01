@@ -185,88 +185,10 @@ export const listByUser = query({
   },
 });
 
-// Grant membership for free community (immediate, with additional details)
-export const grantMembershipWithDetails = mutation({
-  args: {
-    communityId: v.id("communities"),
-    displayName: v.string(),
-    phone: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    // Get authenticated user from Clerk
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("You must be signed in to join a community");
-    }
-
-    // Get the user from our database
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .first();
-
-    if (!user) {
-      throw new Error("User not found. Please complete onboarding first.");
-    }
-
-    // Get community
-    const community = await ctx.db.get(args.communityId);
-    if (!community) {
-      throw new Error("Community not found");
-    }
-
-    // Check if community is free
-    if (community.pricingType !== "free") {
-      throw new Error("This community requires payment to join");
-    }
-
-    // Check if user already has membership
-    const existingMembership = await ctx.db
-      .query("memberships")
-      .withIndex("by_community_and_user", (q) =>
-        q.eq("communityId", args.communityId).eq("userId", user._id)
-      )
-      .first();
-
-    if (existingMembership) {
-      // Already a member, just update status
-      if (existingMembership.status !== "active") {
-        await ctx.db.patch(existingMembership._id, {
-          status: "active",
-          updatedAt: Date.now(),
-        });
-      }
-      return existingMembership._id;
-    }
-
-    // Create new membership
-    const now = Date.now();
-    const membershipId = await ctx.db.insert("memberships", {
-      communityId: args.communityId,
-      userId: user._id,
-      role: "member",
-      status: "active",
-      subscriptionType: "free",
-      subscriptionStartDate: now,
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    // Update user profile with phone if provided
-    if (args.phone) {
-      await ctx.db.patch(user._id, {
-        phone: args.phone,
-        updatedAt: now,
-      });
-    }
-
-    return membershipId;
-  },
-});
-
-// Grant membership after successful payment (called from webhook)
-// Note: This is a public mutation because it's called from external webhook endpoint
-// Security is provided by webhook signature verification
+// Grant membership after successful payment (called from webhook or directly for free communities)
+// Note: For webhook calls, paymentReference comes from Chargily
+// For free communities, paymentReference can be generated (e.g., "free_<timestamp>")
+// Security for webhook: provided by webhook signature verification
 export const grantMembership = mutation({
   args: {
     communityId: v.id("communities"),
@@ -376,36 +298,46 @@ export const listMembers = query({
       .filter((q) => q.eq(q.field("status"), "active"))
       .collect();
 
-    // Get user data for each membership
-    const members = await Promise.all(
-      memberships.map(async (membership) => {
-        const user = await ctx.db.get(membership.userId);
-        if (!user) return null;
+    // Batch fetch all users at once (instead of N queries)
+    const userIds = memberships.map(m => m.userId);
+    const users = await Promise.all(userIds.map(id => ctx.db.get(id)));
+    const userMap = new Map(users.filter(Boolean).map(u => [u!._id, u!]));
 
-        // Get total points for level calculation
-        const pointEvents = await ctx.db
-          .query("pointEvents")
-          .withIndex("by_user_id", (q) => q.eq("userId", membership.userId))
-          .filter((q) => q.eq(q.field("communityId"), args.communityId))
-          .collect();
+    // Batch fetch all point events at once (instead of N queries)
+    // Fetch all point events for this community, then filter by userId in memory
+    const allPointEvents = await ctx.db
+      .query("pointEvents")
+      .withIndex("by_community_id", (q) => q.eq("communityId", args.communityId))
+      .collect();
 
-        const totalPoints = pointEvents.reduce((sum, e) => sum + e.points, 0);
-        const level = getLevelFromPoints(totalPoints);
+    // Group point events by userId
+    const pointsByUser = new Map<string, number>();
+    for (const event of allPointEvents) {
+      const current = pointsByUser.get(event.userId.toString()) || 0;
+      pointsByUser.set(event.userId.toString(), current + event.points);
+    }
 
-        return {
-          membershipId: membership._id,
-          userId: user._id,
-          clerkId: user.clerkId,
-          displayName: user.displayName,
-          avatarUrl: user.avatarUrl,
-          role: membership.role,
-          subscriptionType: membership.subscriptionType,
-          createdAt: membership.createdAt,
-          totalPoints,
-          level,
-        };
-      })
-    );
+    // Build member list using batched data
+    const members = memberships.map((membership) => {
+      const user = userMap.get(membership.userId);
+      if (!user) return null;
+
+      const totalPoints = pointsByUser.get(membership.userId.toString()) || 0;
+      const level = getLevelFromPoints(totalPoints);
+
+      return {
+        membershipId: membership._id,
+        userId: user._id,
+        clerkId: user.clerkId,
+        displayName: user.displayName,
+        avatarUrl: user.avatarUrl,
+        role: membership.role,
+        subscriptionType: membership.subscriptionType,
+        createdAt: membership.createdAt,
+        totalPoints,
+        level,
+      };
+    });
 
     // Filter out nulls and sort by join date (newest first)
     return members.filter(Boolean).sort((a, b) => b!.createdAt - a!.createdAt);
@@ -512,6 +444,16 @@ export const addAdmin = mutation({
     // Cannot add owner as admin
     if (membership.role === "owner") {
       throw new Error("Cannot add owner as admin");
+    }
+
+    // Check if target membership is active (not blocked or inactive)
+    if (membership.status !== "active") {
+      throw new Error("Cannot promote a member who is not active");
+    }
+
+    // Cannot add someone who is already an admin
+    if (membership.role === "admin") {
+      throw new Error("This member is already an admin");
     }
 
     // Update role to admin

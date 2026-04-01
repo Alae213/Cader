@@ -1,76 +1,99 @@
-# Feature: Profile Modal
+# Feature: Profile Panel
 
-> **Status:** `draft`
+> **Status:** `active`
 > **Phase:** v1
-> **Last updated:** March 2026
+> **Last updated:** April 2026
 
 ---
 
 ## Summary
 
-The Profile modal is a platform-level overview of a user's identity and activity. It shows
-the user's avatar, full name, a GitHub-style contribution activity map, the list of communities "https://www.assistant-ui.com/heat-graph",
-they've joined, and the communities they've created. It is read-only for other members viewing
-someone else's profile; the user viewing their own profile can navigate to Settings to edit.
+The Profile Panel is a **right-side slide-out drawer** that shows a user's full profile. It replaces the old ProfileModal. It supports two modes:
+
+- **Self profile** — triggered from TopBar avatar dropdown (Profile menu item). Shows all profile data + inline editing.
+- **Other user's profile** — triggered from Leaderboard avatar click, Feed post author click, or Members tab. Read-only view.
 
 ---
 
 ## Users
 
-- **Authenticated user viewing their own profile:** Read-only display + link to Settings for edits
-- **Authenticated user viewing another member's profile:** Read-only
-- **Triggered from:** Top bar (Profile → Profile) for self; member profile card click for others
+- **Authenticated user viewing their own profile:** Full profile + inline editing (displayName, bio, wilaya, profile image)
+- **Authenticated user viewing another member's profile:** Read-only display
+- **Triggered from:** TopBar (Profile → Profile) for self; Leaderboard/Feed/Members avatar click for others
 
 ---
 
 ## User Stories
 
-- As a **member**, I want to **see my own profile summary** so that I know how I appear to others in the community.
+- As a **member**, I want to **see my own profile summary** so that I know how I appear to others.
 - As a **member**, I want to **view another member's profile** so that I can learn about them.
+- As a **member**, I want to **edit my profile inline** without navigating away.
 - As an **owner**, I want to **see which communities a member has joined or created** so that I can understand their background.
 
 ---
 
 ## Behaviour
 
-### Profile Modal Layout
+### Panel Layout (right-side slide-out, 384px wide)
 
 **Header:**
-- Avatar (large)
-- Full display name
-- Level badge (current level in the current community — or global? — open question)
+- Close button (X)
+- Title: "Profile" (self) or user's display name (others)
 
+**Profile Card:**
+- Avatar (large, 80px) — clickable to change profile image (self only)
+- Display name (editable inline for self)
+- Level badge (community-scoped level from pointEvents)
+- Total points
+- Join date
+- Bio (max 160 chars, editable inline for self)
+- Wilaya (58 Algerian options, editable inline for self)
 
 **Contribution Activity Map:**
-- A GitHub-style grid (weeks × days) showing activity over the past year "https://www.assistant-ui.com/heat-graph",
-- Each cell represents a day; filled/colored cells indicate activity on that day
-- Activity definition: TBD (posts created? upvotes given? lessons viewed? — open question)
+- GitHub-style grid (weeks × days) showing activity over the past year
+- Each cell represents a day; filled/colored cells indicate activity
+- Activity signals: posts, comments, upvotes, lesson completions, streak days
 - Hovering a cell shows: date + activity count
+- Horizontally scrollable
 
 **Communities Section:**
-- "Communities I've joined" — list of community names + thumbnails the user is an active member of
-- "Communities I've created" — list of communities where the user is an owner
+- "Communities Joined" — list of community names + thumbnails
+- "Communities Created" — list of communities where user is owner
+- Clicking a community opens it in a **new browser tab** and closes the panel
+
+**Edit Behavior (self only):**
+- No "Edit Profile" button — editing is inline
+- Auto-save on: 1.5s debounce of no typing, blur, or Enter key
+- "Change Profile Image" button → opens Clerk's UserProfile modal
 
 **Footer:**
-- "Edit profile" button → closes modal, opens Settings → Profile section (self only)
+- None (no edit button)
 
 ---
 
 ## Edge Cases & Rules
 
-- Viewing another member's profile: "Edit profile" button is hidden
-- A user with no communities joined shows an empty state for that section
-- Activity map is platform-wide (all communities combined) or community-scoped — open question
-- Level badge shown on the profile modal: the user's level in the community where the profile was opened (community-scoped level) — not a global level
-- If the user has left or been removed from a community, that community does not appear in "Communities I've joined"
+| Edge Case | Rule |
+|-----------|------|
+| Viewing another member's profile | All edit UI is hidden |
+| User has no communities | Shows "No communities yet" empty state |
+| Activity map is platform-wide | All communities combined (not scoped) |
+| Level badge | Community-scoped: user's level in the current community |
+| User has left/been removed | Community doesn't appear in "Communities Joined" |
+| Deleted user viewing | Shows "Deleted User" with grayed avatar |
+| Panel open + navigate communities | Panel closes on navigation |
+| Unsaved changes on close | Warn with confirm dialog |
+| Clerk profile image change | Opens Clerk's `<UserProfile />` modal |
+| Auto-save race condition | Single setTimeout ref, cleared on unmount/new input |
 
 ---
 
 ## Connections
 
-- **Depends on:** Clerk auth, Convex `users` table, `memberships` table
-- **Triggers:** Settings modal (via "Edit profile" button)
-- **Shares data with:** Members tab (same member data), Community feed (post activity for activity map), Leaderboard (level badge)
+- **Depends on:** Clerk auth, Convex `users` table, `memberships` table, `pointEvents` table
+- **Replaces:** ProfileModal.tsx (deleted)
+- **Shares data with:** Members tab, Community feed, Leaderboard
+- **Triggers:** Clerk UserProfile modal (for image change)
 
 ---
 
@@ -78,8 +101,8 @@ someone else's profile; the user viewing their own profile can navigate to Setti
 
 | Aspect                | MVP (v1)                                         | Full Version                                     |
 | --------------------- | ------------------------------------------------ | ------------------------------------------------ |
-| Activity map data     | Multi-signal (posts, comments, lessons, upvotes) | Multi-signal (posts, comments, lessons, upvotes) |
-| Communities list      | Names + thumbnails                               | Click to navigate to that community              |
+| Activity map data     | All signals (posts, comments, upvotes, lessons, streaks) | Same |
+| Communities list      | Names + thumbnails, open in new tab              | Click to navigate in same tab |
 | Direct message        | Not in v1                                        | "Message" button on other users' profiles        |
 | Badges / achievements | Not in v1                                        | Earned badges displayed on profile               |
 | Profile visibility    | Always visible to all community members          | Privacy settings                                 |
@@ -88,9 +111,10 @@ someone else's profile; the user viewing their own profile can navigate to Setti
 
 ## Security Considerations
 
-- Profile modal only shows non-sensitive fields: name, level, community list, activity map
-- Email and phone number are never shown in the profile modal
-- "Communities I've joined" list is filtered to only show communities — never exposes private community membership to someone outside those communities (TBD: should this list be visible cross-community?)
+- Profile panel only shows non-sensitive fields: name, level, bio, wilaya, community list, activity map
+- Email and phone number are never shown
+- "Communities Joined" list is filtered to only show communities the user is actually in
+- Inline editing is gated by `isOwnProfile` check (Clerk ID comparison)
 - All profile data is fetched with a valid Clerk JWT
 
 ---
@@ -99,11 +123,21 @@ someone else's profile; the user viewing their own profile can navigate to Setti
 
 | Task # | Status | What needs to be done                                                              |
 | ------ | ------ | ---------------------------------------------------------------------------------- |
-| T—     | `[ ]`  | Build Profile modal layout (avatar, name, level,  activity map, communities)       |
-| T—     | `[ ]`  | Build contribution activity map component (GitHub-style grid, hover tooltip)       |
-| T—     | `[ ]`  | Convex query: `getUserProfile` — returns profile data + communities joined/created |
-| T—     | `[ ]`  | Convex query: `getUserActivity` — returns daily activity counts for the past year  |
-| T—     | `[ ]`  | Wire "Edit profile" button to open Settings modal at Profile section (self only)   |
+| T-PP-001 | `[ ]` | Expand getUserActivity to include all signals (upvotes, lessons, streaks)          |
+| T-PP-002 | `[ ]` | Add bio field to users schema (max 160 chars)                                      |
+| T-PP-003 | `[ ]` | Update updateUserProfile mutation to accept bio                                    |
+| T-PP-004 | `[ ]` | Add wilaya field to users schema (restore from deprecated)                         |
+| T-PP-005 | `[ ]` | Update updateUserProfile mutation to accept wilaya                                 |
+| T-PP-006 | `[ ]` | Rewrite ProfilePanel to accept userId prop (Clerk ID) — support self + others      |
+| T-PP-007 | `[ ]` | Add activity map (GitHub-style grid) to ProfilePanel                               |
+| T-PP-008 | `[ ]` | Add communities section to ProfilePanel                                            |
+| T-PP-009 | `[ ]` | Add inline editing with auto-save (1.5s debounce + blur + Enter)                   |
+| T-PP-010 | `[ ]` | Add "Change profile image" button (Clerk UserProfile modal)                        |
+| T-PP-011 | `[ ]` | Hide edit UI when viewing other users                                              |
+| T-PP-012 | `[ ]` | Handle deleted user display ("Deleted User" placeholder)                           |
+| T-PP-013 | `[ ]` | Wire LeaderboardTab avatar click → open ProfilePanel                               |
+| T-PP-014 | `[ ]` | Wire FeedTab post author click → open ProfilePanel                                 |
+| T-PP-015 | `[ ]` | Delete ProfileModal.tsx entirely                                                   |
 
 ---
 
@@ -117,7 +151,7 @@ someone else's profile; the user viewing their own profile can navigate to Setti
 
 ## Open Questions
 
-- [ ] What counts as "activity" for the contribution activity map — posts only, or posts + comments + upvotes given + lessons completed?
-- [ ] Is the activity map platform-wide (all communities combined) or scoped to the current community?
-- [ ] Is the level badge on the Profile modal the user's level in the current community or a global level?
-- [ ] Is the "Communities I've joined" list visible to other members, or only to the user themselves?
+- [x] What counts as "activity"? — **Answer:** All signals: posts, comments, upvotes, lesson completions, streak days
+- [x] Is the activity map platform-wide or community-scoped? — **Answer:** Platform-wide (all communities combined)
+- [x] Is the level badge community-scoped or global? — **Answer:** Community-scoped (level in current community)
+- [x] Is "Communities Joined" visible to other members? — **Answer:** Yes, always visible to all community members

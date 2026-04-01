@@ -12,8 +12,6 @@ import { AboutTab } from "@/components/community/AboutTab";
 import { FeedTab } from "@/components/Feed/FeedTab";
 import { ClassroomsTab } from "@/components/Classrooms";
 import { LeaderboardTab } from "@/components/community/LeaderboardTab";
-import { AnalysisTab } from "@/components/community/AnalysisTab";
-import { ProfileModal } from "@/components/community/ProfileModal";
 import { ProfilePanel } from "@/components/community/ProfilePanel";
 import { SettingsModal } from "@/components/community/SettingsModal";
 import { ExploreModal } from "@/components/community/ExploreModal";
@@ -79,11 +77,9 @@ export function CommunityShell({
   const currentUser = currentUserQuery ?? undefined;
   
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [showProfileModal, setShowProfileModal] = useState(false);
   const [showProfilePanel, setShowProfilePanel] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showExploreModal, setShowExploreModal] = useState(false);
-  const [profileUserId, setProfileUserId] = useState<string>("");
   
   // Client-side tab state
   const [activeTab, setActiveTab] = useState<string>(() => 
@@ -97,11 +93,13 @@ export function CommunityShell({
 
   // Handle profile click - open profile panel (right slider)
   const handleProfileClick = () => {
+    setShowSettingsModal(false); // Close settings if open
     setShowProfilePanel(true);
   };
 
   // Handle settings click
   const handleSettingsClick = () => {
+    setShowProfilePanel(false); // Close profile panel if open
     setShowSettingsModal(true);
   };
 
@@ -141,8 +139,6 @@ export function CommunityShell({
         return <ClassroomsTab communityId={community.id} isOwner={isOwner} currentUser={currentUser ?? undefined} />;
       case "leaderboard":
         return <LeaderboardTab communityId={community.id} />;
-      case "analysis":
-        return isOwner ? <AnalysisTab communityId={community.id} /> : null;
       default:
         return null;
     }

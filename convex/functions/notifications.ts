@@ -224,3 +224,90 @@ async function _createNotification(
     createdAt: Date.now(),
   });
 }
+
+// Get notification preferences for the current user
+export const getNotificationPreferences = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) return null;
+
+    const prefs = await ctx.db
+      .query("notificationPreferences")
+      .withIndex("by_user_id", (q) => q.eq("userId", user._id))
+      .first();
+
+    // Return defaults if no preferences exist
+    return prefs || {
+      userId: user._id,
+      emailEnabled: true,
+      inAppEnabled: true,
+      commentOnPost: true,
+      mention: true,
+      newMember: true,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+  },
+});
+
+// Update notification preferences for the current user
+export const updateNotificationPreferences = mutation({
+  args: {
+    emailEnabled: v.optional(v.boolean()),
+    inAppEnabled: v.optional(v.boolean()),
+    commentOnPost: v.optional(v.boolean()),
+    mention: v.optional(v.boolean()),
+    newMember: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("You must be signed in");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) throw new Error("User not found");
+
+    const existing = await ctx.db
+      .query("notificationPreferences")
+      .withIndex("by_user_id", (q) => q.eq("userId", user._id))
+      .first();
+
+    const updates: Record<string, unknown> = {
+      updatedAt: Date.now(),
+    };
+
+    if (args.emailEnabled !== undefined) updates.emailEnabled = args.emailEnabled;
+    if (args.inAppEnabled !== undefined) updates.inAppEnabled = args.inAppEnabled;
+    if (args.commentOnPost !== undefined) updates.commentOnPost = args.commentOnPost;
+    if (args.mention !== undefined) updates.mention = args.mention;
+    if (args.newMember !== undefined) updates.newMember = args.newMember;
+
+    if (existing) {
+      await ctx.db.patch(existing._id, updates);
+    } else {
+      await ctx.db.insert("notificationPreferences", {
+        userId: user._id,
+        emailEnabled: args.emailEnabled ?? true,
+        inAppEnabled: args.inAppEnabled ?? true,
+        commentOnPost: args.commentOnPost ?? true,
+        mention: args.mention ?? true,
+        newMember: args.newMember ?? true,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+    }
+
+    return true;
+  },
+});

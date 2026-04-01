@@ -80,6 +80,7 @@ export const listPosts = query({
           ...post,
           author: author ? {
             _id: author._id,
+            clerkId: author.clerkId,
             displayName: author.displayName,
             avatarUrl: author.avatarUrl,
           } : null,
@@ -323,6 +324,9 @@ export const listComments = query({
 
     const allComments = await commentQuery.collect();
 
+    // Get the post to find the community
+    const post = await ctx.db.get(args.postId);
+
     // Get author details for each comment
     const commentsWithAuthors = await Promise.all(
       allComments.map(async (comment) => {
@@ -340,6 +344,22 @@ export const listComments = query({
           hasUpvoted = !!upvote;
         }
 
+        // Check if author is owner or admin of this community
+        let authorIsOwner = false;
+        let authorIsAdmin = false;
+        if (post?.communityId && author) {
+          const authorMembership = await ctx.db
+            .query("memberships")
+            .withIndex("by_community_and_user", (q) =>
+              q.eq("communityId", post.communityId).eq("userId", author._id)
+            )
+            .first();
+          if (authorMembership) {
+            authorIsOwner = authorMembership.role === "owner";
+            authorIsAdmin = authorMembership.role === "admin" || authorMembership.role === "owner";
+          }
+        }
+
         return {
           ...comment,
           author: author ? {
@@ -348,6 +368,8 @@ export const listComments = query({
             avatarUrl: author.avatarUrl,
           } : null,
           hasUpvoted,
+          authorIsOwner,
+          authorIsAdmin,
         };
       })
     );

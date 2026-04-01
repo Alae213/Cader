@@ -3,15 +3,13 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import { useAuth, useUser } from "@clerk/nextjs";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useAuth } from "@clerk/nextjs";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/Dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/Dialog";
 import { Heading, Text } from "@/components/ui/Text";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
-import { Badge } from "@/components/ui/Badge";
-import { Loader2, CheckCircle, AlertCircle, CreditCard, XCircle } from "lucide-react";
+import { Loader2, AlertCircle, CreditCard, XCircle, ExternalLink } from "lucide-react";
 
 interface Community {
   _id: string;
@@ -28,26 +26,29 @@ interface OnboardingModalProps {
   onComplete?: () => void;
 }
 
-type PaymentStatus = "idle" | "pending" | "success" | "cancelled" | "expired";
+type PaymentStatus = "idle" | "pending" | "cancelled" | "expired";
+
+// ============================================================================
+// FUTURE: Custom Questions Feature
+// ============================================================================
+// TODO: After MVP, add support for community owner custom questions:
+// - Add `customQuestions` field to Community schema
+// - Each question has: type (text/choice), label, required, options[]
+// - Store member answers in MembershipAnswers table
+// - Render dynamic form based on community config
+// ============================================================================
 
 export function OnboardingModal({ community, open, onOpenChange, onComplete }: OnboardingModalProps) {
   const { userId } = useAuth();
-  const { user } = useUser();
   const searchParams = useSearchParams();
-  const router = useRouter();
-  const [step, setStep] = useState<1 | 2 | "pending">(1);
+  
+  // UI states
   const [isLoading, setIsLoading] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
   const [error, setError] = useState("");
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("idle");
   
-  // Form state
-  const [displayName, setDisplayName] = useState("");
-  const [phone, setPhone] = useState("");
-  
-  // Checkout state
-  const [checkoutUrl, setCheckoutUrl] = useState("");
-  
-  // Check if user already has membership (for pending state)
+  // Check if user already has membership
   const membershipQuery = useQuery(
     api.functions.memberships.getMembershipBySlug,
     userId ? { slug: community.slug, clerkId: userId } : "skip"
@@ -65,25 +66,25 @@ export function OnboardingModal({ community, open, onOpenChange, onComplete }: O
     userId ? { clerkId: userId } : "skip"
   );
 
-  // =========================================================================
-  // CHECKOUT STATUS CHECK (EC-19, EC-20)
+  // ============================================================================
+  // CHECKOUT STATUS CHECK
   // Check URL params for payment status when modal opens
-  // =========================================================================
+  // ============================================================================
   useEffect(() => {
     if (open) {
       const status = searchParams.get("status");
       const joined = searchParams.get("joined");
       
       if (status === "cancelled") {
-        // EC-20: Handle cancel redirect
         setPaymentStatus("cancelled");
-        setStep(2); // Go back to billing step
       } else if (status === "expired") {
-        // EC-19: Handle checkout expiration
         setPaymentStatus("expired");
       } else if (joined === "true") {
-        // Payment was successful
-        setPaymentStatus("success");
+        // Payment successful - close modal and complete
+        toast.success("Welcome to the community!");
+        onOpenChange(false);
+        onComplete?.();
+        return;
       }
       
       // Clear URL params after reading
@@ -94,14 +95,7 @@ export function OnboardingModal({ community, open, onOpenChange, onComplete }: O
         window.history.replaceState({}, "", url.toString());
       }
     }
-  }, [open, searchParams]);
-
-  // Initialize display name from Clerk user
-  useEffect(() => {
-    if (user?.fullName) {
-      setDisplayName(user.fullName);
-    }
-  }, [user]);
+  }, [open, searchParams, onOpenChange, onComplete]);
 
   // Check for existing membership - if found, close modal and complete
   useEffect(() => {
@@ -111,19 +105,21 @@ export function OnboardingModal({ community, open, onOpenChange, onComplete }: O
     }
   }, [membershipQuery, open, onOpenChange, onComplete]);
 
-  // Handle free community join
+  // ============================================================================
+  // FREE COMMUNITY JOIN
+  // ============================================================================
   const handleFreeJoin = async () => {
-    if (!userId || !displayName.trim()) return;
+    if (!userId || !convexUser?._id) return;
     
     setIsLoading(true);
     setError("");
     
     try {
-      // Call grantMembership directly for free communities
+      // Use grantMembership (no displayName/phone needed)
       await mutateFreeJoin({
         communityId: community._id as any,
-        displayName: displayName.trim(),
-        phone: phone.trim() || undefined,
+        userId: convexUser._id as any,
+        paymentReference: `free_${Date.now()}`,
       });
       
       toast.success("Welcome to the community!");
@@ -136,16 +132,17 @@ export function OnboardingModal({ community, open, onOpenChange, onComplete }: O
     }
   };
 
-  // Handle paid community checkout
+  // ============================================================================
+  // PAID COMMUNITY CHECKOUT
+  // ============================================================================
   const handlePaidJoin = async () => {
-    if (!userId || !displayName.trim() || !convexUser?._id) return;
+    if (!userId || !convexUser?._id) return;
     
     setIsLoading(true);
     setError("");
     setPaymentStatus("idle");
     
     try {
-      // Create Chargily checkout
       const result = await createCheckout({
         communityId: community._id as any,
         userId: convexUser._id as any,
@@ -155,11 +152,13 @@ export function OnboardingModal({ community, open, onOpenChange, onComplete }: O
       });
       
       if (result.checkoutUrl) {
-        // Redirect to Chargily
-        window.location.href = result.checkoutUrl;
+        // Show redirecting state before navigating
+        setIsRedirecting(true);
+        setTimeout(() => {
+          window.location.href = result.checkoutUrl;
+        }, 1500);
       }
     } catch (err) {
-      // Handle missing Chargily keys gracefully (EC-4)
       if (err instanceof Error && err.message.includes("not configured")) {
         setError("This community is not yet configured for payments. Please contact the community owner.");
       } else {
@@ -170,14 +169,8 @@ export function OnboardingModal({ community, open, onOpenChange, onComplete }: O
     }
   };
 
-  // Reset payment status when going back to step 1
-  const handleBack = () => {
-    setPaymentStatus("idle");
-    setStep(1);
-  };
-
   // Mutations
-  const mutateFreeJoin = useMutation(api.functions.memberships.grantMembershipWithDetails);
+  const mutateFreeJoin = useMutation(api.functions.memberships.grantMembership);
   const createCheckout = useMutation(api.functions.payments.createChargilyCheckout);
 
   // Render payment status message
@@ -210,7 +203,11 @@ export function OnboardingModal({ community, open, onOpenChange, onComplete }: O
     }
   };
 
-  // Check member limit
+  const isPaidCommunity = ["monthly", "annual", "one_time"].includes(community.pricingType || "");
+
+  // ============================================================================
+  // MEMBER LIMIT CHECK
+  // ============================================================================
   if (memberLimitCheck?.atLimit && !memberLimitCheck.isSubscribed) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -231,7 +228,29 @@ export function OnboardingModal({ community, open, onOpenChange, onComplete }: O
     );
   }
 
-  const isPaidCommunity = ["monthly", "annual", "one_time"].includes(community.pricingType || "");
+  // ============================================================================
+  // REDIRECTING STATE
+  // Show loading screen while redirecting to payment
+  // ============================================================================
+  if (isRedirecting) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-md">
+          <div className="text-center py-6">
+            <Loader2 className="w-12 h-12 text-blue-500 mx-auto mb-4 animate-spin" />
+            <Heading size="h3" className="mb-2">Redirecting to Payment</Heading>
+            <Text theme="muted" className="mb-4">
+              Please wait while we connect you to the secure payment page...
+            </Text>
+            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              <ExternalLink className="w-4 h-4" />
+              <span>Powered by Chargily</span>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -242,76 +261,16 @@ export function OnboardingModal({ community, open, onOpenChange, onComplete }: O
             Join {community.name}
           </DialogTitle>
           <Text theme="muted" size="sm" className="mt-1">
-            {isPaidCommunity ? "Complete your profile to continue" : "Enter your details to join"}
+            {isPaidCommunity ? "Complete payment to join" : "Join this community"}
           </Text>
         </div>
 
-        {/* Step 1: Profile */}
-        {step === 1 && (
-          <div className="space-y-4">
-            {/* Display Name */}
-            <div className="space-y-2">
-              <Text size="sm" fontWeight="medium">Full Name</Text>
-              <Input
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="Enter your full name"
-                maxLength={80}
-              />
-            </div>
+        <div className="space-y-4">
+          {/* Payment Status Message (for returning users) */}
+          {renderPaymentStatusMessage()}
 
-            {/* Phone Number */}
-            <div className="space-y-2">
-              <Text size="sm" fontWeight="medium">Phone Number</Text>
-              <Input
-                value={phone}
-                onChange={(e) => {
-                  // Only allow numeric input
-                  const value = e.target.value.replace(/\D/g, "");
-                  setPhone(value);
-                }}
-                placeholder="06XXXXXXXX"
-                maxLength={10}
-              />
-              <Text size="2" theme="muted">
-                For payment verification (Algerian numbers only)
-              </Text>
-            </div>
-
-            {/* Error */}
-            {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-                <Text size="sm" theme="error">{error}</Text>
-              </div>
-            )}
-
-            {/* Actions */}
-            <div className="flex gap-3 pt-2">
-              <Button 
-                variant="secondary" 
-                className="flex-1"
-                onClick={() => onOpenChange(false)}
-              >
-                Cancel
-              </Button>
-              <Button 
-                className="flex-1"
-                onClick={isPaidCommunity ? () => setStep(2) : handleFreeJoin}
-                disabled={!displayName.trim() || isLoading}
-              >
-                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : isPaidCommunity ? "Continue" : "Join Free"}
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Step 2: Billing (Paid Communities) */}
-        {step === 2 && (
-          <div className="space-y-4">
-            {/* Payment Status Message */}
-            {renderPaymentStatusMessage()}
-
-            {/* Order Summary */}
+          {/* Order Summary (Paid Communities) */}
+          {isPaidCommunity && (
             <div className="p-4 bg-bg-elevated rounded-lg space-y-3">
               <div className="flex justify-between">
                 <Text fontWeight="medium">Community Access</Text>
@@ -330,58 +289,48 @@ export function OnboardingModal({ community, open, onOpenChange, onComplete }: O
                 <Text fontWeight="semibold" size="lg">{community.priceDzd} DZD</Text>
               </div>
             </div>
+          )}
 
-            {/* Payment Info */}
+          {/* Payment Info (Paid Communities) */}
+          {isPaidCommunity && (
             <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-md">
               <CreditCard className="w-5 h-5 text-blue-600" />
               <Text size="sm" theme="primary">Pay with your Algerian CIB or Edahabia card</Text>
             </div>
+          )}
 
-            {/* Error */}
-            {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-                <Text size="sm" theme="error">{error}</Text>
-              </div>
-            )}
-
-            {/* Actions */}
-            <div className="flex gap-3 pt-2">
-              <Button 
-                variant="secondary" 
-                className="flex-1"
-                onClick={handleBack}
-                disabled={isLoading}
-              >
-                Back
-              </Button>
-              <Button 
-                className="flex-1"
-                onClick={handlePaidJoin}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <>Pay {community.priceDzd} DZD</>
-                )}
-              </Button>
+          {/* Error */}
+          {error && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+              <Text size="sm" theme="error">{error}</Text>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Pending State */}
-        {step === "pending" && (
-          <div className="text-center py-6">
-            <Loader2 className="w-12 h-12 text-blue-500 mx-auto mb-4 animate-spin" />
-            <Heading size="h3" className="mb-2">Confirming Payment</Heading>
-            <Text theme="muted" className="mb-4">
-              Please wait while we confirm your payment...
-            </Text>
-            <Text size="sm" theme="muted">
-              This may take a few moments
-            </Text>
+          {/* Actions */}
+          <div className="flex gap-3 pt-2">
+            <Button 
+              variant="secondary" 
+              className="flex-1"
+              onClick={() => onOpenChange(false)}
+              disabled={isLoading}
+            >
+              Cancel
+            </Button>
+            <Button 
+              className="flex-1"
+              onClick={isPaidCommunity ? handlePaidJoin : handleFreeJoin}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : isPaidCommunity ? (
+                <>Pay {community.priceDzd} DZD</>
+              ) : (
+                "Join Free"
+              )}
+            </Button>
           </div>
-        )}
+        </div>
       </DialogContent>
     </Dialog>
   );

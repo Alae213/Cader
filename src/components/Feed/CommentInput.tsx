@@ -10,9 +10,10 @@ import { Avatar } from "@/components/shared/Avatar";
 import { Button } from "@/components/ui/Button";
 import { 
   Send,
-  Image,
+  Image as ImageIcon,
   X,
   AtSign,
+  Loader2,
 } from "lucide-react";
 
 interface CommentInputProps {
@@ -24,6 +25,43 @@ interface CommentInputProps {
   placeholder?: string;
   autoFocus?: boolean;
 }
+
+// Compress image to base64
+const compressImage = (file: File, maxWidth: number = 800, quality: number = 0.6): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new (window.Image || HTMLImageElement)();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let width = img.width;
+        let height = img.height;
+        
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          reject(new Error("Canvas not supported"));
+          return;
+        }
+        
+        ctx.drawImage(img as HTMLImageElement, 0, 0, width, height);
+        const compressed = canvas.toDataURL("image/jpeg", quality);
+        resolve(compressed);
+      };
+      img.onerror = () => reject(new Error("Failed to load image"));
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
 
 export function CommentInput({ 
   postId, 
@@ -38,12 +76,15 @@ export function CommentInput({
   const { user } = useUser();
   const [content, setContent] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploadingImages, setIsUploadingImages] = useState(false);
+  const [mediaUrls, setMediaUrls] = useState<string[]>([]);
   const [showMentions, setShowMentions] = useState(false);
   const [mentionSearch, setMentionSearch] = useState("");
   const [mentionPosition, setMentionPosition] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const createComment = useMutation(api.functions.feed.createComment);
   
@@ -72,8 +113,8 @@ export function CommentInput({
       return;
     }
 
-    if (!content.trim()) {
-      toast.error("Please enter a comment");
+    if (!content.trim() && mediaUrls.length === 0) {
+      toast.error("Please enter a comment or add an image");
       return;
     }
 
@@ -83,9 +124,11 @@ export function CommentInput({
         postId: postId as any,
         content: content.trim(),
         parentCommentId: parentCommentId as any,
+        mediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined,
       });
       
       setContent("");
+      setMediaUrls([]);
       onSubmit?.();
       toast.success("Comment posted!");
     } catch (error) {
@@ -93,6 +136,53 @@ export function CommentInput({
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Handle image selection
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsUploadingImages(true);
+    try {
+      for (const file of Array.from(files)) {
+        // Validate file type
+        if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.type)) {
+          toast.error("Invalid format. Use JPG, PNG, WebP, or GIF.");
+          continue;
+        }
+
+        // Validate file size (max 10MB)
+        if (file.size > 10 * 1024 * 1024) {
+          toast.error("File too large. Maximum size is 10MB.");
+          continue;
+        }
+
+        // Compress and add to mediaUrls
+        const compressed = await compressImage(file, 800, 0.6);
+        
+        // Check base64 size (Convex 1MB limit, base64 is ~33% larger)
+        if (compressed.length > 700 * 1024) {
+          toast.error("Image too large after compression. Please try a smaller image.");
+          continue;
+        }
+
+        setMediaUrls(prev => [...prev, compressed]);
+      }
+    } catch (error) {
+      toast.error("Failed to process image");
+    } finally {
+      setIsUploadingImages(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  // Remove image from mediaUrls
+  const removeImage = (index: number) => {
+    setMediaUrls(prev => prev.filter((_, i) => i !== index));
   };
 
   // Handle @ mentions
@@ -199,6 +289,28 @@ export function CommentInput({
         />
         
         <div className="flex-1">
+          {/* Image previews */}
+          {mediaUrls.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-2">
+              {mediaUrls.map((url, i) => (
+                <div key={i} className="relative group">
+                  <img 
+                    src={url} 
+                    alt="" 
+                    className="w-20 h-20 rounded-lg object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeImage(i)}
+                    className="absolute -top-2 -right-2 bg-red-500 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X className="w-3 h-3 text-white" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          
           <textarea
             ref={textareaRef}
             value={content}
@@ -217,9 +329,23 @@ export function CommentInput({
                 type="button"
                 className="p-1.5 rounded-md hover:bg-bg-muted transition-colors"
                 title="Add image"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploadingImages}
               >
-                <Image className="w-4 h-4 text-text-muted" />
+                {isUploadingImages ? (
+                  <Loader2 className="w-4 h-4 text-text-muted animate-spin" />
+                ) : (
+                  <ImageIcon className="w-4 h-4 text-text-muted" />
+                )}
               </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                multiple
+                className="hidden"
+                onChange={handleImageSelect}
+              />
               <button
                 type="button"
                 className="p-1.5 rounded-md hover:bg-bg-muted transition-colors"
@@ -248,7 +374,7 @@ export function CommentInput({
               <Button 
                 size="sm" 
                 onClick={handleSubmit}
-                disabled={isLoading || !content.trim()}
+                disabled={isLoading || (!content.trim() && mediaUrls.length === 0)}
               >
                 <Send className="w-4 h-4" />
               </Button>

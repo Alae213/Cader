@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { Home, Users, FileText, Trophy, BarChart3 } from "lucide-react";
+import { Home, Users, FileText, Trophy } from "lucide-react";
 import { Tabs as TabsPrimitive, TabsList as TabsListPrimitive, TabsTrigger as TabsTriggerPrimitive } from "@/components/animate-ui/primitives/animate/tabs";
 import { useTabs } from "@/components/animate-ui/primitives/animate/tabs";
 import { cn } from "@/lib/utils";
@@ -39,7 +39,6 @@ const memberTabs: Tab[] = [
 
 const ownerTabs: Tab[] = [
   ...memberTabs,
-  { value: "analysis", label: "Analysis", icon: BarChart3 },
 ];
 
 // Save tab preference to localStorage
@@ -254,7 +253,7 @@ export function TabNav({
 export function getInitialTab(communitySlug: string, isOwner: boolean, isMember: boolean = false, isAuthenticated: boolean = false): string {
   const publicTabsList = ["about"];
   const memberTabsList = ["community", "classrooms", "leaderboard", "about"];
-  const ownerTabsList = [...memberTabsList, "analysis"];
+  const ownerTabsList = [...memberTabsList];
   
   let validTabs: string[];
   

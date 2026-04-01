@@ -24,7 +24,6 @@ The minimum set of features for a creator to launch a paid community and a stude
 - [ ] Classroom access model (open / level-gated / price-gated / level+price)
 - [ ] Members tab + Algeria Wilaya SVG map (interactive filter)
 - [ ] Leaderboard tab (5 levels, pointEvents, top 7d/30d/all-time)
-- [ ] Analysis tab (owner-only "coming soon" placeholder)
 
 **Payments**
 - [x] Chargily Pay integration (community membership payments)
@@ -62,7 +61,7 @@ Quality-of-life improvements after the first real communities go live.
 
 **Functionality**
 - [ ] Arabic and/or French language support (i18n with RTL for Arabic)
-- [ ] Creator analytics dashboard (Analysis tab — member growth, engagement, revenue events)
+- [ ] Creator analytics dashboard (member growth, engagement, revenue events)
 - [ ] Email digest notifications
 - [ ] Module/page drag-and-drop reorder in classroom builder
 - [ ] Full-text search within community feed

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useAuth } from "@clerk/nextjs";
@@ -12,20 +12,20 @@ import { Input } from "@/components/ui/Input";
 import { Avatar } from "@/components/shared/Avatar";
 import { 
   Shield, CreditCard, AlertTriangle, LogOut, Trash2, 
-  Loader2, Tags, GripVertical, Plus, X, Pencil
+  Loader2, Tags, Plus, X, Pencil, Bell, Mail, Smartphone, MessageSquare, AtSign, Users
 } from "lucide-react";
 
 interface SettingsModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   communitySlug?: string;
-  initialSection?: "admins" | "billing" | "danger" | "account" | "categories";
+  initialSection?: "notifications" | "admins" | "billing" | "danger" | "account" | "categories";
 }
 
-type Section = "admins" | "billing" | "danger" | "account" | "categories";
+type Section = "notifications" | "admins" | "billing" | "danger" | "account" | "categories";
 
-export function SettingsModal({ open, onOpenChange, communitySlug, initialSection = "admins" }: SettingsModalProps) {
-  const [activeSection, setActiveSection] = useState<Section>(initialSection);
+export function SettingsModal({ open, onOpenChange, communitySlug, initialSection }: SettingsModalProps) {
+  const [activeSection, setActiveSection] = useState<Section>(initialSection || "account");
   const { userId: clerkId, signOut } = useAuth();
 
   // Fetch current user
@@ -43,10 +43,32 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
     community?._id ? { communityId: community._id } : "skip"
   );
 
+  // Check if user is owner/admin of current community
+  const isOwner = community?.ownerId === currentUser?._id;
+  const isAdmin = memberships?.some((m) => m && m.userId === currentUser?._id && m.role === "admin") ?? false;
+
+  // Compute default section based on permissions
+  const getDefaultSection = (): Section => {
+    if (initialSection) return initialSection;
+    if (communitySlug && isOwner) return "admins";
+    return "account";
+  };
+
+  // Set default section when community/user data loads
+  useEffect(() => {
+    if (!initialSection) {
+      const defaultSection = getDefaultSection();
+      setActiveSection(defaultSection);
+    }
+  }, [communitySlug, isOwner, isAdmin]);
+
   // Mutations
   const addAdmin = useMutation(api.functions.memberships.addAdmin);
   const removeAdmin = useMutation(api.functions.memberships.removeAdmin);
   const deleteCommunity = useMutation(api.functions.communities.deleteCommunity);
+  const deleteAccountMutation = useMutation(api.functions.users.deleteAccount);
+  const createPlatformCheckout = useMutation(api.functions.payments.createPlatformSubscriptionCheckout);
+  const cancelSubscription = useMutation(api.functions.payments.cancelPlatformSubscription);
   
   // Category mutations
   const createCategory = useMutation(api.functions.categories.createCategory);
@@ -59,12 +81,23 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
     community?._id ? { communityId: community._id } : "skip"
   );
 
+  // Fetch notification preferences
+  const notificationPrefs = useQuery(api.functions.notifications.getNotificationPreferences);
+  const updateNotificationPrefs = useMutation(api.functions.notifications.updateNotificationPreferences);
+
   // Local state for forms
   const [searchQuery, setSearchQuery] = useState("");
   const [adminToRemove, setAdminToRemove] = useState<string | null>(null);
   
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  
+  // Hold-to-confirm delete state
+  const [holdProgress, setHoldProgress] = useState(0);
+  const [isHolding, setIsHolding] = useState(false);
+  const holdTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   // Category state
   const [isAddingCategory, setIsAddingCategory] = useState(false);
@@ -73,12 +106,9 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [editCategoryName, setEditCategoryName] = useState("");
   const [editCategoryColor, setEditCategoryColor] = useState("");
+  const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null);
 
   // Set initial values when user loads
-
-  // Check if user is owner/admin of current community
-  const isOwner = community?.ownerId === currentUser?._id;
-  const isAdmin = memberships?.some((m) => m && m.userId === currentUser?._id && m.role === "admin") ?? false;
 
   const handleAddAdmin = async (membershipId: string) => {
     try {
@@ -105,9 +135,17 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
     try {
       await deleteCommunity({ communityId: community._id });
       toast.success("Community deleted");
+      setDeleteConfirm(""); // Reset confirmation
       window.location.href = "/";
     } catch (error) {
-      toast.error("Failed to delete community");
+      const message =
+        error instanceof Error
+          ? error.message
+          : typeof error === "object" && error !== null && "message" in error
+            ? String((error as { message: unknown }).message)
+            : "Failed to delete community";
+      toast.error(message);
+      setDeleteConfirm(""); // Reset on failure so user can retry
     }
     setIsDeleting(false);
   };
@@ -117,6 +155,99 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
       window.location.href = "/";
     });
   };
+
+  const handleDeleteAccount = async () => {
+    setIsDeletingAccount(true);
+    try {
+      await deleteAccountMutation({});
+      toast.success("Account deleted");
+      // Sign out and redirect to home
+      signOut(() => {
+        window.location.href = "/";
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : typeof error === "object" && error !== null && "message" in error
+            ? String((error as { message: unknown }).message)
+            : "Failed to delete account";
+      toast.error(message);
+    }
+    setIsDeletingAccount(false);
+    setShowDeleteAccountConfirm(false);
+  };
+
+  const handleSubscribe = async () => {
+    if (!community?._id || !currentUser?._id) return;
+    try {
+      const result = await createPlatformCheckout({
+        communityId: community._id,
+        userId: currentUser._id,
+        successUrl: `${window.location.origin}/${community.slug}?subscribed=true`,
+        cancelUrl: `${window.location.origin}/${community.slug}?subscription=cancelled`,
+      });
+      window.open(result.checkoutUrl, "_blank");
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : typeof error === "object" && error !== null && "message" in error
+            ? String((error as { message: unknown }).message)
+            : "Failed to create checkout";
+      toast.error(message);
+    }
+  };
+
+  const handleCancelSubscription = async () => {
+    if (!community?._id) return;
+    try {
+      await cancelSubscription({ communityId: community._id });
+      toast.success("Subscription cancelled");
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : typeof error === "object" && error !== null && "message" in error
+            ? String((error as { message: unknown }).message)
+            : "Failed to cancel subscription";
+      toast.error(message);
+    }
+  };
+
+  // Hold-to-confirm delete handlers
+  const handleHoldStart = () => {
+    if (deleteConfirm !== community?.name || isDeleting) return;
+    setIsHolding(true);
+    setHoldProgress(0);
+    holdTimerRef.current = setInterval(() => {
+      setHoldProgress((prev) => {
+        if (prev >= 100) {
+          if (holdTimerRef.current) clearInterval(holdTimerRef.current);
+          setIsHolding(false);
+          handleDeleteCommunity();
+          return 100;
+        }
+        return prev + 2; // 50 intervals × 100ms = 5 seconds
+      });
+    }, 100);
+  };
+
+  const handleHoldEnd = () => {
+    if (holdTimerRef.current) {
+      clearInterval(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+    setIsHolding(false);
+    setHoldProgress(0);
+  };
+
+  // Cleanup hold timer on unmount
+  useEffect(() => {
+    return () => {
+      if (holdTimerRef.current) clearInterval(holdTimerRef.current);
+    };
+  }, []);
 
   // Category handlers
   const handleAddCategory = async () => {
@@ -170,6 +301,140 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
 
   const renderSection = () => {
     switch (activeSection) {
+      case "notifications":
+        return (
+          <div className="space-y-6">
+            <Text size="sm" theme="secondary" className="mb-2">
+              Choose how you want to be notified about activity.
+            </Text>
+
+            {/* Global toggles */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Mail className="h-5 w-5 text-text-secondary" />
+                  <div>
+                    <Text size="sm">Email Notifications</Text>
+                    <Text size="0" theme="muted">Receive notifications via email</Text>
+                  </div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={notificationPrefs?.emailEnabled ?? true}
+                    onChange={async (e) => {
+                      try {
+                        await updateNotificationPrefs({ emailEnabled: e.target.checked });
+                      } catch {
+                        toast.error("Failed to update preferences");
+                      }
+                    }}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-bg-elevated peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
+                </label>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Bell className="h-5 w-5 text-text-secondary" />
+                  <div>
+                    <Text size="sm">In-App Notifications</Text>
+                    <Text size="0" theme="muted">Show notifications within the app</Text>
+                  </div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={notificationPrefs?.inAppEnabled ?? true}
+                    onChange={async (e) => {
+                      try {
+                        await updateNotificationPrefs({ inAppEnabled: e.target.checked });
+                      } catch {
+                        toast.error("Failed to update preferences");
+                      }
+                    }}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-bg-elevated peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
+                </label>
+              </div>
+            </div>
+
+            {/* Event-specific toggles */}
+            <div className="pt-4 border-t border-white/[0.06]">
+              <Text size="sm" theme="secondary" className="mb-4">Notification Types</Text>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <MessageSquare className="h-5 w-5 text-text-secondary" />
+                    <Text size="sm">Comments on my posts</Text>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={notificationPrefs?.commentOnPost ?? true}
+                      onChange={async (e) => {
+                        try {
+                          await updateNotificationPrefs({ commentOnPost: e.target.checked });
+                        } catch {
+                          toast.error("Failed to update preferences");
+                        }
+                      }}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-bg-elevated peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
+                  </label>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <AtSign className="h-5 w-5 text-text-secondary" />
+                    <Text size="sm">@Mentions</Text>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={notificationPrefs?.mention ?? true}
+                      onChange={async (e) => {
+                        try {
+                          await updateNotificationPrefs({ mention: e.target.checked });
+                        } catch {
+                          toast.error("Failed to update preferences");
+                        }
+                      }}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-bg-elevated peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
+                  </label>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Users className="h-5 w-5 text-text-secondary" />
+                    <Text size="sm">New members join my community</Text>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={notificationPrefs?.newMember ?? true}
+                      onChange={async (e) => {
+                        try {
+                          await updateNotificationPrefs({ newMember: e.target.checked });
+                        } catch {
+                          toast.error("Failed to update preferences");
+                        }
+                      }}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-bg-elevated peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
       case "admins":
         if (!isOwner && !isAdmin) {
           return (
@@ -184,26 +449,35 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
             <Text size="sm" theme="secondary" className="mb-4">
               Current Admins
             </Text>
-            {adminMembers.map((member) => member && (
-              <div key={member.membershipId} className="flex items-center justify-between p-3 rounded-lg bg-bg-elevated">
-                <div className="flex items-center gap-3">
-                  <Avatar src={member.avatarUrl} name={member.displayName} size="sm" />
-                  <div>
-                    <Text size="sm">{member.displayName}</Text>
-                    <Text size="sm" theme="muted">{member.role}</Text>
+            {adminMembers.map((member) => {
+              if (!member) return null;
+              
+              // EC-8: Check if this is the last admin
+              const isLastAdmin = member.role === "admin" && adminMembers.filter(m => m?.role === "admin").length === 1;
+              
+              return (
+                <div key={member.membershipId} className="flex items-center justify-between p-3 rounded-lg bg-bg-elevated">
+                  <div className="flex items-center gap-3">
+                    <Avatar src={member.avatarUrl} name={member.displayName} size="sm" />
+                    <div>
+                      <Text size="sm">{member.displayName}</Text>
+                      <Text size="sm" theme="muted">{member.role}</Text>
+                    </div>
                   </div>
+                  {member.role === "admin" && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={isLastAdmin}
+                      title={isLastAdmin ? "You cannot remove the last admin. Add another admin first." : undefined}
+                      onClick={() => setAdminToRemove(member.membershipId)}
+                    >
+                      Remove
+                    </Button>
+                  )}
                 </div>
-                {member.role === "admin" && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setAdminToRemove(member.membershipId)}
-                  >
-                    Remove
-                  </Button>
-                )}
-              </div>
-            ))}
+              );
+            })}
             
             {/* Admin removal confirmation */}
             {adminToRemove && (
@@ -281,15 +555,35 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
               </Heading>
             </div>
 
-            {isAtLimit && (
-              <div className="p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
-                <Text size="sm">You&apos;ve reached the 50 member limit. Subscribe to add more members.</Text>
-                <Button className="w-full mt-2">Subscribe Now</Button>
+            {community.platformTier === "subscribed" && (
+              <div className="p-4 rounded-lg bg-bg-elevated">
+                <Text size="sm" theme="secondary">Next Billing Date</Text>
+                <Heading size="h4" className="mt-1">
+                  {new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString("ar-DZ", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </Heading>
+                <Text size="0" theme="muted" className="mt-1">2,000 DZD/month</Text>
               </div>
             )}
 
+            {isAtLimit && (
+              <div className="p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
+                <Text size="sm">You&apos;ve reached the 50 member limit. Subscribe to add more members.</Text>
+                <Button className="w-full mt-2" onClick={handleSubscribe}>Subscribe Now</Button>
+              </div>
+            )}
+
+            {!isAtLimit && community.platformTier !== "subscribed" && (
+              <Button className="w-full" onClick={handleSubscribe}>
+                Upgrade to Unlimited Members (2,000 DZD/mo)
+              </Button>
+            )}
+
             {community.platformTier === "subscribed" && (
-              <Button variant="secondary" className="w-full">Cancel Subscription</Button>
+              <Button variant="secondary" className="w-full" onClick={handleCancelSubscription}>Cancel Subscription</Button>
             )}
           </div>
         );
@@ -342,15 +636,35 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
                     placeholder={community.name}
                     className="mb-2"
                   />
-                  <Button
-                    variant="danger"
-                    className="w-full"
-                    disabled={deleteConfirm !== community.name || isDeleting}
-                    onClick={handleDeleteCommunity}
-                  >
-                    {isDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
-                    Delete Community
-                  </Button>
+                  <div className="relative">
+                    {/* Progress bar background */}
+                    <div className="absolute inset-0 rounded-lg bg-red-500/20 overflow-hidden">
+                      <div
+                        className="h-full bg-red-500/40 transition-[width] duration-100 ease-linear"
+                        style={{ width: `${holdProgress}%` }}
+                      />
+                    </div>
+                    <Button
+                      variant="danger"
+                      className="w-full relative z-10"
+                      disabled={deleteConfirm !== community.name || isDeleting}
+                      onMouseDown={handleHoldStart}
+                      onMouseUp={handleHoldEnd}
+                      onMouseLeave={handleHoldEnd}
+                      onTouchStart={handleHoldStart}
+                      onTouchEnd={handleHoldEnd}
+                    >
+                      {isDeleting ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : (
+                        <Trash2 className="h-4 w-4 mr-2" />
+                      )}
+                      {isHolding ? `Hold... ${Math.round(holdProgress / 20)}s` : "Delete Community"}
+                    </Button>
+                  </div>
+                  <Text size="0" theme="muted" className="text-center mt-1">
+                    Hold for 5 seconds to confirm
+                  </Text>
                 </>
               )}
             </div>
@@ -373,10 +687,46 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
               <Text size="sm" theme="secondary" className="mb-4">
                 This will permanently delete your account and remove you from all communities.
               </Text>
-              <Button variant="danger" className="w-full">
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete My Account
-              </Button>
+              
+              {showDeleteAccountConfirm ? (
+                <div className="space-y-3">
+                  <Text size="sm" className="font-medium">
+                    Are you sure? This cannot be undone.
+                  </Text>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="secondary" 
+                      size="sm" 
+                      onClick={() => setShowDeleteAccountConfirm(false)}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      variant="danger" 
+                      size="sm" 
+                      onClick={handleDeleteAccount}
+                      disabled={isDeletingAccount}
+                      className="flex-1"
+                    >
+                      {isDeletingAccount ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        "Yes, Delete"
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button 
+                  variant="danger" 
+                  className="w-full"
+                  onClick={() => setShowDeleteAccountConfirm(true)}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete My Account
+                </Button>
+              )}
             </div>
           </div>
         );
@@ -440,6 +790,7 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
                         newCategoryColor === color ? "border-white" : "border-transparent"
                       }`}
                       style={{ backgroundColor: color }}
+                      aria-label={`Select color ${color}`}
                     />
                   ))}
                 </div>
@@ -481,6 +832,7 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
                               editCategoryColor === color ? "border-white" : "border-transparent"
                             }`}
                             style={{ backgroundColor: color }}
+                            aria-label={`Select color ${color}`}
                           />
                         ))}
                       </div>
@@ -515,7 +867,7 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
                         <Button 
                           variant="ghost" 
                           size="sm"
-                          onClick={() => handleDeleteCategory(cat._id)}
+                          onClick={() => setCategoryToDelete(cat._id)}
                         >
                           <X className="h-4 w-4 text-red-500" />
                         </Button>
@@ -525,6 +877,26 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
                 </div>
               ))}
             </div>
+            
+            {/* Category delete confirmation */}
+            {categoryToDelete && (
+              <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30">
+                <Text size="sm" className="mb-2">
+                  Are you sure you want to delete this category? Posts in this category will no longer have a category assigned.
+                </Text>
+                <div className="flex gap-2">
+                  <Button variant="secondary" size="sm" onClick={() => setCategoryToDelete(null)}>
+                    Cancel
+                  </Button>
+                  <Button variant="danger" size="sm" onClick={() => {
+                    handleDeleteCategory(categoryToDelete);
+                    setCategoryToDelete(null);
+                  }}>
+                    Delete
+                  </Button>
+                </div>
+              </div>
+            )}
             
             {(categories?.length || 0) >= 10 && (
               <Text size="sm" theme="muted" className="text-center">
@@ -540,6 +912,7 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
   };
 
   const sections: { id: Section; label: string; icon: React.ReactNode; requiresCommunity?: boolean }[] = [
+    { id: "notifications", label: "Notifications", icon: <Bell className="h-4 w-4" /> },
     { id: "admins", label: "Admins", icon: <Shield className="h-4 w-4" />, requiresCommunity: true },
     { id: "categories", label: "Categories", icon: <Tags className="h-4 w-4" />, requiresCommunity: true },
     { id: "billing", label: "Billing", icon: <CreditCard className="h-4 w-4" />, requiresCommunity: true },
@@ -549,7 +922,7 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-3xl w-[95vw] max-h-[85vh] overflow-hidden flex flex-col">
         <DialogTitle>Settings</DialogTitle>
         
         <div className="flex flex-1 overflow-hidden mt-4">

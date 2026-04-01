@@ -14,6 +14,8 @@ interface CommentsSectionProps {
   communityId: string;
   currentUserId?: string | null;
   isAdmin?: boolean;
+  isOwner?: boolean;
+  hideInput?: boolean;
 }
 
 const COMMENTS_LIMIT = 5;
@@ -24,6 +26,8 @@ export function CommentsSection({
   communityId,
   currentUserId,
   isAdmin = false,
+  isOwner = false,
+  hideInput = false,
 }: CommentsSectionProps) {
   const [replyToCommentId, setReplyToCommentId] = useState<string | undefined>();
   const [sortBy, setSortBy] = useState<"top" | "newest">("top");
@@ -33,8 +37,6 @@ export function CommentsSection({
   
   // Use a ref to track the current cursor for the query
   const cursorRef = useRef<string | undefined>(undefined);
-  // Use state to trigger refetches
-  const [fetchKey, setFetchKey] = useState(0);
 
   // Fetch comments - refetch when fetchKey changes (which happens on load more or sort change)
   const results = useQuery(
@@ -70,7 +72,6 @@ export function CommentsSection({
   // Update cursor ref and trigger refetch when sort changes
   useEffect(() => {
     cursorRef.current = undefined;
-    setFetchKey(k => k + 1);
     setComments([]);
     setHasMore(false);
   }, [sortBy]);
@@ -78,7 +79,7 @@ export function CommentsSection({
   const handleLoadMore = () => {
     if (results?.nextCursor && !cursorRef.current) {
       cursorRef.current = results.nextCursor;
-      setFetchKey(k => k + 1);
+      // Cursor changed — useQuery will refetch automatically
     }
   };
 
@@ -130,13 +131,15 @@ export function CommentsSection({
       </div>
 
       {/* Main comment input */}
-      <div className="mb-4">
-        <CommentInput
-          postId={postId}
-          communityId={communityId}
-          onSubmit={handleReplySubmit}
-        />
-      </div>
+      {!hideInput && (
+        <div className="mb-4">
+          <CommentInput
+            postId={postId}
+            communityId={communityId}
+            onSubmit={handleReplySubmit}
+          />
+        </div>
+      )}
 
       {/* Comments list */}
       <div className="space-y-4">
@@ -148,6 +151,7 @@ export function CommentsSection({
             communityId={communityId}
             currentUserId={currentUserId}
             isAdmin={isAdmin}
+            isOwner={isOwner}
             onReply={handleReply}
           />
         ))}
@@ -167,8 +171,8 @@ export function CommentsSection({
         </div>
       )}
 
-      {/* Empty state */}
-      {comments.length === 0 && (
+      {/* Empty state - only show after loading completes */}
+      {results !== undefined && comments.length === 0 && (
         <div className="py-8 text-center">
           <Text theme="muted" size="sm">
             No comments yet
