@@ -33,6 +33,22 @@ import {
 } from "lucide-react";
 import { Id } from "../../../convex/_generated/dataModel";
 
+// AN5: Hook to detect prefers-reduced-motion
+function useReducedMotion(): boolean {
+  const getInitial = () => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  };
+  const [reduced, setReduced] = useState(getInitial);
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const handler = (e: MediaQueryListEvent) => setReduced(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+  return reduced;
+}
+
 interface FeedTabProps {
   communityId: string;
   communitySlug?: string;
@@ -159,6 +175,7 @@ function InviteFriendModal({
 export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
   const { userId } = useAuth();
   const { user } = useUser();
+  const prefersReducedMotion = useReducedMotion(); // AN5
   
   // Cast string IDs to Convex Id types
   const communityIdTyped = communityId as Id<"communities">;
@@ -209,9 +226,21 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
 
   // Profile panel state
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
+  const profilePanelRef = useRef<HTMLDivElement>(null);
+
+  // N1: Focus management — move focus to profile panel when it opens
+  useEffect(() => {
+    if (profileUserId && profilePanelRef.current) {
+      const focusable = profilePanelRef.current.querySelector<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+      focusable?.focus();
+    }
+  }, [profileUserId]);
 
   // File input ref for image upload
   const imageInputRef = useRef<HTMLInputElement>(null);
+  
+  // AN3: Track images being faded out for removal animation
+  const [fadingImages, setFadingImages] = useState<Set<number>>(new Set());
 
   // Refs for click-outside handler (Fix #3: avoid stale closures)
   const composerExpandedRef = useRef(composerExpanded);
@@ -548,9 +577,17 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
     }
   };
 
-  // Remove image
+  // Remove image with fade-out animation (AN3)
   const removeImage = (index: number) => {
-    setImageUrls(prev => prev.filter((_, i) => i !== index));
+    setFadingImages(prev => new Set(prev).add(index));
+    setTimeout(() => {
+      setImageUrls(prev => prev.filter((_, i) => i !== index));
+      setFadingImages(prev => {
+        const next = new Set(prev);
+        next.delete(index);
+        return next;
+      });
+    }, 200);
   };
 
   // Validate video URL format
@@ -814,7 +851,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
                   <Text theme="muted" className="line-clamp-1">What&apos;s on your mind?</Text>
                 </button>
               ) : (
-                <div className="space-y-4">
+                <div className={`space-y-4 ${prefersReducedMotion ? '' : 'animate-in fade-in slide-in-from-top-2 duration-200'}`}>
                   {/* User Avatar and Name in expanded view */}
                   <div className="flex items-center gap-3">
                     {user?.imageUrl ? (
@@ -936,7 +973,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
                         {imageUrls.length > 0 && (
                           <div className="flex gap-2 flex-wrap">
                             {imageUrls.map((url, i) => (
-                              <div key={i} className="relative group">
+                              <div key={i} className={`relative group transition-all duration-200 ${fadingImages.has(i) ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img 
                                   src={url} 
@@ -1192,9 +1229,9 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
               <ChevronDown className="w-3 h-3" />
             </button>
             
-            {/* Sort Dropdown Menu */}
+            {/* Sort Dropdown Menu — AN1: enter animation */}
             {showSortDropdown && (
-              <div className="absolute right-0 top-full mt-1 z-[100] rounded-lg bg-bg-elevated p-1 max-w-[calc(100vw-2rem)]" role="listbox" aria-label="Sort options">
+              <div className={`absolute right-0 top-full mt-1 z-[100] rounded-lg bg-bg-elevated p-1 max-w-[calc(100vw-2rem)] ${prefersReducedMotion ? '' : 'animate-in fade-in zoom-in-95 duration-200'}`} role="listbox" aria-label="Sort options">
                 {SORT_OPTIONS.map((option) => (
                   <button
                     key={option.value}
@@ -1349,11 +1386,13 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
       )}
 
       {/* Profile Panel */}
-      <ProfilePanel
-        userId={profileUserId || undefined}
-        open={!!profileUserId}
-        onOpenChange={(open) => { if (!open) setProfileUserId(null); }}
-      />
+      <div ref={profilePanelRef}>
+        <ProfilePanel
+          userId={profileUserId || undefined}
+          open={!!profileUserId}
+          onOpenChange={(open) => { if (!open) setProfileUserId(null); }}
+        />
+      </div>
     </div>
   );
 }
