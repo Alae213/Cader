@@ -824,7 +824,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
   return (
     <div className="flex gap-6 flex-col lg:flex-row w-full min-h-dvh">
       {/* Main Feed Column - Full width */}
-      <div className="flex-1 min-w-0 w-full max-w-3xl mx-auto">
+      <main className="flex-1 min-w-0 w-full max-w-3xl mx-auto">
               {/* Post Composer - First */}
         {isMember && (
           <div className="rounded-2xl p-5 mb-3 bg-bg-elevated" ref={composerRef}>
@@ -907,7 +907,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
                           value={content}
                           onChange={(e) => setContent(e.target.value)}
                           placeholder="What's on your mind?"
-                          className="min-h-[100px] pr-12"
+                          className="min-h-[100px] pr-12 max-w-prose"
                           autoFocus
                           maxLength={5000}
                         />
@@ -1178,7 +1178,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
         )}
 
         {/* Category Filter and Sort Row - Second */}
-        <div className="flex gap-2 mb-4 items-center flex-wrap">
+        <nav className="flex gap-2 mb-4 items-center flex-wrap" aria-label="Feed filters">
           {/* Category Pills */}
           <div className="flex gap-2 overflow-x-auto pb-2 flex-1 items-center [mask-image:linear-gradient(to_right,black_calc(100%-1rem),transparent)] [-webkit-mask-image:linear-gradient(to_right,black_calc(100%-1rem),transparent)]" role="group" aria-label="Filter by category">
             <button
@@ -1257,7 +1257,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
               </div>
             )}
           </div>
-        </div>
+        </nav>
 
         {/* Feed - Third */}
         {allPosts.length === 0 ? (
@@ -1316,10 +1316,10 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
             )}
           </div>
         )}
-      </div>
+      </main>
 
       {/* Right Sidebar - QuickInfoCard */}
-      <div className="w-full lg:w-80 shrink-0 order-first lg:order-none">
+      <aside className="w-full lg:w-80 shrink-0 order-first lg:order-none">
         {communityData ? (
           <QuickInfoCard
             community={communityData}
@@ -1366,7 +1366,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
         ) : (
           <Skeleton className="h-64" />
         )}
-      </div>
+      </aside>
 
       {/* Invite Friend Modal */}
       <InviteFriendModal
