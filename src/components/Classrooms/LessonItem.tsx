@@ -48,6 +48,7 @@ export function LessonItem({
 
       {/* Thumbnail */}
       {page.videoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={getVideoThumbnail(page.videoUrl) || undefined}
           alt=""

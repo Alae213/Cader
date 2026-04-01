@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useAuth } from "@clerk/nextjs";
@@ -37,6 +37,15 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
     communitySlug ? { slug: communitySlug } : "skip"
   );
 
+  // Compute next billing date (30 days from now) - use lazy init to compute once
+  const [nextBillingDate] = useState(() => 
+    new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString("ar-DZ", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    })
+  );
+
   // Fetch memberships for admin list
   const memberships = useQuery(
     api.functions.memberships.listMembers,
@@ -55,12 +64,14 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
   };
 
   // Set default section when community/user data loads
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!initialSection) {
       const defaultSection = getDefaultSection();
       setActiveSection(defaultSection);
     }
   }, [communitySlug, isOwner, isAdmin]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Mutations
   const addAdmin = useMutation(api.functions.memberships.addAdmin);
@@ -559,11 +570,7 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
               <div className="p-4 rounded-lg bg-bg-elevated">
                 <Text size="sm" theme="secondary">Next Billing Date</Text>
                 <Heading size="h4" className="mt-1">
-                  {new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString("ar-DZ", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  })}
+                  {nextBillingDate}
                 </Heading>
                 <Text size="0" theme="muted" className="mt-1">2,000 DZD/month</Text>
               </div>

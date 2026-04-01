@@ -10,7 +10,7 @@ export function cn(...inputs: ClassValue[]) {
  */
 export function getYouTubeVideoId(url: string): string | null {
   const patterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/|youtube\.com\/shorts\/|youtube\.com\/live\/|m\.youtube\.com\/watch\?v=)([a-zA-Z0-9_-]{11})/,
     /^([a-zA-Z0-9_-]{11})$/,
   ];
   
@@ -35,7 +35,7 @@ export function getYouTubeThumbnail(url: string, size: 'default' | 'medium' | 'h
     max: 'maxresdefault', // 1280x720
   };
   
-  return `https://img.youtube.com/vi/${videoId}/${sizes[size]}.jpg`;
+  return `https://i.ytimg.com/vi/${videoId}/${sizes[size]}.jpg`;
 }
 
 /**

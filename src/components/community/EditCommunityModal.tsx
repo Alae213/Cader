@@ -224,7 +224,9 @@ export function EditCommunityModal({ open, onOpenChange, community }: EditCommun
     setError("");
 
     try {
+       
       await updateCommunity({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         communityId: community._id as any,
         name: name.trim(),
         slug: slug.trim() !== community.slug ? slug.trim() : undefined,

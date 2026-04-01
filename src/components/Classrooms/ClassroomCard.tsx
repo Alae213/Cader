@@ -76,6 +76,7 @@ export const ClassroomCard = memo(function ClassroomCard({
             onSave={onUpdateThumbnail}
           />
         ) : classroom.thumbnailUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={classroom.thumbnailUrl}
             alt={`${classroom.title} thumbnail`}

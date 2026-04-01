@@ -20,6 +20,7 @@ interface LeaderboardTabProps {
 type TimeFilter = "7d" | "30d" | "all";
 
 export function LeaderboardTab({ communityId }: LeaderboardTabProps) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { userId: clerkId } = useAuth();
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   const [showMore, setShowMore] = useState(false);
@@ -109,7 +110,7 @@ export function LeaderboardTab({ communityId }: LeaderboardTabProps) {
                 className={`
                   flex items-center gap-3 p-3 rounded-lg
                   ${entry.role === "owner" || entry.role === "admin"
-                    ? "bg-accent/10 border border-accent/30"
+                    ? "bg-accent/5 border border-accent/20"
                     : "bg-bg-surface"
                   }
                 `}
@@ -229,14 +230,7 @@ export function LeaderboardTab({ communityId }: LeaderboardTabProps) {
               Your Progress
             </Heading>
 
-            {currentUserPoints.isOwnerOrAdmin ? (
-              <div className="text-center py-4">
-                <Text size="2" theme="muted">
-                  Admins and owners don't earn points, but can view the leaderboard.
-                </Text>
-              </div>
-            ) : (
-              <div className="space-y-4">
+            <div className="space-y-4">
                 {/* Level badge */}
                 <div className="flex items-center justify-center">
                   <LevelBadge level={currentUserPoints.level} size="md" />
@@ -331,7 +325,6 @@ export function LeaderboardTab({ communityId }: LeaderboardTabProps) {
                   </div>
                 )}
               </div>
-            )}
           </div>
         </div>
       </div>

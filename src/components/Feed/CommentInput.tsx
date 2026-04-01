@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useAuth, useUser } from "@clerk/nextjs";
@@ -91,7 +91,9 @@ export function CommentInput({
   // Search members for mentions
   const searchResults = useQuery(
     api.functions.notifications.searchMembers,
+     
     communityId && mentionSearch.length >= 1 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ? { communityId: communityId as any, searchQuery: mentionSearch }
       : "skip"
   );
@@ -120,9 +122,12 @@ export function CommentInput({
 
     setIsLoading(true);
     try {
+       
       await createComment({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         postId: postId as any,
         content: content.trim(),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         parentCommentId: parentCommentId as any,
         mediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined,
       });
@@ -169,7 +174,7 @@ export function CommentInput({
 
         setMediaUrls(prev => [...prev, compressed]);
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to process image");
     } finally {
       setIsUploadingImages(false);
@@ -391,7 +396,7 @@ export function CommentInput({
           role="listbox"
           aria-label="Mentions"
         >
-          {searchResults.slice(0, 5).map((member: { userId: any; displayName: string; avatarUrl?: string }, index: number) => (
+          {searchResults.slice(0, 5).map((member: { userId: string; displayName: string; avatarUrl?: string }, index: number) => (
             <button
               key={member.userId}
               role="option"

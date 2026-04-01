@@ -16,6 +16,28 @@ interface RichTextEditorProps {
   minHeight?: string;
 }
 
+// ToolbarButton component moved outside to fix "Cannot create components during render" error
+type ToolbarButtonProps = {
+  onClick: () => void;
+  active?: boolean;
+  children: React.ReactNode;
+  title: string;
+};
+
+function ToolbarButton({ onClick, active, children, title }: ToolbarButtonProps) {
+  return (
+    <Button
+      type="button"
+      size="sm"
+      variant={active ? "secondary" : "ghost"}
+      onClick={onClick}
+      title={title}
+    >
+      {children}
+    </Button>
+  );
+}
+
 export function RichTextEditor({
   content = "",
   onChange,
@@ -64,29 +86,6 @@ export function RichTextEditor({
       </div>
     );
   }
-
-  // Simple toolbar
-  const ToolbarButton = ({ 
-    onClick, 
-    active, 
-    children, 
-    title 
-  }: { 
-    onClick: () => void; 
-    active?: boolean; 
-    children: React.ReactNode;
-    title: string;
-  }) => (
-    <Button
-      type="button"
-      size="sm"
-      variant={active ? "secondary" : "ghost"}
-      onClick={onClick}
-      title={title}
-    >
-      {children}
-    </Button>
-  );
 
   return (
     <div className={cn("rounded-lg border border-border bg-bg-elevated overflow-hidden", className)}>

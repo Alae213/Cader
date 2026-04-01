@@ -1,18 +1,12 @@
 "use client";
 
-import { useRef } from "react";
-import { Button } from "@/components/ui/Button";
-import { Heading, Text } from "@/components/ui/Text";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Text } from "@/components/ui/Text";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Card, CardContent } from "@/components/ui/Card";
 import { VideoEmbed } from "./VideoEmbed";
 import { LessonDescription } from "./LessonDescription";
-import {
-  Menu,
-  Check,
-  AlertCircle,
-  Play,
-} from "lucide-react";
+import { Menu, Check } from "lucide-react";
 
 interface PageContent {
   _id: string;
@@ -24,8 +18,15 @@ interface PageContent {
   hasAccess: boolean;
 }
 
+interface ModuleData {
+  _id: string;
+  title: string;
+  pages: { _id: string }[];
+}
+
 interface ClassroomContent {
   title?: string;
+  modules?: ModuleData[];
 }
 
 interface LessonContentProps {
@@ -34,28 +35,14 @@ interface LessonContentProps {
   selectedPageId: string | null;
   isOwner: boolean;
   isSidebarOpen: boolean;
-  editingPageId: string | null;
-  editedTitle: string;
-  editedContent: string;
-  isSaving: boolean;
-  error: string | null;
   mainContentRef: React.RefObject<HTMLDivElement | null>;
   onOpenSidebar: () => void;
   onToggleComplete: (e?: React.MouseEvent | undefined) => void | Promise<void>;
-  onStartEdit: () => void;
-  onTitleChange: (title: string) => void;
-  onContentChange: (content: string) => void;
-  onSaveEdit: () => void;
-  onCancelEdit: () => void;
   onVideoUpdate: (url: string) => void;
   onDescriptionUpdate: (description: string) => void;
-  editingLessonId?: string | null;
-  setEditingLessonId?: (id: string | null) => void;
-  editingLessonTitle?: string;
-  setEditingLessonTitle?: (title: string) => void;
-  deleteConfirmLesson?: { id: string; title: string } | null;
-  setDeleteConfirmLesson?: (data: { id: string; title: string } | null) => void;
-  handleDeleteLesson?: () => void;
+  videoModalOpen?: boolean;
+  onVideoModalOpenChange?: (open: boolean) => void;
+  onSaveLessonTitle?: (title: string) => void;
 }
 
 export function LessonContent({
@@ -64,41 +51,162 @@ export function LessonContent({
   selectedPageId,
   isOwner,
   isSidebarOpen,
-  editingPageId,
-  editedTitle,
-  editedContent,
-  isSaving,
-  error,
   mainContentRef,
   onOpenSidebar,
   onToggleComplete,
-  onStartEdit,
-  onTitleChange,
-  onContentChange,
-  onSaveEdit,
-  onCancelEdit,
   onVideoUpdate,
   onDescriptionUpdate,
-  editingLessonId,
-  setEditingLessonId,
-  editingLessonTitle,
-  setEditingLessonTitle,
-  deleteConfirmLesson,
-  setDeleteConfirmLesson,
-  handleDeleteLesson,
+  videoModalOpen,
+  onVideoModalOpenChange,
+  onSaveLessonTitle,
 }: LessonContentProps) {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // ── Inline title editing (optimistic: UI updates instantly, server syncs in background) ──
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editedTitle, setEditedTitle] = useState("");
+  const [confirmedTitle, setConfirmedTitle] = useState("");
+  const titleDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const [titleSaving, setTitleSaving] = useState(false);
+  const titleInputRef = useRef<HTMLInputElement>(null);
 
-  const adjustTextareaHeight = () => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+  // ── Optimistic completion state ──
+  const [optimisticViewed, setOptimisticViewed] = useState(false);
+  const [isToggling, setIsToggling] = useState(false);
+
+  // Sync local state when pageContent changes (e.g. navigating lessons)
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (pageContent) {
+      setEditedTitle(pageContent.title);
+      setConfirmedTitle(pageContent.title);
+      setOptimisticViewed(!!pageContent.isViewed);
     }
-  };
+  }, [pageContent?._id]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
+  // Keep optimisticViewed in sync when server value changes (after toggle resolves)
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (pageContent?.isViewed !== undefined && !isToggling) {
+      setOptimisticViewed(pageContent.isViewed);
+    }
+  }, [pageContent?.isViewed, isToggling]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  // Focus input when editing starts
+  useEffect(() => {
+    if (isEditingTitle && titleInputRef.current) {
+      titleInputRef.current.focus();
+      titleInputRef.current.select();
+    }
+  }, [isEditingTitle]);
+
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (titleDebounceRef.current) {
+        clearTimeout(titleDebounceRef.current);
+      }
+    };
+  }, []);
+
+  // ── Title save with debounce (1.5 s) — optimistic UI ──
+  const doSaveTitle = useCallback(
+    (title: string, immediate = false) => {
+      const trimmed = title.trim();
+      if (!trimmed) return;
+
+      const save = () => {
+        // Optimistic: update confirmed title immediately
+        setConfirmedTitle(trimmed);
+        setTitleSaving(true);
+        onSaveLessonTitle?.(trimmed);
+        // Simulate async feedback
+        setTimeout(() => setTitleSaving(false), 300);
+        setIsEditingTitle(false);
+      };
+
+      if (titleDebounceRef.current) {
+        clearTimeout(titleDebounceRef.current);
+      }
+
+      if (immediate) {
+        save();
+      } else {
+        titleDebounceRef.current = setTimeout(save, 1500);
+      }
+    },
+    [onSaveLessonTitle]
+  );
+
+  const handleTitleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        doSaveTitle(editedTitle, true);
+      } else if (e.key === "Escape") {
+        if (titleDebounceRef.current) {
+          clearTimeout(titleDebounceRef.current);
+        }
+        // Revert to last confirmed title
+        setEditedTitle(confirmedTitle);
+        setIsEditingTitle(false);
+      }
+    },
+    [editedTitle, confirmedTitle, doSaveTitle]
+  );
+
+  const handleTitleBlur = useCallback(() => {
+    doSaveTitle(editedTitle, true);
+  }, [editedTitle, doSaveTitle]);
+
+  // ── Checkbox toggle — optimistic UI ──
+  const handleToggle = useCallback(
+    (e?: React.MouseEvent) => {
+      if (e) e.stopPropagation();
+      const prevValue = optimisticViewed;
+      setOptimisticViewed(!prevValue);
+      setIsToggling(true);
+
+      try {
+        const result = onToggleComplete(e);
+        if (result && typeof (result as Promise<void>).then === "function") {
+          (result as Promise<void>)
+            .catch(() => {
+              setOptimisticViewed(prevValue);
+            })
+            .finally(() => {
+              setIsToggling(false);
+            });
+        } else {
+          setIsToggling(false);
+        }
+      } catch {
+        setOptimisticViewed(prevValue);
+        setIsToggling(false);
+      }
+    },
+    [optimisticViewed, onToggleComplete]
+  );
+
+  // ── Resolve chapter name ──
+  const getChapterName = useCallback(() => {
+    if (!selectedPageId || !classroomContent?.modules) return "";
+    for (const mod of classroomContent.modules) {
+      if (mod.pages?.some((p) => p._id === selectedPageId)) {
+        return mod.title;
+      }
+    }
+    return "";
+  }, [selectedPageId, classroomContent]);
+
+  // ── Loading skeleton ──
   if (!pageContent) {
     return (
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div
+        ref={mainContentRef}
+        className="flex-1 flex flex-col min-w-0 overflow-hidden"
+        tabIndex={-1}
+      >
         <div className="lg:hidden flex items-center gap-3 p-3 border-b border-border bg-bg-surface">
           <button
             onClick={onOpenSidebar}
@@ -120,6 +228,8 @@ export function LessonContent({
     );
   }
 
+  const chapterName = getChapterName();
+
   return (
     <div
       ref={mainContentRef}
@@ -140,135 +250,96 @@ export function LessonContent({
         </Text>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-4xl mx-auto p-6">
-          {/* Header */}
-          <div className="mb-6">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                {editingPageId === pageContent._id ? (
-                  <input
-                    type="text"
-                    value={editedTitle}
-                    onChange={(e) => onTitleChange(e.target.value)}
-                    className="text-3xl font-bold bg-bg-elevated border border-accent rounded px-2 py-1 w-full focus:outline-none"
-                    autoFocus
-                  />
-                ) : (
-                  <Heading size="5" className="font-bold">
-                    {pageContent.title}
-                  </Heading>
-                )}
-              </div>
-
-              {/* Actions */}
-              <div className="flex items-center gap-2 flex-shrink-0">
-                {!isOwner && pageContent.hasAccess && (
-                  <Button
-                    variant={pageContent.isViewed ? "secondary" : "primary"}
-                    size="sm"
-                    onClick={(e) => onToggleComplete(e)}
-                  >
-                    {pageContent.isViewed ? (
-                      <>
-                        <Check className="w-4 h-4 mr-1" /> Completed
-                      </>
-                    ) : (
-                      <>
-                        <Play className="w-4 h-4 mr-1" /> Mark Complete
-                      </>
-                    )}
-                  </Button>
-                )}
-                {isOwner && editingPageId !== pageContent._id && (
-                  <Button variant="secondary" size="sm" onClick={onStartEdit}>
-                    Edit
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            {error && (
-              <Text size="2" theme="error" className="mt-2">
-                {error}
-              </Text>
-            )}
-          </div>
-
-          {/* Video */}
-          <div className="mb-6">
-            <VideoEmbed
-              url={pageContent.videoUrl}
-              isOwner={isOwner}
-              onChange={onVideoUpdate}
-            />
-          </div>
-
-          {/* Description */}
-          <div className="mb-6">
-            <Text size="3" fontWeight="semibold" className="mb-2">
-              Description
-            </Text>
-            <LessonDescription
-              description={pageContent.description || ""}
-              isOwner={isOwner}
-              onSave={onDescriptionUpdate}
-            />
-          </div>
-
-          {/* Content */}
-          {pageContent.hasAccess ? (
-            <div>
-              <Text size="3" fontWeight="semibold" className="mb-2">
-                Lesson Content
-              </Text>
-              {editingPageId === pageContent._id ? (
-                <div className="space-y-3">
-                  <textarea
-                    ref={textareaRef}
-                    value={editedContent}
-                    onChange={(e) => {
-                      onContentChange(e.target.value);
-                      adjustTextareaHeight();
-                    }}
-                    onBlur={onSaveEdit}
-                    className="w-full min-h-[200px] p-3 bg-bg-elevated border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent resize-none"
-                    placeholder="Write your lesson content here..."
-                  />
-                  <div className="flex gap-2">
-                    <Button onClick={onSaveEdit} disabled={isSaving}>
-                      {isSaving ? "Saving..." : "Save"}
-                    </Button>
-                    <Button variant="ghost" onClick={onCancelEdit}>
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <Card>
-                  <CardContent className="p-4">
-                    <Text size="2" className="whitespace-pre-wrap">
-                      {pageContent.content || (
-                        <Text as="span" theme="muted">No content yet.</Text>
-                      )}
+      <div className="flex-1 overflow-y-auto p-4 md:p-6">
+        <div className="max-w-4xl mx-auto">
+          <Card>
+            <CardContent className="p-4 md:p-6 space-y-6">
+              {/* ── Header: chapter name, lesson title, checkbox ── */}
+              <div className="flex items-start gap-3">
+                <div className="flex-1 min-w-0">
+                  {chapterName && (
+                    <Text size="1" theme="muted" className="mb-1">
+                      {chapterName}
                     </Text>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-          ) : (
-            <Card>
-              <CardContent className="p-8 text-center">
-                <AlertCircle className="w-12 h-12 mx-auto text-text-muted mb-3" />
-                <Heading size="4" className="mb-2">
-                  Content Locked
-                </Heading>
-                <Text theme="secondary">
-                  You need to complete this lesson to view the content.
+                  )}
+
+                  {isEditingTitle ? (
+                    <div className="inline-block">
+                      <input
+                        ref={titleInputRef}
+                        type="text"
+                        value={editedTitle}
+                        onChange={(e) => setEditedTitle(e.target.value)}
+                        onKeyDown={handleTitleKeyDown}
+                        onBlur={handleTitleBlur}
+                        className="p-1 pr-2 text-[20px] leading-[20px] font-bold bg-transparent hover:bg-bg-elevated focus-visible:bg-bg-elevated rounded-lg focus-visible:outline-none cursor-text transition-colors"
+                        style={{ width: `${Math.max(editedTitle.length, 1)}ch` }}
+                      />
+                      {titleSaving && (
+                        <Text size="1" theme="muted" className="mt-1">
+                          Saving...
+                        </Text>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="cursor-pointer"
+                        onClick={() => {
+                          if (isOwner) {
+                            setEditedTitle(confirmedTitle);
+                            setIsEditingTitle(true);
+                          }
+                        }}
+                      >
+                        <Text size="5" fontWeight="bold">
+                          {confirmedTitle}
+                        </Text>
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* ── Checkbox toggle (optimistic) ── */}
+                <button
+                  onClick={handleToggle}
+                  className={`flex-shrink-0 w-6 h-6 rounded border-2 flex items-center justify-center transition-colors ${
+                    optimisticViewed
+                      ? "bg-accent border-accent"
+                      : "border-border hover:border-accent"
+                  }`}
+                  aria-label={
+                    optimisticViewed
+                      ? "Mark as not complete"
+                      : "Mark as complete"
+                  }
+                >
+                  {optimisticViewed && <Check className="w-4 h-4 text-white" />}
+                </button>
+              </div>
+
+              {/* ── Video Embed ── */}
+              <VideoEmbed
+                url={pageContent.videoUrl}
+                isOwner={isOwner}
+                modalOpen={videoModalOpen}
+                onModalOpenChange={onVideoModalOpenChange}
+                onChange={onVideoUpdate}
+              />
+
+              {/* ── Lesson Description ── */}
+              <div>
+                <Text size="2" fontWeight="semibold" className="mb-2">
+                  Description
                 </Text>
-              </CardContent>
-            </Card>
-          )}
+                <LessonDescription
+                  description={pageContent.description || ""}
+                  isOwner={isOwner}
+                  onSave={onDescriptionUpdate}
+                />
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

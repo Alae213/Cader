@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useCallback } from "react";
+import { useMemo, useEffect, useRef } from "react";
+import Image from "next/image";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -9,19 +10,19 @@ import {
   DndContext,
   closestCenter,
   DragEndEvent,
-  DragOverlay,
-  closestCorners,
 } from "@dnd-kit/core";
 import {
   SortableContext,
-  sortableKeyboardCoordinates,
   verticalListSortingStrategy,
   useSortable,
 } from "@dnd-kit/sortable";
-import { ChevronLeft, ChevronDown, X, MoreHorizontal, Trash2, Edit3 } from "lucide-react";
 import { CSS } from "@dnd-kit/utilities";
+import { ChevronLeft, ChevronDown, X, Trash2, Edit3, Play } from "lucide-react";
 import { ProgressRing } from "@/components/ui/ProgressRing";
 import { getVideoThumbnail } from "@/lib/utils";
+import { Dropdown, /* DropdownLabel, DropdownSeparator */ } from "@/components/ui/dropdown";
+import { MenuItem } from "@/components/ui/menu-item";
+import type { SensorDescriptor } from "@dnd-kit/core";
 
 interface ModuleData {
   _id: string;
@@ -47,9 +48,12 @@ interface ClassroomSidebarProps {
   onAddChapter: () => void;
   onAddLesson: (moduleId: string) => void;
   onChapterDragEnd: (event: DragEndEvent) => void;
-  sensors: any;
+  onLessonDragEnd: (moduleId: string, event: DragEndEvent) => void;
+  sensors: SensorDescriptor<object>[];
   openChapterMenu: string | null;
   setOpenChapterMenu: (id: string | null) => void;
+  openLessonMenu: string | null;
+  setOpenLessonMenu: (id: string | null) => void;
   editingChapterId: string | null;
   setEditingChapterId: (id: string | null) => void;
   editingChapterTitle: string;
@@ -59,7 +63,12 @@ interface ClassroomSidebarProps {
   deleteConfirmChapter: { id: string; title: string; lessonCount: number } | null;
   setDeleteConfirmChapter: (data: { id: string; title: string; lessonCount: number } | null) => void;
   handleDeleteChapter: () => void;
+  deleteConfirmLesson: { id: string; title: string } | null;
+  setDeleteConfirmLesson: (data: { id: string; title: string } | null) => void;
+  handleDeleteLesson: () => void;
   isPageCompleted: (pageId: string) => boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  optimisticLessonOrders: Record<string, any[]>;
 }
 
 // Sortable Chapter Wrapper
@@ -80,6 +89,40 @@ function SortableChapter({
     transition,
     isDragging,
   } = useSortable({ id: module._id, disabled: !isOwner });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...(isOwner ? attributes : {})} {...(isOwner ? listeners : {})}>
+      {children}
+    </div>
+  );
+}
+
+// Sortable Lesson Wrapper
+function SortableLesson({ 
+  page, 
+  moduleId,
+  children,
+  isOwner 
+}: { 
+  page: { _id: string }; 
+  moduleId: string;
+  children: React.ReactNode;
+  isOwner: boolean;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: page._id, data: { moduleId }, disabled: !isOwner });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -137,11 +180,13 @@ function ChapterHeader({
   const isEditing = editingChapterId === module._id;
 
   return (
-    <div className="flex h-11 items-center gap-2 px-3">
-      {/* Drag handle - owner only */}
+    <div className="relative flex h-11 items-center gap-2 px-3 group/chapter">
+      {/* Drag handle - absolutely positioned, visible on hover for owner */}
       {isOwner && (
-        <div className="flex h-full cursor-grab items-center active:cursor-grabbing text-text-muted">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <div
+          className="absolute left-0.5 top-1/2 -translate-y-1/2 flex h-6 w-6 items-center justify-center rounded cursor-grab active:cursor-grabbing text-text-muted opacity-0 group-hover/chapter:opacity-100 transition-opacity z-10"
+        >
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M5.5 11.75C6.19036 11.75 6.75 12.3096 6.75 13C6.75 13.6904 6.19036 14.25 5.5 14.25C4.80964 14.25 4.25 13.6904 4.25 13C4.25 12.3096 4.80964 11.75 5.5 11.75ZM10.5 11.75C11.1904 11.75 11.75 12.3096 11.75 13C11.75 13.6904 11.1904 14.25 10.5 14.25C9.80964 14.25 9.25 13.6904 9.25 13C9.25 12.3096 9.80964 11.75 10.5 11.75ZM5.5 6.75C6.19036 6.75 6.75 7.30964 6.75 8C6.75 8.69036 6.19036 9.25 5.5 9.25C4.80964 9.25 4.25 8.69036 4.25 8C4.25 7.30964 4.80964 6.75 5.5 6.75ZM10.5 6.75C11.1904 6.75 11.75 7.30964 11.75 8C11.75 8.69036 11.1904 9.25 10.5 9.25C9.80964 9.25 9.25 8.69036 9.25 8C9.25 7.30964 9.80964 6.75 10.5 6.75ZM5.5 1.75C6.19036 1.75 6.75 2.30964 6.75 3C6.75 3.69036 6.19036 4.25 5.5 4.25C4.80964 4.25 4.25 3.69036 4.25 3C4.25 2.30964 4.80964 1.75 5.5 1.75ZM10.5 1.75C11.1904 1.75 11.75 2.30964 11.75 3C11.75 3.69036 11.1904 4.25 10.5 4.25C9.80964 4.25 9.25 3.69036 9.25 3C9.25 2.30964 9.80964 1.75 10.5 1.75Z" fill="currentColor"/>
           </svg>
         </div>
@@ -203,7 +248,7 @@ function ChapterHeader({
         </button>
       )}
 
-      {/* 3-dot menu - owner only */}
+      {/* 3-dot menu - owner only, using Dropdown */}
       {isOwner && (
         <div className="relative">
           <button
@@ -217,28 +262,29 @@ function ChapterHeader({
             </svg>
           </button>
           {openMenu && (
-            <div className="absolute right-0 top-7 bg-bg-surface border border-mauve-4 rounded-lg shadow-lg py-1 min-w-[120px] z-20">
-              <button 
-                onClick={() => {
-                  setEditingChapterId(module._id);
-                  setEditingChapterTitle(module.title);
-                  setOpenMenu(false);
-                }}
-                className="w-full px-3 py-2 text-left hover:bg-bg-elevated flex items-center gap-2 text-sm"
-              >
-                <Edit3 className="w-3.5 h-3.5" />
-                Rename
-              </button>
-              <button 
-                onClick={() => {
-                  setDeleteConfirm();
-                  setOpenMenu(false);
-                }}
-                className="w-full px-3 py-2 text-left hover:bg-bg-elevated flex items-center gap-2 text-sm text-red-500"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                Delete
-              </button>
+            <div className="absolute right-0 top-7 z-20">
+              <Dropdown>
+                <MenuItem
+                  icon={Edit3}
+                  label="Rename"
+                  index={0}
+                  onSelect={() => {
+                    setEditingChapterId(module._id);
+                    setEditingChapterTitle(module.title);
+                    setOpenMenu(false);
+                  }}
+                />
+                <MenuItem
+                  icon={Trash2}
+                  label="Delete"
+                  index={1}
+                  destructive
+                  onSelect={() => {
+                    setDeleteConfirm();
+                    setOpenMenu(false);
+                  }}
+                />
+              </Dropdown>
             </div>
           )}
         </div>
@@ -250,59 +296,110 @@ function ChapterHeader({
 // Lesson Item Component
 function LessonItem({
   page,
+  moduleId,
   isSelected,
   isOwner,
   isCompleted,
   onSelect,
+  openMenu,
+  setOpenMenu,
+  onDelete,
 }: {
   page: { _id: string; title: string; videoUrl?: string; isViewed?: boolean };
+  moduleId: string;
   isSelected: boolean;
   isOwner: boolean;
   isCompleted: boolean;
   onSelect: () => void;
+  openMenu: boolean;
+  setOpenMenu: (open: boolean) => void;
+  onDelete: () => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={`flex items-center gap-2 px-3 py-1.5 w-full text-left transition-colors ${
-        isSelected ? "bg-accent-subtle" : "hover:bg-bg-elevated"
-      }`}
-    >
-      {/* Drag handle - owner only */}
+    <div className="relative flex items-center group/lesson">
+      {/* Drag handle - absolutely positioned, visible on hover for owner */}
       {isOwner && (
-        <div className="flex h-full cursor-grab items-center active:cursor-grabbing text-text-muted">
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+        <div
+          className="absolute left-0.5 top-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center rounded cursor-grab active:cursor-grabbing text-text-muted opacity-0 group-hover/lesson:opacity-100 transition-opacity z-10"
+        >
+          <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
             <path d="M5.5 11.75C6.19036 11.75 6.75 12.3096 6.75 13C6.75 13.6904 6.19036 14.25 5.5 14.25C4.80964 14.25 4.25 13.6904 4.25 13C4.25 12.3096 4.80964 11.75 5.5 11.75ZM10.5 11.75C11.1904 11.75 11.75 12.3096 11.75 13C11.75 13.6904 11.1904 14.25 10.5 14.25C9.80964 14.25 9.25 13.6904 9.25 13C9.25 12.3096 9.80964 11.75 10.5 11.75ZM5.5 6.75C6.19036 6.75 6.75 7.30964 6.75 8C6.75 8.69036 6.19036 9.25 5.5 9.25C4.80964 9.25 4.25 8.69036 4.25 8C4.25 7.30964 4.80964 6.75 5.5 6.75ZM10.5 6.75C11.1904 6.75 11.75 7.30964 11.75 8C11.75 8.69036 11.1904 9.25 10.5 9.25C9.80964 9.25 9.25 8.69036 9.25 8C9.25 7.30964 9.80964 6.75 10.5 6.75ZM5.5 1.75C6.19036 1.75 6.75 2.30964 6.75 3C6.75 3.69036 6.19036 4.25 5.5 4.25C4.80964 4.25 4.25 3.69036 4.25 3C4.25 2.30964 4.80964 1.75 5.5 1.75ZM10.5 1.75C11.1904 1.75 11.75 2.30964 11.75 3C11.75 3.69036 11.1904 4.25 10.5 4.25C9.80964 4.25 9.25 3.69036 9.25 3C9.25 2.30964 9.80964 1.75 10.5 1.75Z" fill="currentColor"/>
           </svg>
         </div>
       )}
 
-      {/* Thumbnail */}
-      {page.videoUrl ? (
-        <img
-          src={getVideoThumbnail(page.videoUrl) || undefined}
-          alt=""
-          className="bg-bg-elevated flex h-8 w-16 shrink-0 items-center justify-center rounded"
-        />
-      ) : (
-        <div className="bg-bg-elevated flex h-8 w-16 shrink-0 items-center justify-center rounded">
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" className="text-text-muted">
-            <path d="M8 1.75V8M8 14.25V8M8 8H1.75M8 8H14.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </div>
-      )}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onSelect}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(); } }}
+        className={`flex items-center gap-2 px-3 py-1.5 w-full text-left transition-colors cursor-pointer ${
+          isSelected ? "bg-accent-subtle" : "hover:bg-bg-elevated"
+        }`}
+      >
+        {/* Thumbnail */}
+        {page.videoUrl ? (
+          <Image
+            src={getVideoThumbnail(page.videoUrl) || "/placeholder.png"}
+            alt=""
+            width={64}
+            height={32}
+            className="bg-bg-elevated flex h-8 w-16 shrink-0 items-center justify-center rounded object-cover"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.onerror = null;
+              target.src = "/placeholder.png";
+            }}
+          />
+        ) : (
+          <div className="bg-bg-elevated flex h-8 w-16 shrink-0 items-center justify-center rounded">
+            <Play className="w-3 h-3 text-text-muted" />
+          </div>
+        )}
 
-      {/* Title and completion */}
-      <div className="flex flex-1 items-center gap-1 min-w-0">
-        <span className="truncate text-xs text-text-primary">{page.title}</span>
-        {isCompleted && (
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" className="text-success shrink-0">
-            <path d="M13.3333 4L6.00001 11.3333L2.66667 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
+        {/* Title and completion */}
+        <div className="flex flex-1 items-center gap-1 min-w-0">
+          <span className="truncate text-xs text-text-primary">{page.title}</span>
+          {isCompleted && (
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" className="text-success shrink-0">
+              <path d="M13.3333 4L6.00001 11.3333L2.66667 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          )}
+        </div>
+
+        {/* 3-dot menu - owner only */}
+        {isOwner && (
+          <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => setOpenMenu(!openMenu)}
+              className="flex h-5 w-5 items-center justify-center rounded-full text-text-muted hover:bg-bg-elevated opacity-0 group-hover/lesson:opacity-100 transition-opacity"
+              aria-label="Lesson options"
+            >
+              <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                <path d="M4.75 10.25C4.75 9.55964 5.30964 9 6 9C6.69036 9 7.25 9.55964 7.25 10.25C7.25 10.9404 6.69036 11.5 6 11.5C5.30964 11.5 4.75 10.9404 4.75 10.25ZM4.75 6C4.75 5.30964 5.30964 4.75 6 4.75C6.69036 4.75 7.25 5.30964 7.25 6C7.25 6.69036 6.69036 7.25 6 7.25C5.30964 7.25 4.75 6.69036 4.75 6ZM4.75 1.75C4.75 1.05964 5.30964 0.5 6 0.5C6.69036 0.5 7.25 1.05964 7.25 1.75C7.25 2.44036 6.69036 3 6 3C5.30964 3 4.75 2.44036 4.75 1.75Z" fill="currentColor"/>
+              </svg>
+            </button>
+            {openMenu && (
+              <div className="absolute right-0 top-5 z-20">
+                <Dropdown>
+                  <MenuItem
+                    icon={Trash2}
+                    label="Delete"
+                    index={0}
+                    destructive
+                    onSelect={() => {
+                      onDelete();
+                      setOpenMenu(false);
+                    }}
+                  />
+                </Dropdown>
+              </div>
+            )}
+          </div>
         )}
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -320,19 +417,30 @@ export function ClassroomSidebar({
   onAddChapter,
   onAddLesson,
   onChapterDragEnd,
+  onLessonDragEnd,
   sensors,
   openChapterMenu,
   setOpenChapterMenu,
+  openLessonMenu,
+  setOpenLessonMenu,
   editingChapterId,
   setEditingChapterId,
   editingChapterTitle,
   setEditingChapterTitle,
   handleChapterTitleBlur,
   handleChapterTitleKeyDown,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   deleteConfirmChapter,
   setDeleteConfirmChapter,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   handleDeleteChapter,
+  deleteConfirmLesson,
+  setDeleteConfirmLesson,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  handleDeleteLesson,
   isPageCompleted,
+   
+  optimisticLessonOrders,
 }: ClassroomSidebarProps) {
   // Calculate overall progress
   const progress = useMemo(() => {
@@ -353,6 +461,19 @@ export function ClassroomSidebar({
     const completed = module.pages?.filter(p => p.isViewed).length || 0;
     return { total, completed, progress: total > 0 ? Math.round((completed / total) * 100) : 0 };
   };
+
+  // Close menus when clicking outside
+  const sidebarRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (sidebarRef.current && !sidebarRef.current.contains(e.target as Node)) {
+        setOpenChapterMenu(null);
+        setOpenLessonMenu(null);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [setOpenChapterMenu, setOpenLessonMenu]);
 
   const renderChapters = () => {
     if (!classroomContent) {
@@ -395,9 +516,12 @@ export function ClassroomSidebar({
               const isCollapsed = collapsedModules.has(module._id);
               const isActive = module.pages?.some(p => p._id === selectedPageId);
 
+              // Get pages for this module (use optimistic order if available)
+              const modulePages = optimisticLessonOrders[module._id] || module.pages || [];
+
               return (
                 <SortableChapter key={module._id} module={module} isOwner={isOwner}>
-                  <div className="bg-bg-surface rounded-lg overflow-hidden">
+                  <div className="bg-bg-surface rounded-lg">
                     <ChapterHeader
                       module={module}
                       isCollapsed={isCollapsed}
@@ -422,19 +546,43 @@ export function ClassroomSidebar({
                         lessonCount: module.pages?.length || 0
                       })}
                     />
-                    {!isCollapsed && module.pages && module.pages.length > 0 && (
-                      <div className="border-t border-mauve-4/30 bg-bg-base">
-                        {module.pages.map((page) => (
-                          <LessonItem
-                            key={page._id}
-                            page={page}
-                            isSelected={selectedPageId === page._id}
-                            isOwner={isOwner}
-                            isCompleted={isPageCompleted(page._id)}
-                            onSelect={() => onSelectPage(page._id)}
-                          />
-                        ))}
-                      </div>
+                    {!isCollapsed && modulePages.length > 0 && (
+                      <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={(event) => onLessonDragEnd(module._id, event)}
+                      >
+                        <SortableContext
+                          items={modulePages.map(p => p._id)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          <div className="border-t border-mauve-4/30 bg-bg-base">
+                            {modulePages.map((page) => (
+                              <SortableLesson
+                                key={page._id}
+                                page={page}
+                                moduleId={module._id}
+                                isOwner={isOwner}
+                              >
+                                <LessonItem
+                                  page={page}
+                                  moduleId={module._id}
+                                  isSelected={selectedPageId === page._id}
+                                  isOwner={isOwner}
+                                  isCompleted={isPageCompleted(page._id)}
+                                  onSelect={() => onSelectPage(page._id)}
+                                  openMenu={openLessonMenu === page._id}
+                                  setOpenMenu={(open) => setOpenLessonMenu(open ? page._id : null)}
+                                  onDelete={() => setDeleteConfirmLesson({
+                                    id: page._id,
+                                    title: page.title,
+                                  })}
+                                />
+                              </SortableLesson>
+                            ))}
+                          </div>
+                        </SortableContext>
+                      </DndContext>
                     )}
                   </div>
                 </SortableChapter>
@@ -460,11 +608,14 @@ export function ClassroomSidebar({
         />
       )}
 
-      <div className={`
-        fixed lg:relative z-50 lg:z-auto
-        w-72 h-full
-        ${isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
-      `}>
+      <div
+        ref={sidebarRef}
+        className={`
+          fixed lg:relative z-50 lg:z-auto
+          w-72 h-full
+          ${isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
+        `}
+      >
         <Card className="h-full flex flex-col">
           {/* Header */}
           <div className="p-3 border-b border-mauve-4/30 space-y-3">

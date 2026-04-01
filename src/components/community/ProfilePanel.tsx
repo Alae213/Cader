@@ -7,7 +7,6 @@ import { useAuth, useUser } from "@clerk/nextjs";
 import { UserProfile } from "@clerk/nextjs";
 import { toast } from "sonner";
 import { Heading, Text } from "@/components/ui/Text";
-import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
 import { Avatar } from "@/components/shared/Avatar";
@@ -22,15 +21,13 @@ interface ProfilePanelProps {
 
 export function ProfilePanel({ userId, open, onOpenChange }: ProfilePanelProps) {
   const { userId: clerkId } = useAuth();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { user: clerkUser } = useUser();
   const [showClerkProfile, setShowClerkProfile] = useState(false);
 
   // Resolve target user ID
   const targetClerkId = userId || clerkId || "";
   const isOwnProfile = targetClerkId === clerkId;
-
-  // Auth guard
-  if (!clerkId) return null;
 
   // Fetch target user from Convex
   const targetUser = useQuery(
@@ -394,7 +391,7 @@ export function ProfilePanel({ userId, open, onOpenChange }: ProfilePanelProps) 
               <Text size="sm" theme="muted">More</Text>
             </div>
             <Text size="sm" theme="secondary" className="mt-1">
-              {activityData?.postsCount || 0} posts, {activityData?.commentsCount || 0} comments, {activityData?.upvotesCount || 0} upvotes, {activityData?.lessonsCount || 0} lessons
+              {activityData?.postsCount || 0} posts, {activityData?.commentsCount || 0} comments
             </Text>
           </div>
 

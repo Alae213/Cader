@@ -469,6 +469,7 @@ export function AboutTab({
               <div className="flex items-center gap-2">
                 <div className="h-4 w-4 rounded-full bg-bg-elevated border border-border flex items-center justify-center">
                   {community.ownerAvatar ? (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img 
                       src={community.ownerAvatar} 
                       alt={community.ownerName || "Owner"}

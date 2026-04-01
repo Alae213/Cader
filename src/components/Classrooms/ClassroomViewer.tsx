@@ -1,21 +1,16 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 import { Button } from "@/components/ui/Button";
 import { Heading, Text } from "@/components/ui/Text";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { Card, CardContent } from "@/components/ui/Card";
 import { ClassroomSidebar } from "./ClassroomSidebar";
 import { LessonContent } from "./LessonContent";
-import { VideoEmbed } from "./VideoEmbed";
-import { LessonDescription } from "./LessonDescription";
 import { toast } from "sonner";
 import {
-  DndContext,
-  closestCenter,
   KeyboardSensor,
   PointerSensor,
   useSensor,
@@ -24,11 +19,9 @@ import {
 } from "@dnd-kit/core";
 import {
   arrayMove,
-  SortableContext,
   sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { ChevronLeft, Menu, AlertCircle } from "lucide-react";
+import { ChevronLeft, Menu, AlertCircle, Play, Trash2 } from "lucide-react";
 
 interface ClassroomViewerProps {
   classroomId: string;
@@ -53,13 +46,8 @@ interface ModuleData {
   }[];
 }
 
-const STORAGE_KEY = "classroom_draft_";
-
 export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: providedUser }: ClassroomViewerProps) {
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
-  const [editingPageId, setEditingPageId] = useState<string | null>(null);
-  const [editedContent, setEditedContent] = useState<string>("");
-  const [editedTitle, setEditedTitle] = useState<string>("");
   
   // Video modal state
   const [videoModalOpen, setVideoModalOpen] = useState(false);
@@ -73,14 +61,14 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
   // Ref for focus management after mobile sidebar selection
   const mainContentRef = useRef<HTMLDivElement>(null);
   
-  // Loading states
-  const [isSaving, setIsSaving] = useState(false);
-  
   // Optimistic state for reordering chapters
   const [optimisticChapters, setOptimisticChapters] = useState<ModuleData[] | null>(null);
   
   // Optimistic state for lesson completion
   const [optimisticCompletedPages, setOptimisticCompletedPages] = useState<Set<string>>(new Set());
+
+  // Optimistic state for lesson reordering within a module
+  const [optimisticLessonOrders, setOptimisticLessonOrders] = useState<Record<string, { _id: string; title: string; order: number; isViewed?: boolean; videoUrl?: string; description?: string }[]>>({});
 
   // Delete confirmation state
   const [deleteConfirmChapter, setDeleteConfirmChapter] = useState<{ id: string; title: string; lessonCount: number } | null>(null);
@@ -93,19 +81,28 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
   // Chapter menu state
   const [openChapterMenu, setOpenChapterMenu] = useState<string | null>(null);
   
+  // Lesson menu state
+  const [openLessonMenu, setOpenLessonMenu] = useState<string | null>(null);
+  
   // Inline editing state for chapter titles
   const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
   const [editingChapterTitle, setEditingChapterTitle] = useState("");
   const chapterDebounceRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Lesson editing state (for LessonContent)
-  const [editingLessonId, setEditingLessonId] = useState<string | null>(null);
-  const [editingLessonTitle, setEditingLessonTitle] = useState("");
-  const lessonDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Lesson title editing debounce
+  const lessonTitleDebounceRef = useRef<NodeJS.Timeout | null>(null);
   
   // T-CL-FIX-170 & T-CL-FIX-173: Refs for modal focus management
   const chapterModalRef = useRef<HTMLDivElement>(null);
   const lessonModalRef = useRef<HTMLDivElement>(null);
+
+  // T-CL-FIX-242: Cancel lesson title debounce when selected page changes
+  // Prevents stale closure from saving old title to the wrong lesson
+  useEffect(() => {
+    if (lessonTitleDebounceRef.current) {
+      clearTimeout(lessonTitleDebounceRef.current);
+    }
+  }, [selectedPageId]);
 
   // T-CL-FIX-150 & T-CL-FIX-151: Cleanup debounce refs on unmount
   // T-CL-FIX-144: Cleanup mobile sidebar state on unmount
@@ -116,9 +113,9 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
       if (chapterDebounceRef.current) {
         clearTimeout(chapterDebounceRef.current);
       }
-      // T-CL-FIX-143: Flush any pending lesson title save
-      if (lessonDebounceRef.current) {
-        clearTimeout(lessonDebounceRef.current);
+      // Flush any pending lesson title save
+      if (lessonTitleDebounceRef.current) {
+        clearTimeout(lessonTitleDebounceRef.current);
       }
       // T-CL-FIX-144: Close sidebar on unmount (reset state)
       setIsSidebarOpen(false);
@@ -169,7 +166,7 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
       ? { pageId: selectedPageId as Id<"pages"> }
       : "skip"
   );
-
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const markPageViewed = useMutation(api.functions.classrooms.markPageViewed);
   const updatePageContent = useMutation(api.functions.classrooms.updatePageContent);
   const createModule = useMutation(api.functions.classrooms.createModule);
@@ -179,6 +176,7 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
   const deleteModule = useMutation(api.functions.classrooms.deleteModule);
   const deletePage = useMutation(api.functions.classrooms.deletePage);
   const reorderChapters = useMutation(api.functions.classrooms.reorderChapters);
+  const reorderLessons = useMutation(api.functions.classrooms.reorderLessons);
 
   // DnD sensors
   const sensors = useSensors(
@@ -201,8 +199,39 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
     // Clear optimistic chapters when data changes
     if (classroomContent?.modules) {
       setOptimisticChapters(null);
+      setOptimisticLessonOrders({});
     }
   }, [classroomContent?.modules]);
+
+  // T-CL-FIX-250: Auto-create Chapter 1 + Lesson 1 on first open for owners
+  // Replaces the empty state — owners immediately see a usable classroom
+  useEffect(() => {
+    if (
+      isInitialLoad.current &&
+      isOwner &&
+      classroomContent &&
+      !classroomContent.modules?.length
+    ) {
+      isInitialLoad.current = false;
+      const autoInit = async () => {
+        try {
+          const mod = await createModule({
+            classroomId: classroomId as Id<"classrooms">,
+            title: "Chapter",
+          });
+          if (mod) {
+            await createPage({
+              moduleId: mod as Id<"modules">,
+              title: "Lesson",
+            });
+          }
+        } catch {
+          toast.error("Failed to initialize classroom");
+        }
+      };
+      autoInit();
+    }
+  }, [classroomContent, isOwner, classroomId, createModule, createPage]);
 
   useEffect(() => {
     if (isInitialLoad.current && classroomContent?.modules?.length) {
@@ -214,125 +243,88 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
     }
   }, [classroomContent]);
 
-  // LocalStorage draft preservation
+  // T-CL-FIX-243: Auto-recover when selected page is deleted
+  // If the currently selected lesson disappears (deleted in another tab, etc.),
+  // automatically select the first available lesson to avoid a blank panel.
   useEffect(() => {
-    const storageKey = `${STORAGE_KEY}${editingPageId}`;
-    if (editingPageId) {
-      const savedDraft = localStorage.getItem(storageKey);
-      if (savedDraft && !pageContent) {
-        const draft = JSON.parse(savedDraft);
-        setEditedTitle(draft.title);
-        setEditedContent(draft.content);
-      }
+    if (!selectedPageId) return;
+    const stillExists = classroomContent?.modules?.some(m =>
+      m.pages?.some(p => p._id === selectedPageId)
+    );
+    if (!stillExists) {
+      const firstPage = classroomContent?.modules?.[0]?.pages?.[0]?._id ?? null;
+      setSelectedPageId(firstPage);
     }
-  }, [editingPageId, pageContent]);
+  }, [selectedPageId, classroomContent?.modules]);
 
-  useEffect(() => {
-    if (editingPageId) {
-      const storageKey = `${STORAGE_KEY}${editingPageId}`;
-      localStorage.setItem(storageKey, JSON.stringify({
-        title: editedTitle,
-        content: editedContent,
-        timestamp: Date.now()
-      }));
-    }
-  }, [editingPageId, editedTitle, editedContent]);
-
-  const clearDraft = useCallback((pageId: string) => {
-    const storageKey = `${STORAGE_KEY}${pageId}`;
-    localStorage.removeItem(storageKey);
-  }, []);
-
-  const handleStartEdit = useCallback(() => {
-    if (pageContent) {
-      setEditedTitle(pageContent.title);
-      setEditedContent(pageContent.content);
-      setEditingPageId(pageContent._id);
-    }
-  }, [pageContent]);
-
-  const handleSaveEdit = useCallback(async () => {
-    if (!editingPageId) return;
-    
-    // T-CL-FIX-133: Empty content validation
-    if (!editedTitle.trim()) {
+  // Save lesson title with debounce (1.5s)
+  const handleSaveLessonTitle = useCallback((newTitle: string) => {
+    if (!selectedPageId || !pageContent) return;
+    if (!newTitle.trim()) {
       toast.error("Lesson title cannot be empty");
       return;
     }
-    if (!editedContent.trim()) {
-      toast.error("Lesson content cannot be empty");
-      return;
+    
+    if (lessonTitleDebounceRef.current) {
+      clearTimeout(lessonTitleDebounceRef.current);
     }
     
-    setIsSaving(true);
-    try {
-      await updatePageContent({
-        pageId: editingPageId as Id<"pages">,
-        title: editedTitle,
-        content: editedContent,
-      });
-      clearDraft(editingPageId);
-      setEditingPageId(null);
-      toast.success("Lesson saved successfully");
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to save";
-      toast.error(errorMessage);
-    } finally {
-      setIsSaving(false);
-    }
-  }, [editingPageId, editedTitle, editedContent, updatePageContent, clearDraft]);
+    lessonTitleDebounceRef.current = setTimeout(async () => {
+      try {
+        await updatePageContent({
+          pageId: selectedPageId as Id<"pages">,
+          title: newTitle.trim(),
+          content: pageContent.content,
+          videoUrl: pageContent.videoUrl,
+          description: pageContent.description,
+        });
+      } catch {
+        toast.error("Failed to update lesson title");
+      }
+    }, 1500);
+  }, [selectedPageId, pageContent, updatePageContent]);
 
-  const handleCancelEdit = useCallback(() => {
-    if (editingPageId) {
-      clearDraft(editingPageId);
-    }
-    setEditingPageId(null);
-    setEditedTitle("");
-    setEditedContent("");
-  }, [editingPageId, clearDraft]);
-
-  // Add Chapter - auto-create with default name
+  // Add Chapter - auto-create with a default lesson inside
   const handleAddChapter = useCallback(async () => {
-    // T-CL-FIX-110: Use functional update to get latest length
-    const chapterNumber = (classroomContent?.modules?.length || 0) + 1;
-    const defaultTitle = `Chapter ${chapterNumber}`;
+    const defaultTitle = "Chapter";
     try {
-      await createModule({
+      const mod = await createModule({
         classroomId: classroomId as Id<"classrooms">,
         title: defaultTitle,
       });
+      // Auto-create Lesson 1 inside the new chapter
+      if (mod) {
+        await createPage({
+          moduleId: mod as Id<"modules">,
+          title: "Lesson",
+        });
+      }
       toast.success("Chapter created");
-    } catch (err) {
-      toast.error("Failed to create chapter");
-    }
-  }, [createModule, classroomId, classroomContent?.modules?.length]);
+      } catch {
+        toast.error("Failed to create chapter");
+      }
+  }, [createModule, createPage, classroomId]);
 
   // Add Lesson - auto-create with default name
   const handleAddLesson = useCallback(async (moduleId: string) => {
-    // T-CL-FIX-131: Check for duplicate "New Lesson" title
-    const targetModule = classroomContent?.modules?.find(m => m._id === moduleId);
-    const existingLessonTitles = targetModule?.pages?.map(p => p.title.toLowerCase()) || [];
-    
-    if (existingLessonTitles.includes("new lesson")) {
-      toast.error("A lesson named 'New Lesson' already exists in this chapter");
-      return;
-    }
-    
     try {
       await createPage({
         moduleId: moduleId as Id<"modules">,
-        title: "New Lesson",
+        title: "Lesson",
       });
       toast.success("Lesson created");
-    } catch (err) {
+    } catch {
       toast.error("Failed to create lesson");
     }
-  }, [createPage, classroomContent?.modules]);
+  }, [createPage]);
 
   // Handle toggle lesson complete with optimistic update
   const handleToggleComplete = useCallback(async (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (!selectedPageId || !pageContent) return;
+    
+    // T-CL-FIX-244: Capture pre-toggle state for proper revert on error
+    const wasCompleted = optimisticCompletedPages.has(selectedPageId);
     
     // Optimistic update
     const newCompleted = new Set(optimisticCompletedPages);
@@ -347,10 +339,10 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
       await toggleLessonComplete({
         pageId: selectedPageId as Id<"pages">,
       });
-    } catch (err) {
-      // Revert on error
+    } catch {
+      // T-CL-FIX-244: Revert to pre-toggle state, not current server state
       const reverted = new Set(optimisticCompletedPages);
-      if (pageContent.isViewed) {
+      if (wasCompleted) {
         reverted.add(selectedPageId);
       } else {
         reverted.delete(selectedPageId);
@@ -537,19 +529,60 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
     }
   }, [modules, classroomId, reorderChapters]);
 
+  // Handle lesson reordering within a module with optimistic update
+  const handleLessonDragEnd = useCallback(async (moduleId: string, event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    
+    const modulePages = optimisticLessonOrders[moduleId] 
+      ? optimisticLessonOrders[moduleId]
+      : classroomContent?.modules?.find(m => m._id === moduleId)?.pages || [];
+    
+    const oldIndex = modulePages.findIndex(p => p._id === active.id);
+    const newIndex = modulePages.findIndex(p => p._id === over.id);
+    
+    if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+      const previousLessons = [...modulePages];
+      const reordered = arrayMove(modulePages as { _id: string; title: string; order: number; isViewed?: boolean; videoUrl?: string; description?: string }[], oldIndex, newIndex);
+      
+      // Optimistic update
+      setOptimisticLessonOrders(prev => ({ ...prev, [moduleId]: reordered }));
+      
+      const lessonOrders = reordered.map((p, index) => ({
+        lessonId: p._id as Id<"pages">,
+        order: index,
+      }));
+      
+      try {
+        await reorderLessons({
+          moduleId: moduleId as Id<"modules">,
+          lessonOrders,
+        });
+      } catch (err) {
+        setOptimisticLessonOrders(prev => ({ ...prev, [moduleId]: previousLessons }));
+        toast.error(err instanceof Error ? err.message : "Failed to reorder lessons");
+      }
+    }
+  }, [classroomContent?.modules, optimisticLessonOrders, reorderLessons]);
+
   // Check if page is completed (optimistic or real)
   const isPageCompleted = useCallback((pageId: string) => {
     if (optimisticCompletedPages.has(pageId)) return true;
-    const module = classroomContent?.modules?.find(m => m.pages?.some(p => p._id === pageId));
-    const page = module?.pages?.find(p => p._id === pageId);
+    const mod = classroomContent?.modules?.find(m => m.pages?.some(p => p._id === pageId));
+    // Check optimistic lesson order first
+    for (const modPages of Object.values(optimisticLessonOrders)) {
+      const page = modPages.find(p => p._id === pageId);
+      if (page) return page.isViewed || false;
+    }
+    const page = mod?.pages?.find(p => p._id === pageId);
     return page?.isViewed || false;
-  }, [optimisticCompletedPages, classroomContent?.modules]);
+  }, [optimisticCompletedPages, classroomContent?.modules, optimisticLessonOrders]);
 
-  // Get page content with optimistic completion status
-  const pageContentWithOptimistic = pageContent ? {
+  // T-CL-FIX-246: Memoize to prevent unnecessary LessonContent re-renders
+  const pageContentWithOptimistic = useMemo(() => pageContent ? {
     ...pageContent,
     isViewed: isPageCompleted(pageContent._id)
-  } : null;
+  } : null, [pageContent, isPageCompleted]);
 
   // T-CL-FIX-140: Loading state - show skeleton while classroomContent loads
   if (!classroomContent) {
@@ -573,26 +606,9 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
     );
   }
 
-  // T-CL-FIX-141: Empty state - show encouraging message when no chapters
-  if (classroomContent.modules?.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] p-6">
-        <div className="w-24 h-24 rounded-full bg-bg-surface flex items-center justify-center mb-4">
-          <Menu className="w-12 h-12 text-text-muted" />
-        </div>
-        <Heading size="4" className="text-text-primary mb-2">No Chapters Yet</Heading>
-        <Text size="3" theme="secondary" className="text-center max-w-md mb-6">
-          Start building your classroom by adding the first chapter.
-        </Text>
-        {isOwner && (
-          <Button onClick={handleAddChapter}>
-            Add First Chapter
-          </Button>
-        )}
-      </div>
-    );
-  }
-
+  // T-CL-FIX-241: Access denied check BEFORE empty-state check
+  // If a non-owner without access opens a classroom with no modules,
+  // they must see "Access Denied" — not "No Chapters Yet" with an add button.
   if (classroomContent && !classroomContent.hasAccess && !isOwner) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] p-6">
@@ -602,6 +618,26 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
         <Heading size="4" className="text-text-primary">Access Denied</Heading>
         <Text size="3" theme="secondary" className="text-center max-w-md">
           You do not have access to this classroom. Contact the owner to request access.
+        </Text>
+        <Button onClick={onBack}>
+          <ChevronLeft className="w-4 h-4 mr-2" />
+          Go Back
+        </Button>
+      </div>
+    );
+  }
+
+  // T-CL-FIX-250: Empty state removed — auto-creates Chapter 1 + Lesson 1 for owners
+  // Non-owners with no modules see the loading skeleton until content appears
+  if (classroomContent.modules?.length === 0 && !isOwner) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] p-6">
+        <div className="w-24 h-24 rounded-full bg-bg-surface flex items-center justify-center mb-4">
+          <Menu className="w-12 h-12 text-text-muted" />
+        </div>
+        <Heading size="4" className="text-text-primary mb-2">No Content Yet</Heading>
+        <Text size="3" theme="secondary" className="text-center max-w-md">
+          The owner hasn&apos;t added any chapters to this classroom yet.
         </Text>
         <Button onClick={onBack}>
           <ChevronLeft className="w-4 h-4 mr-2" />
@@ -627,13 +663,17 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
           setSelectedPageId(pageId);
           setIsSidebarOpen(false);
           mainContentRef.current?.focus();
+          setOpenLessonMenu(null);
         }}
         onAddChapter={handleAddChapter}
         onAddLesson={handleAddLesson}
         onChapterDragEnd={handleChapterDragEnd}
+        onLessonDragEnd={handleLessonDragEnd}
         sensors={sensors}
         openChapterMenu={openChapterMenu}
         setOpenChapterMenu={setOpenChapterMenu}
+        openLessonMenu={openLessonMenu}
+        setOpenLessonMenu={setOpenLessonMenu}
         editingChapterId={editingChapterId}
         setEditingChapterId={setEditingChapterId}
         editingChapterTitle={editingChapterTitle}
@@ -643,7 +683,11 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
         deleteConfirmChapter={deleteConfirmChapter}
         setDeleteConfirmChapter={setDeleteConfirmChapter}
         handleDeleteChapter={handleDeleteChapter}
+        deleteConfirmLesson={deleteConfirmLesson}
+        setDeleteConfirmLesson={setDeleteConfirmLesson}
+        handleDeleteLesson={handleDeleteLesson}
         isPageCompleted={isPageCompleted}
+        optimisticLessonOrders={optimisticLessonOrders}
       />
 
       {/* Main content - Right section */}
@@ -672,46 +716,34 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
           selectedPageId={selectedPageId}
           isOwner={isOwner}
           isSidebarOpen={isSidebarOpen}
-          editingPageId={editingPageId}
-          editedTitle={editedTitle}
-          editedContent={editedContent}
-          isSaving={isSaving}
-          error={null}
           mainContentRef={mainContentRef}
           onOpenSidebar={() => setIsSidebarOpen(true)}
           onToggleComplete={(e) => handleToggleComplete(e as React.MouseEvent)}
-          onStartEdit={handleStartEdit}
-          onTitleChange={setEditedTitle}
-          onContentChange={setEditedContent}
-          onSaveEdit={handleSaveEdit}
-          onCancelEdit={handleCancelEdit}
           onVideoUpdate={handleVideoUpdate}
           onDescriptionUpdate={handleDescriptionUpdate}
-          editingLessonId={editingLessonId}
-          setEditingLessonId={setEditingLessonId}
-          editingLessonTitle={editingLessonTitle}
-          setEditingLessonTitle={setEditingLessonTitle}
-          deleteConfirmLesson={deleteConfirmLesson}
-          setDeleteConfirmLesson={setDeleteConfirmLesson}
-          handleDeleteLesson={handleDeleteLesson}
+          videoModalOpen={videoModalOpen}
+          onVideoModalOpenChange={setVideoModalOpen}
+          onSaveLessonTitle={handleSaveLessonTitle}
         />
 
         {/* T-CL-FIX-170, T-CL-FIX-171: Delete Chapter Confirmation Modal */}
         {deleteConfirmChapter && (
-          <div 
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="chapter-delete-title"
-          >
             <div 
-              className="bg-bg-surface p-6 rounded-lg max-w-sm w-full mx-4"
-              ref={chapterModalRef}
-              tabIndex={-1}
+              className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Delete chapter confirmation"
+              onClick={() => !isDeletingChapter && setDeleteConfirmChapter(null)}
             >
-              <h2 id="chapter-delete-title" className="mb-2"><Heading size="4">Delete Chapter?</Heading></h2>
+              <div 
+                className="bg-bg-surface p-6 rounded-lg max-w-sm w-full mx-4"
+                ref={chapterModalRef}
+                tabIndex={-1}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Heading size="4" className="mb-2">Delete Chapter?</Heading>
               <Text size="2" theme="secondary" className="mb-4">
-                This will permanently delete "{deleteConfirmChapter.title}" and {deleteConfirmChapter.lessonCount} lesson{deleteConfirmChapter.lessonCount !== 1 ? 's' : ''}. This action cannot be undone.
+                This will permanently delete &quot;{deleteConfirmChapter.title}&quot; and {deleteConfirmChapter.lessonCount} lesson{deleteConfirmChapter.lessonCount !== 1 ? 's' : ''}. This action cannot be undone.
               </Text>
               <div className="flex gap-3 justify-end">
                 <Button variant="ghost" onClick={() => setDeleteConfirmChapter(null)} disabled={isDeletingChapter}>
@@ -727,20 +759,22 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
 
         {/* T-CL-FIX-170, T-CL-FIX-171: Delete Lesson Confirmation Modal */}
         {deleteConfirmLesson && (
-          <div 
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="lesson-delete-title"
-          >
             <div 
-              className="bg-bg-surface p-6 rounded-lg max-w-sm w-full mx-4"
-              ref={lessonModalRef}
-              tabIndex={-1}
+              className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Delete lesson confirmation"
+              onClick={() => !isDeletingLesson && setDeleteConfirmLesson(null)}
             >
-              <h2 id="lesson-delete-title" className="mb-2"><Heading size="4">Delete Lesson?</Heading></h2>
+              <div 
+                className="bg-bg-surface p-6 rounded-lg max-w-sm w-full mx-4"
+                ref={lessonModalRef}
+                tabIndex={-1}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Heading size="4" className="mb-2">Delete Lesson?</Heading>
               <Text size="2" theme="secondary" className="mb-4">
-                This will permanently delete "{deleteConfirmLesson.title}". This action cannot be undone.
+                This will permanently delete &quot;{deleteConfirmLesson.title}&quot;. This action cannot be undone.
               </Text>
               <div className="flex gap-3 justify-end">
                 <Button variant="ghost" onClick={() => setDeleteConfirmLesson(null)} disabled={isDeletingLesson}>

@@ -385,7 +385,19 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 
 ---
 
-## Phase 23 — Settings & Profile Fixes (T-SET-001 to T-SET-XXX)
+### Phase 26 — ClassroomViewer Right Section Critical Fixes (T-CL-FIX-240 to T-CL-FIX-246)
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CL-FIX-240 | `[x]` | Add loading skeleton for pageContent — show skeleton while page content fetches after lesson selection | [context/features/classrooms.md](../features/classrooms.md) | Right panel blank when switching lessons |
+| T-CL-FIX-241 | `[x]` | Reorder access denied check before empty-state check — non-members without access see "No Chapters" instead of "Access Denied" | [context/features/classrooms.md](../features/classrooms.md) | Line 517 returns before line 536 can run |
+| T-CL-FIX-242 | `[x]` | Cancel lesson title debounce on selectedPageId change — prevents stale closure from saving to wrong lesson | [context/features/classrooms.md](../features/classrooms.md) | handleSaveLessonTitle captures old pageId |
+| T-CL-FIX-243 | `[x]` | Auto-recover when selected page is deleted — auto-select first available lesson when current page disappears | [context/features/classrooms.md](../features/classrooms.md) | Blank panel if lesson deleted in another tab |
+| T-CL-FIX-244 | `[x]` | Fix error revert logic in handleToggleComplete — revert to pre-toggle state, not current server state | [context/features/classrooms.md](../features/classrooms.md) | pageContent may have changed since optimistic update |
+| T-CL-FIX-245 | `[x]` | Add modal backdrop click dismiss — clicking outside delete confirmation modals cancels them | [context/features/classrooms.md](../features/classrooms.md) | Lines 627, 656: backdrop needs onClick handler |
+| T-CL-FIX-246 | `[x]` | Memoize pageContentWithOptimistic — prevent unnecessary LessonContent re-renders | [context/features/classrooms.md](../features/classrooms.md) | New object created every render |
+
+### Phase 23 — Settings & Profile Fixes (T-SET-001 to T-SET-XXX)
 
 ### Critical Fixes
 

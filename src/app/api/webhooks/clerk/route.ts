@@ -12,6 +12,7 @@ function getConvexClient(): ConvexHttpClient {
   return new ConvexHttpClient(convexUrl);
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function verifySignature(payload: string, signature: string, secret: string): boolean {
   const timestamp = signature.split("t=")[1]?.split(",")[0] || "";
   const sig = signature.split("v1=")[1] || signature;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import Image from "next/image";
 import { useMutation } from "convex/react";
 import { Id } from "../../../convex/_generated/dataModel";
 import { api } from "../../../convex/_generated/api";
@@ -137,6 +138,13 @@ export function SortableChapter({
     isDragging,
   } = useSortable({ id: module._id });
 
+   
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+   
+
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -265,7 +273,7 @@ export function SortableChapter({
               <div className="absolute right-0 top-full mt-1 w-48 bg-bg-surface border border-border rounded-lg shadow-lg z-50 py-1">
                 {isChapterDeleteConfirm ? (
                   <div className="px-3 py-2">
-                    <Text size="1" theme="muted" className="mb-2">Delete "{module.title}"?</Text>
+                    <Text size="1" theme="muted" className="mb-2">Delete &quot;{module.title}&quot;?</Text>
                     <div className="flex gap-2">
                       <Button 
                         size="sm" 
@@ -319,10 +327,7 @@ export function SortableChapter({
       {/* Pages/lessons list */}
       {!isCollapsed && module.pages && module.pages.length > 0 && (
         <DndContext
-          sensors={useSensors(
-            useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-            useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-          )}
+          sensors={sensors}
           collisionDetection={closestCenter}
           onDragEnd={handleLessonDragEnd}
         >
@@ -497,6 +502,7 @@ function SortableLesson({
         {/* Lesson thumbnail */}
         {page.videoUrl ? (
           <div className="w-16 h-9 bg-black/20 rounded flex-shrink-0 overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img 
               src={page.videoUrl.includes("youtube") || page.videoUrl.includes("youtu.be") 
                 ? `https://img.youtube.com/vi/${page.videoUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/)?.[1]}/mqdefault.jpg`
@@ -587,7 +593,7 @@ function SortableLesson({
               </button>
               {isLessonDeleteConfirm ? (
                 <div className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
-                  <Text size="1" theme="muted" className="mb-2">Delete "{page.title}"?</Text>
+                  <Text size="1" theme="muted" className="mb-2">Delete &quot;{page.title}&quot;?</Text>
                   <div className="flex gap-2">
                     <Button 
                       size="sm" 

@@ -4,6 +4,7 @@ import { v } from "convex/values";
 // Seed script to create sample community for Explore page
 // Run with: npx convex run seed:createSampleCommunity
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface SeedArgs {
   communityName: string;
   communitySlug: string;

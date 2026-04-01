@@ -60,17 +60,6 @@ export function ChapterItem({
   onSelectPage,
   onAddLesson,
   onOpenChapterMenu,
-  openMenu,
-  setOpenMenu,
-  editingChapterId,
-  setEditingChapterId,
-  editingChapterTitle,
-  setEditingChapterTitle,
-  handleTitleBlur,
-  handleTitleKeyDown,
-  setDeleteConfirm,
-  lessonsSortableId,
-  onLessonDragEnd,
 }: ChapterItemProps) {
   const {
     attributes,

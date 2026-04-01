@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useAuth } from "@clerk/nextjs";
@@ -11,7 +12,6 @@ import { LevelBadge } from "./LevelBadge";
 import { parseContentWithMentions } from "@/lib/mentions";
 import { 
   ThumbsUp, 
-  MessageCircle, 
   MoreHorizontal, 
   Trash2,
   Reply,
@@ -79,7 +79,9 @@ export function Comment({
   // Get author's level
   const authorLevel = useQuery(
     api.functions.leaderboard.getUserLevel,
+     
     communityId && comment.authorId 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ? { communityId: communityId as any, userId: comment.authorId as any }
       : "skip"
   );
@@ -126,6 +128,7 @@ export function Comment({
 
     setIsLoading(true);
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await toggleCommentUpvote({ commentId: comment._id as any });
       setLocalUpvoteCount(result.newCount);
       setHasUpvoted(result.upvoted);
@@ -148,6 +151,7 @@ export function Comment({
 
     setIsLoading(true);
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await deleteComment({ commentId: comment._id as any });
       toast.success("Comment deleted");
       setShowMenu(false);
@@ -230,10 +234,12 @@ export function Comment({
           {comment.mediaUrls && comment.mediaUrls.length > 0 && (
             <div className="mt-2 grid grid-cols-2 gap-2">
               {comment.mediaUrls.map((url, i) => (
-                <img 
+                <Image 
                   key={i}
                   src={url}
                   alt=""
+                  width={200}
+                  height={160}
                   className="rounded-lg max-h-40 object-cover"
                 />
               ))}

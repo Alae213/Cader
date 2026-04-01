@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
-import { useAuth, SignInButton, SignUpButton } from "@clerk/nextjs";
+import { useAuth } from "@clerk/nextjs";
 import { api } from "@/../convex/_generated/api";
 import { CommunityShell } from "@/components/layout/CommunityShell";
 import { CreateCommunityModal } from "@/components/community/CreateCommunityModal";

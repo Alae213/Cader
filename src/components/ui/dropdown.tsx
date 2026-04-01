@@ -143,8 +143,10 @@ const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
           {/* Hover background */}
           <AnimatePresence>
             {activeRect && (
+              /* eslint-disable react-hooks/refs */
               <motion.div
                 key={sessionRef.current}
+              /* eslint-enable react-hooks/refs */
                 className={`absolute ${shape.bg} pointer-events-none`}
                 initial={{
                   opacity: 0,

@@ -471,18 +471,10 @@ export const toggleUpvote = mutation({
       });
 
       // Write a -1 point event (reverse the upvote) — only if original award was valid
-      // (not self-upvote, not owner/admin voter)
-      const voterMembership = await ctx.db
-        .query("memberships")
-        .withIndex("by_community_and_user", (q) =>
-          q.eq("communityId", post.communityId).eq("userId", user._id)
-        )
-        .first();
-      const isVoterOwnerOrAdmin = voterMembership &&
-        (voterMembership.role === "owner" || voterMembership.role === "admin");
+      // (not self-upvote)
       const isSelfUpvote = post.authorId === user._id;
 
-      if (!isSelfUpvote && !isVoterOwnerOrAdmin) {
+      if (!isSelfUpvote) {
         await ctx.db.insert("pointEvents", {
           communityId: post.communityId,
           userId: post.authorId,
@@ -510,11 +502,10 @@ export const toggleUpvote = mutation({
         updatedAt: now,
       });
 
-      // Write a +1 point event to post author — only if not self-upvote and voter is not owner/admin
+      // Write a +1 point event to post author — only if not self-upvote
       const isSelfUpvote = post.authorId === user._id;
-      const isVoterOwnerOrAdmin = membership.role === "owner" || membership.role === "admin";
 
-      if (!isSelfUpvote && !isVoterOwnerOrAdmin) {
+      if (!isSelfUpvote) {
         await ctx.db.insert("pointEvents", {
           communityId: post.communityId,
           userId: post.authorId,
@@ -599,10 +590,9 @@ export const toggleCommentUpvote = mutation({
       });
 
       // Write a -1 point event (reverse the upvote) — only if original award was valid
-      const isVoterOwnerOrAdmin = membership.role === "owner" || membership.role === "admin";
       const isSelfUpvote = comment.authorId === user._id;
 
-      if (!isSelfUpvote && !isVoterOwnerOrAdmin) {
+      if (!isSelfUpvote) {
         await ctx.db.insert("pointEvents", {
           communityId: post.communityId,
           userId: comment.authorId,
@@ -630,11 +620,10 @@ export const toggleCommentUpvote = mutation({
         updatedAt: now,
       });
 
-      // Write a +1 point event to comment author — only if not self-upvote and voter is not owner/admin
+      // Write a +1 point event to comment author — only if not self-upvote
       const isSelfUpvote = comment.authorId === user._id;
-      const isVoterOwnerOrAdmin = membership.role === "owner" || membership.role === "admin";
 
-      if (!isSelfUpvote && !isVoterOwnerOrAdmin) {
+      if (!isSelfUpvote) {
         await ctx.db.insert("pointEvents", {
           communityId: post.communityId,
           userId: comment.authorId,
@@ -887,19 +876,10 @@ export const deletePost = mutation({
       .collect();
 
     for (const upvote of upvotes) {
-      // Check if this upvote originally awarded points
-      // (not self-upvote, not owner/admin voter)
-      const voterMembership = await ctx.db
-        .query("memberships")
-        .withIndex("by_community_and_user", (q) =>
-          q.eq("communityId", post.communityId).eq("userId", upvote.userId)
-        )
-        .first();
-      const isVoterOwnerOrAdmin = voterMembership &&
-        (voterMembership.role === "owner" || voterMembership.role === "admin");
+      // Check if this upvote originally awarded points (not self-upvote)
       const isSelfUpvote = post.authorId === upvote.userId;
 
-      if (!isSelfUpvote && !isVoterOwnerOrAdmin) {
+      if (!isSelfUpvote) {
         await ctx.db.insert("pointEvents", {
           communityId: post.communityId,
           userId: post.authorId,

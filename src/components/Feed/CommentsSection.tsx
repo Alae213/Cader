@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Text } from "@/components/ui/Text";
@@ -31,54 +31,43 @@ export function CommentsSection({
 }: CommentsSectionProps) {
   const [replyToCommentId, setReplyToCommentId] = useState<string | undefined>();
   const [sortBy, setSortBy] = useState<"top" | "newest">("top");
-  const [comments, setComments] = useState<CommentData[]>([]);
   const [hasMore, setHasMore] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  
-  // Use a ref to track the current cursor for the query
-  const cursorRef = useRef<string | undefined>(undefined);
+  const [isLoading] = useState(false);
+  const [cursor, setCursor] = useState<string | undefined>(undefined);
 
-  // Fetch comments - refetch when fetchKey changes (which happens on load more or sort change)
+  // Fetch comments
+   
   const results = useQuery(
     api.functions.feed.listComments,
     { 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       postId: postId as any,
       sortBy,
       limit: COMMENTS_LIMIT,
-      cursor: cursorRef.current
+      cursor
     }
   );
 
-  // Handle new results
-  useEffect(() => {
-    if (!results?.comments) return;
+  // Derive comments from results - no need for useEffect
+  const comments = (results?.comments as CommentData[] | undefined) || [];
 
-    if (cursorRef.current) {
-      // Loading more - append new comments
-      setComments(prev => {
-        const existingIds = new Set(prev.map(c => c._id));
-        const newComments = (results.comments as CommentData[]).filter(
-          c => !existingIds.has(c._id)
-        );
-        return [...prev, ...newComments];
-      });
-    } else {
-      // Initial load - replace comments
-      setComments(results.comments as CommentData[]);
-    }
-    setHasMore(!!results.nextCursor);
-  }, [results]);
-
-  // Update cursor ref and trigger refetch when sort changes
+  // Update hasMore when results change
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    cursorRef.current = undefined;
-    setComments([]);
-    setHasMore(false);
+    setHasMore(!!results?.nextCursor);
+  }, [results?.nextCursor]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  // Reset cursor and comments when sort changes
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    setCursor(undefined);
   }, [sortBy]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleLoadMore = () => {
-    if (results?.nextCursor && !cursorRef.current) {
-      cursorRef.current = results.nextCursor;
+    if (results?.nextCursor && !cursor) {
+      setCursor(results.nextCursor);
       // Cursor changed — useQuery will refetch automatically
     }
   };

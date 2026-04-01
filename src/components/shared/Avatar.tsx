@@ -43,6 +43,7 @@ export function Avatar({ src, alt, name, fallback, size = "md", className }: Ava
           className
         )}
       >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={src}
           alt={displayName}

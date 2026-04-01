@@ -46,7 +46,7 @@ export const awardDelayedPoints = mutation({
         )
         .first();
 
-      if (!membership || membership.role === "owner" || membership.role === "admin") {
+      if (!membership) {
         continue;
       }
 
@@ -102,7 +102,7 @@ export const awardDelayedPoints = mutation({
         )
         .first();
 
-      if (!membership || membership.role === "owner" || membership.role === "admin") {
+      if (!membership) {
         continue;
       }
 

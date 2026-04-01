@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { Link as LinkIcon, Plus, X } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Text } from "@/components/ui/Text";
@@ -15,17 +15,9 @@ interface LinkInputsProps {
 const MAX_LINKS = 3;
 
 export function LinkInputs({ links = [], isOwner, onSave }: LinkInputsProps) {
-  const [inputValues, setInputValues] = useState<string[]>([]);
+  // Initialize input values from props directly
+  const [inputValues, setInputValues] = useState<string[]>(() => [...links]);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
-
-  // Initialize input values from props
-  useEffect(() => {
-    if (!isInitialized) {
-      setInputValues([...links]);
-      setIsInitialized(true);
-    }
-  }, [links, isInitialized]);
 
   // Get filled links
   const filledLinks = inputValues.filter(l => l.trim() !== "");

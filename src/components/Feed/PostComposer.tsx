@@ -1,16 +1,16 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Image from "next/image";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useAuth } from "@clerk/nextjs";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/Dialog";
-import { Heading, Text } from "@/components/ui/Text";
+import { Text } from "@/components/ui/Text";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { TextArea } from "@/components/ui/TextArea";
-import { Badge } from "@/components/ui/Badge";
 import { Avatar } from "@/components/shared/Avatar";
 import { 
   Image as ImageIcon, 
@@ -63,7 +63,9 @@ export function PostComposer({
   // Search members for mentions
   const searchResults = useQuery(
     api.functions.notifications.searchMembers,
+     
     communityId && mentionSearch.length >= 1 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ? { communityId: communityId as any, searchQuery: mentionSearch }
       : "skip"
   );
@@ -171,6 +173,7 @@ export function PostComposer({
     setError("");
 
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const postData: any = {
         communityId,
         content: content.trim(),
@@ -322,11 +325,11 @@ export function PostComposer({
               {showMentions && searchResults && searchResults.length > 0 && (
                 <div 
                   ref={mentionsDropdownRef}
-                  className="absolute left-3 top-[120px] bg-bg-elevated rounded-lg py-1 max-h-48 overflow-y-auto z-20 min-w-[200px]"
+                  className="absolute left-3 top-[100px] bg-bg-elevated rounded-lg py-1 max-h-48 overflow-y-auto z-20 min-w-[200px]"
                   role="listbox"
                   aria-label="Mentions"
                 >
-                  {searchResults.slice(0, 5).map((member: { userId: any; displayName: string; avatarUrl?: string }, index: number) => (
+                  {searchResults.slice(0, 5).map((member: { userId: string; displayName: string; avatarUrl?: string }, index: number) => (
                     <button
                       key={member.userId}
                       role="option"
@@ -372,7 +375,7 @@ export function PostComposer({
                   role="listbox"
                   aria-label="Mentions"
                 >
-                  {searchResults.slice(0, 5).map((member: { userId: any; displayName: string; avatarUrl?: string }, index: number) => (
+                  {searchResults.slice(0, 5).map((member: { userId: string; displayName: string; avatarUrl?: string }, index: number) => (
                     <button
                       key={member.userId}
                       role="option"
@@ -407,7 +410,7 @@ export function PostComposer({
                 <div className="flex gap-2 flex-wrap">
                   {imageUrls.map((url, i) => (
                     <div key={i} className="relative">
-                      <img src={url} alt="" className="w-20 h-20 object-cover rounded" />
+                      <Image src={url} alt="" width={80} height={80} className="w-20 h-20 object-cover rounded" />
                       <button
                         type="button"
                         onClick={() => setImageUrls(imageUrls.filter((_, j) => j !== i))}
@@ -439,7 +442,7 @@ export function PostComposer({
                   role="listbox"
                   aria-label="Mentions"
                 >
-                  {searchResults.slice(0, 5).map((member: { userId: any; displayName: string; avatarUrl?: string }, index: number) => (
+                  {searchResults.slice(0, 5).map((member: { userId: string; displayName: string; avatarUrl?: string }, index: number) => (
                     <button
                       key={member.userId}
                       role="option"

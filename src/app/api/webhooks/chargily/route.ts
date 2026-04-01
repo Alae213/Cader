@@ -105,7 +105,7 @@ async function verifyPlatformTier(
     }
 
     return { valid: true };
-  } catch (error) {
+  } catch {
     return { valid: false, reason: "Failed to verify community" };
   }
 }

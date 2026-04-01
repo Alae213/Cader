@@ -41,6 +41,7 @@ interface CommunityShellProps {
     onJoinClick: () => void;
     onEditClick: () => void;
     onVideoChange?: (url: string) => void;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     communityData?: any;
   };
   // New props for TopBar - communities user belongs to (created + joined)

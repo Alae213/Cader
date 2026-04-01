@@ -102,11 +102,8 @@ export const getLeaderboard = query({
         const user = await ctx.db.get(membership.userId);
         if (!user || user.deletedAt) return null;
 
-        // Owner/admin don't accumulate points
-        const totalPoints =
-          membership.role === "owner" || membership.role === "admin"
-            ? 0
-            : Math.max(0, agg.totalPoints);
+        // All members accumulate points equally
+        const totalPoints = Math.max(0, agg.totalPoints);
 
         return {
           userId: user._id,
@@ -125,7 +122,6 @@ export const getLeaderboard = query({
     // This ensures the leaderboard shows all members, not just those with points
     for (const membership of memberships) {
       if (userAgg.has(membership.userId)) continue; // Already processed
-      if (membership.role === "owner" || membership.role === "admin") continue; // Exclude from ranking
 
       const user = await ctx.db.get(membership.userId);
       if (!user || user.deletedAt) continue;
@@ -142,10 +138,9 @@ export const getLeaderboard = query({
       });
     }
 
-    // Filter out nulls, exclude owner/admin from ranking, and sort by points (descending)
+    // Filter out nulls and sort by points (descending)
     const sortedMembers = memberPoints
       .filter((m): m is NonNullable<typeof m> => m != null)
-      .filter((m) => m.role !== "owner" && m.role !== "admin")
       .sort((a, b) => {
         // Primary: points descending
         if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
@@ -225,11 +220,8 @@ export const getUserPoints = query({
       .filter((q) => q.eq(q.field("communityId"), args.communityId))
       .collect();
 
-    // Calculate total points (owner/admin don't accumulate points) — clamped to minimum 0
-    const totalPoints =
-      membership.role === "owner" || membership.role === "admin"
-        ? 0
-        : Math.max(0, pointEvents.reduce((sum, e) => sum + e.points, 0));
+    // Calculate total points — clamped to minimum 0
+    const totalPoints = Math.max(0, pointEvents.reduce((sum, e) => sum + e.points, 0));
 
     const level = getLevelFromPoints(totalPoints);
     const nextLevelPoints = getPointsForNextLevel(level);
@@ -267,7 +259,6 @@ export const getUserPoints = query({
       nextLevelPoints,
       pointsToNextLevel,
       streak,
-      isOwnerOrAdmin: membership.role === "owner" || membership.role === "admin",
     };
   },
 });
@@ -281,7 +272,7 @@ export const awardPostPoints = mutation({
     communityId: v.id("communities"),
     postId: v.id("posts"),
   },
-  handler: async (ctx, args) => {
+  handler: async (/* eslint-disable @typescript-eslint/no-unused-vars */ ctx, /* eslint-disable @typescript-eslint/no-unused-vars */ args) => {
     // Points are now awarded by the scheduled function after 10-minute delay
     // This function is a no-op — keeping the API for backward compatibility
     return null;
@@ -298,7 +289,7 @@ export const awardCommentPoints = mutation({
     commentId: v.string(),
     contentLength: v.number(),
   },
-  handler: async (ctx, args) => {
+  handler: async (/* eslint-disable @typescript-eslint/no-unused-vars */ ctx, /* eslint-disable @typescript-eslint/no-unused-vars */ args) => {
     // Points are now awarded by the scheduled function after 2-minute delay
     // This function is a no-op — keeping the API for backward compatibility
     return null;
@@ -339,11 +330,6 @@ export const awardLessonPoints = mutation({
 
     if (!membership || membership.status !== "active") {
       throw new Error("You must be a member");
-    }
-
-    // Owner/admin don't earn points
-    if (membership.role === "owner" || membership.role === "admin") {
-      return null;
     }
 
     // Check if points already awarded for this specific lesson EVER
@@ -407,11 +393,6 @@ export const recordAppOpen = mutation({
       .first();
 
     if (!membership || membership.status !== "active") return null;
-
-    // Owner/admin don't earn streak points
-    if (membership.role === "owner" || membership.role === "admin") {
-      return null;
-    }
 
     const now = Date.now();
     const oneDayMs = 24 * 60 * 60 * 1000;
@@ -513,7 +494,7 @@ export const awardStreakBonus = mutation({
   args: {
     communityId: v.id("communities"),
   },
-  handler: async (ctx, args) => {
+  handler: async (/* eslint-disable @typescript-eslint/no-unused-vars */ ctx, /* eslint-disable @typescript-eslint/no-unused-vars */ args) => {
     // Streaks are now handled by recordAppOpen mutation
     // This function is deprecated — no-op
     return { processed: 0 };

@@ -1,7 +1,5 @@
 "use client";
 
-import { Text } from "@/components/ui/Text";
-
 interface AddChapterButtonProps {
   showInput: boolean;
   inputValue: string;

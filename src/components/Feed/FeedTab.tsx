@@ -768,6 +768,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
                 >
                   {/* User Avatar */}
                   {user?.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={user.imageUrl}
                       alt="Your avatar"
@@ -787,6 +788,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
                   {/* User Avatar and Name in expanded view */}
                   <div className="flex items-center gap-3">
                     {user?.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={user.imageUrl}
                         alt="Your avatar"
@@ -946,6 +948,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
                           <div className="flex gap-2 flex-wrap">
                             {imageUrls.map((url, i) => (
                               <div key={i} className="relative group">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img 
                                   src={url} 
                                   alt="" 

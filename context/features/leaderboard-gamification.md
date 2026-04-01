@@ -48,7 +48,7 @@ This feature exists primarily to strengthen community identity, make contributio
 Can view the Leaderboard tab, see their own level, and earn points.
 
 ### Owner / Admin
-Can view the Leaderboard tab, configure classroom level requirements, but do not earn points and do not appear on the leaderboard.
+Can view the Leaderboard tab, configure classroom level requirements, and earn points like any other member. Owner/admin accounts appear on the leaderboard and are eligible for all rewards.
 
 ### Visitor / Non-member
 No access to the Leaderboard tab.
@@ -104,8 +104,7 @@ All points are community-scoped and awarded server-side only.
 ### Scoring Rules
 
 - Self-upvotes are allowed in the UI but award 0 points.
-- Owner/admin accounts do not earn points from any action.
-- Upvotes from owner/admin accounts still function as social interactions, but they do not create scoring events.
+- Upvotes from owner/admin accounts function as social interactions and award points normally.
 - Post and comment creation points are intended to reward participation, while upvote points are intended to reward community validation.
 - Lesson completion is intentionally high-value because learning should matter, not only posting.
 
@@ -151,7 +150,7 @@ The Leaderboard tab ranks members by points earned in the selected time window.
 - Show Top 10 by default.
 - Provide an explicit "Show more" action to expand to Top 20.
 - Always show the current viewer's own row, pinned below the list if they are not already in the visible Top N.
-- Owner/admin accounts are excluded from the ranking entirely.
+- All active members (including owners/admins) appear in the ranking.
 ### UX Copy Requirement
 
 The Leaderboard must clearly explain:
@@ -295,7 +294,7 @@ Reversals must also be append-only events.
 
 #### Upvotes
 
-* When a valid upvote is added, create the corresponding +1 event if the voter is not the author and not owner/admin.
+* When a valid upvote is added, create the corresponding +1 event if the voter is not the author.
 * When that upvote is removed, append the corresponding -1 reversal event.
 * Duplicate active upvotes for the same voter and target are not allowed.
 
@@ -315,7 +314,6 @@ Reversals must also be append-only events.
 * All score writes are server-side only.
 * Client assertions never directly set or submit point totals.
 * A user cannot score from self-upvotes.
-* Owner/admin accounts cannot accumulate score.
 * A lesson completion reward can happen only once per (userId, lessonId).
 * A streak reward can happen only once per (userId, communityId, dayKey).
 * A post creation reward can happen only once per (userId, postId).

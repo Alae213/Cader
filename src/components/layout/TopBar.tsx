@@ -99,6 +99,7 @@ export function TopBar({
             <div className="flex items-center gap-2">
               <div className="flex-shrink-0">
                 {currentCommunity.thumbnailUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img 
                     src={currentCommunity.thumbnailUrl} 
                     alt={currentCommunity.name}

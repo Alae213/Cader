@@ -23,7 +23,6 @@ const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
     ref
   ) => {
     const internalRef = useRef<HTMLDivElement>(null);
-    const hasMounted = useRef(false);
     const { registerItem, activeIndex, checkedIndex } = useDropdown();
 
     useEffect(() => {
@@ -31,21 +30,20 @@ const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
       return () => registerItem(index, null);
     }, [index, registerItem]);
 
-    useEffect(() => {
-      hasMounted.current = true;
-    }, []);
-
     const isActive = activeIndex === index;
-    const skipAnimation = !hasMounted.current;
+    // Always show animation - simpler approach that avoids the hook issue
+    const skipAnimation = false;
     const shape = useShape();
 
     return (
       <div
+         
         ref={(node) => {
           (internalRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
           if (typeof ref === "function") ref(node);
           else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
         }}
+         
         data-proximity-index={index}
         tabIndex={index === (checkedIndex ?? 0) ? 0 : -1}
         role="menuitemradio"

@@ -57,6 +57,7 @@ export function OnboardingModal({ community, open, onOpenChange, onComplete }: O
   // Check member limit for this community
   const memberLimitCheck = useQuery(
     api.functions.communities.checkMemberLimit,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     community._id ? { communityId: community._id as any } : "skip"
   );
 
@@ -116,8 +117,11 @@ export function OnboardingModal({ community, open, onOpenChange, onComplete }: O
     
     try {
       // Use grantMembership (no displayName/phone needed)
+       
       await mutateFreeJoin({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         communityId: community._id as any,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         userId: convexUser._id as any,
         paymentReference: `free_${Date.now()}`,
       });
@@ -143,8 +147,11 @@ export function OnboardingModal({ community, open, onOpenChange, onComplete }: O
     setPaymentStatus("idle");
     
     try {
+       
       const result = await createCheckout({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         communityId: community._id as any,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         userId: convexUser._id as any,
         type: "community",
         successUrl: `${window.location.origin}/${community.slug}?joined=true`,
