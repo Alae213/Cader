@@ -333,6 +333,11 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
         if (composerExpandedRef.current && !hasContent) {
           setComposerExpanded(false);
           setComposerOpen(false);
+        } else if (composerExpandedRef.current && hasContent) {
+          // F4: Warn before discarding draft on click-outside
+          toast.warning("Unsaved draft will be discarded");
+          setComposerExpanded(false);
+          setComposerOpen(false);
         }
       }
 
@@ -363,6 +368,25 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
     if (typeof window !== 'undefined') {
       localStorage.removeItem(`feed-draft-${communityId}`);
     }
+  };
+
+  // F4: Check if draft has meaningful content before discarding
+  const hasDraftContent = useCallback(() => {
+    return contentRef.current.trim() || 
+      imageUrlsRef.current.length > 0 || 
+      videoUrlRef.current.trim() || 
+      gifUrlRef.current.trim() || 
+      pollQuestionRef.current.trim() || 
+      pollOptionsRef.current.some(o => o.trim());
+  }, []);
+
+  const handleCloseComposer = () => {
+    if (hasDraftContent()) {
+      toast.warning("Unsaved draft will be discarded");
+    }
+    setComposerExpanded(false);
+    setComposerOpen(false);
+    resetComposer();
   };
 
   // Fix #11: Draft persistence — save to localStorage on every change
@@ -840,12 +864,15 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
                     {/* Text Post */}
                     {postType === "text" && (
                       <div className="relative">
+                        <label htmlFor="post-text" className="sr-only">Post content</label>
                         <TextArea
+                          id="post-text"
                           value={content}
                           onChange={(e) => setContent(e.target.value)}
                           placeholder="What's on your mind?"
                           className="min-h-[100px] pr-12"
                           autoFocus
+                          maxLength={5000}
                         />
                         <span className="absolute bottom-2 right-2 text-xs text-text-muted">
                           {content.length}/5000
@@ -934,13 +961,17 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
                     {/* Video Post */}
                     {postType === "video" && (
                       <div className="space-y-3">
+                        <label htmlFor="video-caption" className="sr-only">Video caption</label>
                         <TextArea
+                          id="video-caption"
                           value={content}
                           onChange={(e) => setContent(e.target.value)}
                           placeholder="Add a caption (optional)"
                         />
                         <div>
+                          <label htmlFor="video-url" className="block text-sm font-medium mb-1">Video URL</label>
                           <Input
+                            id="video-url"
                             value={videoUrl}
                             onChange={(e) => setVideoUrl(e.target.value)}
                             placeholder="Paste YouTube, Vimeo, or Google Drive link"
@@ -956,28 +987,42 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
                     {/* GIF Post */}
                     {postType === "gif" && (
                       <div className="space-y-3">
+                        <label htmlFor="gif-caption" className="sr-only">GIF caption</label>
                         <TextArea
+                          id="gif-caption"
                           value={content}
                           onChange={(e) => setContent(e.target.value)}
                           placeholder="Add a caption (optional)"
                         />
-                        <Input
-                          value={gifUrl}
-                          onChange={(e) => setGifUrl(e.target.value)}
-                          placeholder="Paste GIF URL"
-                        />
+                        <div>
+                          <label htmlFor="gif-url" className="block text-sm font-medium mb-1">GIF URL</label>
+                          <Input
+                            id="gif-url"
+                            value={gifUrl}
+                            onChange={(e) => setGifUrl(e.target.value)}
+                            placeholder="Paste GIF URL"
+                            className={gifUrl && !isValidGifUrl(gifUrl) ? "border-destructive" : ""}
+                          />
+                          {gifUrl && !isValidGifUrl(gifUrl) && (
+                            <Text size="2" theme="error" className="mt-1">Invalid GIF URL. Must end in .gif or be from a known GIF host</Text>
+                          )}
+                        </div>
                       </div>
                     )}
 
                     {/* Poll Post */}
                     {postType === "poll" && (
                       <div className="space-y-3">
-                        <TextArea
-                          value={pollQuestion}
-                          onChange={(e) => setPollQuestion(e.target.value)}
-                          placeholder="Ask a question..."
-                          className="min-h-[60px]"
-                        />
+                        <div>
+                          <label htmlFor="poll-question" className="block text-sm font-medium mb-1">Question</label>
+                          <TextArea
+                            id="poll-question"
+                            value={pollQuestion}
+                            onChange={(e) => setPollQuestion(e.target.value)}
+                            placeholder="Ask a question..."
+                            className="min-h-[60px]"
+                          />
+                        </div>
                         <div className="space-y-2">
                           <Text size="sm" fontWeight="medium">Options</Text>
                           {pollOptions.map((option, i) => (
@@ -986,7 +1031,9 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
                                 aria-hidden="true"
                                 className="w-5 h-5 rounded-full border-2 border-border bg-bg-elevated shrink-0 block"
                               />
+                              <label htmlFor={`poll-option-${i}`} className="sr-only">Option {i + 1}</label>
                               <Input
+                                id={`poll-option-${i}`}
                                 value={option}
                                 onChange={(e) => updatePollOption(i, e.target.value)}
                                 placeholder={`Option ${i + 1}`}
@@ -1015,14 +1062,18 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
                             </button>
                           )}
                         </div>
-                        {/* Fix #6: Poll end date/time picker */}
+                        {/* Fix #6: Poll end date/time picker with timezone-safe min */}
                         <div className="space-y-2">
                           <Text size="sm" fontWeight="medium">End date (optional)</Text>
                           <Input
                             type="datetime-local"
                             value={pollEndDate}
                             onChange={(e) => setPollEndDate(e.target.value)}
-                            min={new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 16)}
+                            min={(() => {
+                              const d = new Date(Date.now() + 60 * 60 * 1000);
+                              const pad = (n: number) => String(n).padStart(2, '0');
+                              return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+                            })()}
                             className="max-w-xs"
                           />
                           <Text size="2" theme="muted">Leave empty for no expiration</Text>
@@ -1071,11 +1122,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
                     <Button 
                       variant="secondary" 
                       size="sm"
-                      onClick={() => {
-                        setComposerExpanded(false);
-                        setComposerOpen(false);
-                        resetComposer();
-                      }}
+                      onClick={handleCloseComposer}
                     >
                       Cancel
                     </Button>
