@@ -1,29 +1,49 @@
-import { mutation } from "../_generated/server";
+import { mutation, internalMutation } from "../_generated/server";
+import { v } from "convex/values";
+import { internal } from "../_generated/api";
 
-// Scheduled function: runs every 5 minutes
-// Awards points for posts that have survived the 10-minute visibility delay
-// and comments that have survived the 2-minute visibility delay
-//
-// This replaces the immediate awarding in awardPostPoints/awardCommentPoints.
-// Content that is deleted before the delay window expires never earns points.
+// Scheduled entry point: runs every 5 minutes via cron
+// Kicks off batched point awarding for posts and comments
 export const awardDelayedPoints = mutation({
   handler: async (ctx) => {
+    // Kick off post point awards
+    await ctx.scheduler.runAfter(0, internal.functions.scheduler._awardPostPointsBatch, {
+      cursor: undefined,
+    });
+    // Kick off comment point awards
+    await ctx.scheduler.runAfter(0, internal.functions.scheduler._awardCommentPointsBatch, {
+      cursor: undefined,
+    });
+
+    return { started: true };
+  },
+});
+
+// Batched post point awards — self-scheduling
+export const _awardPostPointsBatch = internalMutation({
+  args: {
+    cursor: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
     const now = Date.now();
     const tenMinutesAgo = now - 10 * 60 * 1000;
-    const twoMinutesAgo = now - 2 * 60 * 1000;
+    const BATCH_SIZE = 20;
 
-    let awardedPosts = 0;
-    let awardedComments = 0;
-
-    // --- Award post creation points for posts older than 10 minutes ---
-    const allPosts = await ctx.db
+    // Scan posts ordered by createdAt (oldest first)
+    const result = await ctx.db
       .query("posts")
       .withIndex("by_created_at")
-      .collect();
+      .paginate({ cursor: args.cursor ?? null, numItems: BATCH_SIZE });
 
-    for (const post of allPosts) {
-      // Only process posts older than 10 minutes
-      if (post.createdAt >= tenMinutesAgo) continue;
+    let awardedPosts = 0;
+
+    for (const post of result.page) {
+      // Posts are ordered oldest-first; once we hit posts newer than 10 min,
+      // all remaining posts in this batch and future batches are also too new.
+      if (post.createdAt >= tenMinutesAgo) {
+        // Since posts are ordered by createdAt ascending, we can stop entirely
+        return { awardedPosts, done: true };
+      }
 
       // Check if points already awarded
       const existingAward = await ctx.db
@@ -36,7 +56,7 @@ export const awardDelayedPoints = mutation({
         )
         .first();
 
-      if (existingAward) continue; // Already awarded
+      if (existingAward) continue;
 
       // Check the author is not owner/admin
       const membership = await ctx.db
@@ -46,9 +66,7 @@ export const awardDelayedPoints = mutation({
         )
         .first();
 
-      if (!membership) {
-        continue;
-      }
+      if (!membership) continue;
 
       await ctx.db.insert("pointEvents", {
         communityId: post.communityId,
@@ -63,15 +81,39 @@ export const awardDelayedPoints = mutation({
       awardedPosts++;
     }
 
-    // --- Award comment creation points for comments older than 2 minutes ---
-    const allComments = await ctx.db
-      .query("comments")
-      .withIndex("by_post_id")
-      .collect();
+    if (!result.isDone) {
+      // Schedule next batch
+      await ctx.scheduler.runAfter(0, internal.functions.scheduler._awardPostPointsBatch, {
+        cursor: result.continueCursor,
+      });
+    }
 
-    for (const comment of allComments) {
-      // Only process comments older than 2 minutes
-      if (comment.createdAt >= twoMinutesAgo) continue;
+    return { awardedPosts, done: result.isDone };
+  },
+});
+
+// Batched comment point awards — self-scheduling
+export const _awardCommentPointsBatch = internalMutation({
+  args: {
+    cursor: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const twoMinutesAgo = now - 2 * 60 * 1000;
+    const BATCH_SIZE = 20;
+
+    // Scan comments ordered by _creationTime (oldest first)
+    const result = await ctx.db
+      .query("comments")
+      .paginate({ cursor: args.cursor ?? null, numItems: BATCH_SIZE });
+
+    let awardedComments = 0;
+
+    for (const comment of result.page) {
+      // Comments are ordered oldest-first; once we hit comments newer than 2 min, stop
+      if (comment.createdAt >= twoMinutesAgo) {
+        return { awardedComments, done: true };
+      }
 
       // Check if points already awarded
       const existingAward = await ctx.db
@@ -84,7 +126,7 @@ export const awardDelayedPoints = mutation({
         )
         .first();
 
-      if (existingAward) continue; // Already awarded
+      if (existingAward) continue;
 
       // Check content length (20+ non-whitespace characters)
       const contentLength = comment.content.trim().length;
@@ -102,9 +144,7 @@ export const awardDelayedPoints = mutation({
         )
         .first();
 
-      if (!membership) {
-        continue;
-      }
+      if (!membership) continue;
 
       await ctx.db.insert("pointEvents", {
         communityId: post.communityId,
@@ -119,6 +159,13 @@ export const awardDelayedPoints = mutation({
       awardedComments++;
     }
 
-    return { awardedPosts, awardedComments };
+    if (!result.isDone) {
+      // Schedule next batch
+      await ctx.scheduler.runAfter(0, internal.functions.scheduler._awardCommentPointsBatch, {
+        cursor: result.continueCursor,
+      });
+    }
+
+    return { awardedComments, done: result.isDone };
   },
 });

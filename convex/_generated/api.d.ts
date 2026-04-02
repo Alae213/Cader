@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as crons from "../crons.js";
 import type * as functions_categories from "../functions/categories.js";
 import type * as functions_classrooms from "../functions/classrooms.js";
 import type * as functions_communities from "../functions/communities.js";
@@ -20,9 +21,11 @@ import type * as functions_notifications from "../functions/notifications.js";
 import type * as functions_payments from "../functions/payments.js";
 import type * as functions_scheduler from "../functions/scheduler.js";
 import type * as functions_users from "../functions/users.js";
+import type * as functions_webhooks from "../functions/webhooks.js";
 import type * as lib_chargily from "../lib/chargily.js";
 import type * as lib_email from "../lib/email.js";
 import type * as lib_encryption from "../lib/encryption.js";
+import type * as lib_rateLimit from "../lib/rateLimit.js";
 import type * as seed from "../seed.js";
 
 import type {
@@ -32,6 +35,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  crons: typeof crons;
   "functions/categories": typeof functions_categories;
   "functions/classrooms": typeof functions_classrooms;
   "functions/communities": typeof functions_communities;
@@ -44,9 +48,11 @@ declare const fullApi: ApiFromModules<{
   "functions/payments": typeof functions_payments;
   "functions/scheduler": typeof functions_scheduler;
   "functions/users": typeof functions_users;
+  "functions/webhooks": typeof functions_webhooks;
   "lib/chargily": typeof lib_chargily;
   "lib/email": typeof lib_email;
   "lib/encryption": typeof lib_encryption;
+  "lib/rateLimit": typeof lib_rateLimit;
   seed: typeof seed;
 }>;
 

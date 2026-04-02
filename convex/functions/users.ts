@@ -1,7 +1,50 @@
-import { query, mutation } from "../_generated/server";
+import { query, mutation, internalMutation } from "../_generated/server";
 import { v } from "convex/values";
 
-// Sync user from Clerk webhook
+// SECURITY H-2: Internal mutation — only callable from webhook HTTP action
+// Previously was public mutation with no auth check
+export const _syncUser = internalMutation({
+  args: {
+    clerkId: v.string(),
+    email: v.string(),
+    displayName: v.string(),
+    avatarUrl: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Check if user already exists
+    const existing = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
+      .first();
+    
+    if (existing) {
+      // Update existing user
+      await ctx.db.patch(existing._id, {
+        email: args.email,
+        displayName: args.displayName,
+        avatarUrl: args.avatarUrl,
+        updatedAt: Date.now(),
+      });
+      return existing._id;
+    }
+    
+    // Create new user
+    const now = Date.now();
+    const userId = await ctx.db.insert("users", {
+      clerkId: args.clerkId,
+      email: args.email,
+      displayName: args.displayName,
+      avatarUrl: args.avatarUrl,
+      createdAt: now,
+      updatedAt: now,
+    });
+    
+    return userId;
+  },
+});
+
+// Sync user from Clerk webhook (deprecated — use _syncUser internal mutation instead)
+// Kept for backward compatibility during transition
 export const syncUser = mutation({
   args: {
     clerkId: v.string(),
@@ -122,14 +165,18 @@ export const getUserProfile = query({
     // Calculate level from points
     const level = getLevelFromPoints(totalPoints);
 
+    // SECURITY H-3: Only return PII (email, phone, clerkId) when viewing own profile
+    const identity = await ctx.auth.getUserIdentity();
+    const isOwner = identity?.subject === user.clerkId;
+
     return {
       user: {
         _id: user._id,
-        clerkId: user.clerkId,
+        clerkId: isOwner ? user.clerkId : undefined,
         displayName: user.displayName,
         avatarUrl: user.avatarUrl,
-        email: user.email,
-        phone: user.phone,
+        email: isOwner ? user.email : undefined,
+        phone: isOwner ? user.phone : undefined,
         createdAt: user.createdAt,
       },
       level,
@@ -326,6 +373,33 @@ export const deleteAccount = mutation({
       throw new Error("User not found");
     }
 
+    // SECURITY H-1: Block deletion if user owns communities with active paying members
+    const ownedCommunities = await ctx.db
+      .query("communities")
+      .withIndex("by_owner_id", (q) => q.eq("ownerId", user._id))
+      .collect();
+
+    for (const community of ownedCommunities) {
+      const memberships = await ctx.db
+        .query("memberships")
+        .withIndex("by_community_id", (q) => q.eq("communityId", community._id))
+        .filter((q) => q.eq(q.field("status"), "active"))
+        .collect();
+
+      const payingMembers = memberships.filter(
+        (m) => m.subscriptionType && m.subscriptionType !== "free"
+      );
+
+      if (payingMembers.length > 0) {
+        throw new Error(
+          `Cannot delete account: you own "${community.name}" with ${payingMembers.length} active paying member(s). ` +
+          `Transfer ownership or remove paying members first.`
+        );
+      }
+    }
+
+    // SECURITY H-8: Clean up ALL references before deleting user
+
     // 1. Remove from all memberships (set status to deleted)
     const memberships = await ctx.db
       .query("memberships")
@@ -379,9 +453,27 @@ export const deleteAccount = mutation({
       await ctx.db.delete(access._id);
     }
 
-    // 6. Delete the user record
-    // Note: Posts and comments remain with dangling authorId references.
-    // Frontend handles this by checking if author exists and showing "Deleted User"
+    // 6. SECURITY H-8: Delete user's upvotes on posts (clean dangling references)
+    const upvotes = await ctx.db
+      .query("upvotes")
+      .withIndex("by_user_id", (q) => q.eq("userId", user._id))
+      .collect();
+
+    for (const upvote of upvotes) {
+      await ctx.db.delete(upvote._id);
+    }
+
+    // 7. SECURITY H-8: Delete user's upvotes on comments
+    const commentUpvotes = await ctx.db
+      .query("commentUpvotes")
+      .withIndex("by_user_id", (q) => q.eq("userId", user._id))
+      .collect();
+
+    for (const upvote of commentUpvotes) {
+      await ctx.db.delete(upvote._id);
+    }
+
+    // 8. Delete the user record
     await ctx.db.delete(user._id);
 
     return true;

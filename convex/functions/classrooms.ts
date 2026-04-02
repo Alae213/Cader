@@ -1,5 +1,6 @@
-import { query, mutation } from "../_generated/server";
+import { query, mutation, QueryCtx } from "../_generated/server";
 import { v } from "convex/values";
+import { Id } from "../_generated/dataModel";
 
 // Level thresholds - must match leaderboard.ts
 const LEVEL_THRESHOLDS = [0, 20, 60, 140, 280];
@@ -14,18 +15,15 @@ function getLevelFromPoints(points: number): number {
 }
 
 // Derive user level from pointEvents for a given community
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function getUserLevel(ctx: any, communityId: any, userId: any): Promise<number> {
+async function getUserLevel(ctx: QueryCtx, communityId: Id<"communities">, userId: Id<"users">): Promise<number> {
   const pointEvents = await ctx.db
     .query("pointEvents")
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .withIndex("by_user_id", (q: any) => q.eq("userId", userId))
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .filter((q: any) => q.eq(q.field("communityId"), communityId))
-    .collect();
+    .withIndex("by_user_community_created", (q) =>
+      q.eq("userId", userId).eq("communityId", communityId)
+    )
+    .take(10000); // bounded
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const totalPoints = pointEvents.reduce((sum: number, e: any) => sum + e.points, 0);
+  const totalPoints = pointEvents.reduce((sum, e) => sum + e.points, 0);
   return Math.max(1, getLevelFromPoints(Math.max(0, totalPoints)));
 }
 

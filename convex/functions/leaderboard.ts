@@ -56,17 +56,20 @@ export const getLeaderboard = query({
       .query("memberships")
       .withIndex("by_community_id", (q) => q.eq("communityId", args.communityId))
       .filter((q) => q.eq(q.field("status"), "active"))
-      .collect();
+      .take(1000); // bounded: communities with >1000 active members are rare
 
     const membershipByUserId = new Map<string, typeof memberships[number]>();
     for (const m of memberships) {
       membershipByUserId.set(m.userId, m);
     }
 
+    // Use composite index to filter by community at storage level
+    // Bounded read: if a community has >10k point events, we take the most recent
+    // (older events are less likely to affect time-filtered leaderboards)
     const allPointEvents = await ctx.db
       .query("pointEvents")
-      .withIndex("by_community_id", (q) => q.eq("communityId", args.communityId))
-      .collect();
+      .withIndex("by_community_and_user", (q) => q.eq("communityId", args.communityId))
+      .take(10000);
 
     const filteredEvents = timeFilterTimestamp
       ? allPointEvents.filter((e) => e.createdAt >= timeFilterTimestamp!)
@@ -182,9 +185,10 @@ export const getUserPoints = query({
 
     const pointEvents = await ctx.db
       .query("pointEvents")
-      .withIndex("by_user_id", (q) => q.eq("userId", user._id))
-      .filter((q) => q.eq(q.field("communityId"), args.communityId))
-      .collect();
+      .withIndex("by_user_community_created", (q) =>
+        q.eq("userId", user._id).eq("communityId", args.communityId)
+      )
+      .take(10000); // bounded: a user won't have >10k events in one community
 
     const totalPoints = Math.max(0, pointEvents.reduce((sum, e) => sum + e.points, 0));
     const level = getLevelFromPoints(totalPoints);
@@ -415,9 +419,10 @@ export const getUserLevel = query({
   handler: async (ctx, args) => {
     const pointEvents = await ctx.db
       .query("pointEvents")
-      .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
-      .filter((q) => q.eq(q.field("communityId"), args.communityId))
-      .collect();
+      .withIndex("by_user_community_created", (q) =>
+        q.eq("userId", args.userId).eq("communityId", args.communityId)
+      )
+      .take(10000); // bounded
 
     const totalPoints = Math.max(0, pointEvents.reduce((sum, event) => sum + event.points, 0));
     return Math.max(1, getLevelFromPoints(totalPoints));

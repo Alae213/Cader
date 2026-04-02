@@ -1,4 +1,4 @@
-import { query, mutation } from "../_generated/server";
+import { query, mutation, internalMutation } from "../_generated/server";
 import { v } from "convex/values";
 
 // Get user's membership for a community by slug (uses Clerk ID)
@@ -185,11 +185,9 @@ export const listByUser = query({
   },
 });
 
-// Grant membership after successful payment (called from webhook or directly for free communities)
-// Note: For webhook calls, paymentReference comes from Chargily
-// For free communities, paymentReference can be generated (e.g., "free_<timestamp>")
-// Security for webhook: provided by webhook signature verification
-export const grantMembership = mutation({
+// SECURITY C-2: Internal mutation — only callable from webhook HTTP action
+// Previously was public mutation with no auth check
+export const _grantMembership = internalMutation({
   args: {
     communityId: v.id("communities"),
     userId: v.id("users"),
@@ -226,7 +224,8 @@ export const grantMembership = mutation({
       .first();
 
     if (existingMembership) {
-      // Update existing membership
+      // Update existing membership (may be reactivating)
+      const wasActive = existingMembership.status === "active";
       await ctx.db.patch(existingMembership._id, {
         status: "active",
         subscriptionType: community.pricingType,
@@ -239,11 +238,20 @@ export const grantMembership = mutation({
         paymentReference: args.paymentReference,
         updatedAt: Date.now(),
       });
+      // Increment counter only if this was not already active
+      if (!wasActive) {
+        await ctx.db.patch(args.communityId, {
+          activeMemberCount: (community.activeMemberCount ?? 0) + 1,
+        });
+      }
       return existingMembership._id;
     }
 
-    // Create new membership
+    // Create new membership — increment denormalized counter
     const now = Date.now();
+    await ctx.db.patch(args.communityId, {
+      activeMemberCount: (community.activeMemberCount ?? 0) + 1,
+    });
     const membershipId = await ctx.db.insert("memberships", {
       communityId: args.communityId,
       userId: args.userId,
@@ -265,6 +273,79 @@ export const grantMembership = mutation({
   },
 });
 
+// Public mutation for joining free communities with proper auth checks
+// SECURITY: Replaces the old grantMembership for client-side free joins
+export const joinFreeCommunity = mutation({
+  args: {
+    communityId: v.id("communities"),
+  },
+  handler: async (ctx, args) => {
+    // SECURITY: Require authentication
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("You must be signed in to join a community");
+    }
+
+    // Get the authenticated user
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found. Please complete onboarding first.");
+    }
+
+    // Get community and verify it's free
+    const community = await ctx.db.get(args.communityId);
+    if (!community) {
+      throw new Error("Community not found");
+    }
+
+    if (community.pricingType !== "free") {
+      throw new Error("Paid communities require payment. Please use the checkout flow.");
+    }
+
+    // Check if already a member
+    const existingMembership = await ctx.db
+      .query("memberships")
+      .withIndex("by_community_and_user", (q) =>
+        q.eq("communityId", args.communityId).eq("userId", user._id)
+      )
+      .first();
+
+    if (existingMembership) {
+      if (existingMembership.status === "active") {
+        return existingMembership._id; // Already a member
+      }
+      // Reactivate inactive membership
+      await ctx.db.patch(existingMembership._id, {
+        status: "active",
+        subscriptionType: "free",
+        subscriptionStartDate: Date.now(),
+        updatedAt: Date.now(),
+      });
+      return existingMembership._id;
+    }
+
+    // Create new free membership
+    const now = Date.now();
+    const membershipId = await ctx.db.insert("memberships", {
+      communityId: args.communityId,
+      userId: user._id,
+      role: "member",
+      status: "active",
+      subscriptionType: "free",
+      subscriptionStartDate: now,
+      paymentReference: `free_${now}_${user._id}`,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return membershipId;
+  },
+});
+
 // Revoke membership for expired subscriptions
 export const revokeMembership = mutation({
   args: {
@@ -274,6 +355,16 @@ export const revokeMembership = mutation({
     const membership = await ctx.db.get(args.membershipId);
     if (!membership) {
       throw new Error("Membership not found");
+    }
+
+    // Decrement counter only if currently active
+    if (membership.status === "active") {
+      const community = await ctx.db.get(membership.communityId);
+      if (community) {
+        await ctx.db.patch(membership.communityId, {
+          activeMemberCount: Math.max(0, (community.activeMemberCount ?? 1) - 1),
+        });
+      }
     }
 
     await ctx.db.patch(args.membershipId, {
@@ -328,7 +419,6 @@ export const listMembers = query({
       return {
         membershipId: membership._id,
         userId: user._id,
-        clerkId: user.clerkId,
         displayName: user.displayName,
         avatarUrl: user.avatarUrl,
         role: membership.role,
@@ -393,6 +483,13 @@ export const blockMember = mutation({
     // Cannot block the owner
     if (membership.role === "owner") {
       throw new Error("Cannot block the community owner");
+    }
+
+    // Decrement counter when blocking an active member
+    if (membership.status === "active") {
+      await ctx.db.patch(membership.communityId, {
+        activeMemberCount: Math.max(0, (community.activeMemberCount ?? 1) - 1),
+      });
     }
 
     // Update membership status to blocked

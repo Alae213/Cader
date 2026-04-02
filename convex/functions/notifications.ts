@@ -75,18 +75,18 @@ export const getNotifications = query({
       return [];
     }
 
-    // Get notifications for this user
+    // Get notifications for this user — bounded read
+    const limit = args.limit || 20;
     const notifications = await ctx.db
       .query("notifications")
       .withIndex("by_recipient_id", (q) => q.eq("recipientId", user._id))
       .filter((q) => q.eq(q.field("isRead"), false))
-      .collect();
+      .take(limit);
 
     // Sort by createdAt descending
     notifications.sort((a, b) => b.createdAt - a.createdAt);
 
-    // Limit results
-    return notifications.slice(0, args.limit || 20);
+    return notifications;
   },
 });
 
@@ -110,14 +110,15 @@ export const getUnreadCount = query({
       return 0;
     }
 
-    // Count unread notifications
+    // Bounded count: if there are 100+ unread, just return 100+ (Fix #3)
+    // Using .take() instead of .collect() to avoid reading all unread notifications
     const notifications = await ctx.db
       .query("notifications")
       .withIndex("by_recipient_id", (q) => q.eq("recipientId", user._id))
       .filter((q) => q.eq(q.field("isRead"), false))
-      .collect();
+      .take(101);
 
-    return notifications.length;
+    return notifications.length >= 100 ? 100 : notifications.length;
   },
 });
 
@@ -183,12 +184,12 @@ export const markAllNotificationsRead = mutation({
       throw new Error("User not found");
     }
 
-    // Get all unread notifications
+    // Get all unread notifications — bounded in batches
     const notifications = await ctx.db
       .query("notifications")
       .withIndex("by_recipient_id", (q) => q.eq("recipientId", user._id))
       .filter((q) => q.eq(q.field("isRead"), false))
-      .collect();
+      .take(200); // bounded: mark up to 200 at a time
 
     // Mark all as read
     for (const notification of notifications) {

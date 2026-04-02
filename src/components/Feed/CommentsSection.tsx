@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useQuery } from "convex/react";
+import { useState } from "react";
+import { usePaginatedQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Text } from "@/components/ui/Text";
 import { Button } from "@/components/ui/Button";
@@ -18,8 +18,6 @@ interface CommentsSectionProps {
   hideInput?: boolean;
 }
 
-const COMMENTS_LIMIT = 5;
-
 export function CommentsSection({
   postId,
   postAuthorId,
@@ -31,44 +29,25 @@ export function CommentsSection({
 }: CommentsSectionProps) {
   const [replyToCommentId, setReplyToCommentId] = useState<string | undefined>();
   const [sortBy, setSortBy] = useState<"top" | "newest">("top");
-  const [hasMore, setHasMore] = useState(false);
-  const [isLoading] = useState(false);
-  const [cursor, setCursor] = useState<string | undefined>(undefined);
 
-  // Fetch comments
-   
-  const results = useQuery(
+  // Fetch comments with native Convex pagination (Fix #2)
+  const { results, status, loadMore } = usePaginatedQuery(
     api.functions.feed.listComments,
-    { 
+    {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       postId: postId as any,
       sortBy,
-      limit: COMMENTS_LIMIT,
-      cursor
-    }
+    },
+    { initialNumItems: 5 }
   );
 
-  // Derive comments from results - no need for useEffect
-  const comments = (results?.comments as CommentData[] | undefined) || [];
-
-  // Update hasMore when results change
-  /* eslint-disable react-hooks/set-state-in-effect */
-  useEffect(() => {
-    setHasMore(!!results?.nextCursor);
-  }, [results?.nextCursor]);
-  /* eslint-enable react-hooks/set-state-in-effect */
-
-  // Reset cursor and comments when sort changes
-  /* eslint-disable react-hooks/set-state-in-effect */
-  useEffect(() => {
-    setCursor(undefined);
-  }, [sortBy]);
-  /* eslint-enable react-hooks/set-state-in-effect */
+  // Derive comments from results
+  const comments = (results as CommentData[] | undefined) || [];
+  const hasMore = status === "CanLoadMore";
 
   const handleLoadMore = () => {
-    if (results?.nextCursor && !cursor) {
-      setCursor(results.nextCursor);
-      // Cursor changed — useQuery will refetch automatically
+    if (hasMore) {
+      loadMore(5);
     }
   };
 
@@ -84,14 +63,12 @@ export function CommentsSection({
     setReplyToCommentId(undefined);
   };
 
-  const totalCount = results?.totalCount || 0;
-
   return (
     <div className="mt-4 pt-4 border-t border-border">
       {/* Section header */}
       <div className="flex items-center justify-between mb-4">
         <Text fontWeight="semibold">
-          Comments ({totalCount})
+          Comments
         </Text>
         
         {/* Sort options */}
@@ -153,7 +130,6 @@ export function CommentsSection({
             variant="secondary" 
             size="sm"
             onClick={handleLoadMore}
-            disabled={isLoading}
           >
             Load more comments
           </Button>

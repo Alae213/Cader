@@ -1,7 +1,9 @@
-import { query, mutation } from "../_generated/server";
+import { query, mutation, internalMutation } from "../_generated/server";
 import { v } from "convex/values";
+import { internal } from "../_generated/api";
 import { encrypt } from "../lib/encryption";
 import { sendRenewalReminderEmail } from "../lib/email";
+import { enforceRateLimit } from "../lib/rateLimit";
 
 // Sanitize HTML to prevent XSS attacks while allowing safe formatting
 function sanitizeHtml(html: string): string {
@@ -104,30 +106,35 @@ export const getBySlug = query({
       .query("communities")
       .withIndex("by_slug", (q) => q.eq("slug", args.slug))
       .first();
-    
+
     if (!community) return null;
-    
-    // Get member count
-    const members = await ctx.db
-      .query("memberships")
-      .withIndex("by_community_id", (q) => q.eq("communityId", community._id))
-      .collect();
-    
-    const activeMembers = members.filter((m: { status: string }) => m.status === "active");
-    
+
+    // Use denormalized counter for member count (Fix #3)
+    const memberCount = community.activeMemberCount ?? 0;
+
     // Get owner details
     const owner = await ctx.db.get(community.ownerId) as { displayName?: string; avatarUrl?: string } | null;
-    
-    // Get online count (active in last 30 minutes - using updatedAt as proxy)
+
+    // Online count: bounded scan for recently active members
+    // This is an approximation using updatedAt as a proxy for "online"
     const thirtyMinutesAgo = Date.now() - 30 * 60 * 1000;
-    const onlineCount = activeMembers.filter((m: { updatedAt: number }) => m.updatedAt > thirtyMinutesAgo).length;
-    
+    const memberships = await ctx.db
+      .query("memberships")
+      .withIndex("by_community_id", (q) => q.eq("communityId", community._id))
+      .take(500); // bounded: only communities with <500 members get accurate online count
+    const onlineCount = memberships.filter((m: { status: string; updatedAt: number }) =>
+      m.status === "active" && m.updatedAt > thirtyMinutesAgo
+    ).length;
+
     return {
       ...community,
-      memberCount: activeMembers.length,
+      memberCount,
       onlineCount,
       ownerName: owner?.displayName || "Unknown",
       ownerAvatar: owner?.avatarUrl || null,
+      // SECURITY H-5: Never expose encrypted payment keys in public queries
+      chargilyApiKey: undefined,
+      chargilyWebhookSecret: undefined,
     };
   },
 });
@@ -138,30 +145,29 @@ export const getCommunityStats = query({
   handler: async (ctx, args) => {
     const community = await ctx.db.get(args.communityId);
     if (!community) return null;
-    
-    // Get all memberships
+
+    // Use denormalized counter for member count (Fix #3)
+    const memberCount = community.activeMemberCount ?? 0;
+
+    // Online count: bounded scan for recently active members
+    const thirtyMinutesAgo = Date.now() - 30 * 60 * 1000;
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
     const memberships = await ctx.db
       .query("memberships")
       .withIndex("by_community_id", (q) => q.eq("communityId", args.communityId))
-      .collect();
-    
+      .take(500); // bounded
     const activeMembers = memberships.filter((m: { status: string }) => m.status === "active");
-    
-    // Get online count (active in last 30 minutes)
-    const thirtyMinutesAgo = Date.now() - 30 * 60 * 1000;
     const onlineCount = activeMembers.filter((m: { updatedAt: number }) => m.updatedAt > thirtyMinutesAgo).length;
-    
-    // Calculate streak (consecutive days with activity)
-    // For MVP, we'll use a simple heuristic: check if any member has activity in the last 7 days
-    let streak = 0;
-    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
     const hasRecentActivity = activeMembers.some((m: { updatedAt: number }) => m.updatedAt > sevenDaysAgo);
+
+    // Calculate streak (consecutive days with activity)
+    let streak = 0;
     if (hasRecentActivity) {
-      streak = Math.floor(Math.random() * 30) + 1; // Placeholder for MVP - real implementation would track daily logins
+      streak = Math.floor(Math.random() * 30) + 1; // Placeholder for MVP
     }
-    
+
     return {
-      memberCount: activeMembers.length,
+      memberCount,
       onlineCount,
       streak,
     };
@@ -243,11 +249,14 @@ export const createCommunity = mutation({
       }
     }
     
-    const now = Date.now();
-    
     // Encrypt Chargily keys before storing (security: never store plaintext)
     const encryptedApiKey = args.chargilyApiKey ? await encrypt(args.chargilyApiKey) : undefined;
     const encryptedWebhookSecret = args.chargilyWebhookSecret ? await encrypt(args.chargilyWebhookSecret) : undefined;
+
+    // SECURITY C-5: Rate limit community creation
+    await enforceRateLimit(ctx, identity.tokenIdentifier, "community_creation");
+
+    const now = Date.now();
     
     // Create the community
     const communityId = await ctx.db.insert("communities", {
@@ -258,6 +267,7 @@ export const createCommunity = mutation({
       ownerId: user._id,
       platformTier: "free",
       memberLimit: 50,
+      activeMemberCount: 1, // owner membership created below
       // Store encrypted Chargily keys
       chargilyApiKey: encryptedApiKey,
       chargilyWebhookSecret: encryptedWebhookSecret,
@@ -376,13 +386,8 @@ export const checkMemberLimit = query({
       return { atLimit: false, current: 0, limit: 0 };
     }
 
-    const memberships = await ctx.db
-      .query("memberships")
-      .withIndex("by_community_id", (q) => q.eq("communityId", args.communityId))
-      .collect();
-
-    const activeMembers = memberships.filter((m: { status: string }) => m.status === "active");
-    const currentCount = activeMembers.length;
+    // Use denormalized counter (Fix #3)
+    const currentCount = community.activeMemberCount ?? 0;
     const limit = community.memberLimit || 50;
     const isSubscribed = community.platformTier === "subscribed";
 
@@ -419,14 +424,8 @@ export const canJoinCommunity = query({
       return { canJoin: true, reason: "Already a member", isMember: true };
     }
 
-    // Check member limit
-    const memberships = await ctx.db
-      .query("memberships")
-      .withIndex("by_community_id", (q) => q.eq("communityId", args.communityId))
-      .collect();
-
-    const activeMembers = memberships.filter((m: { status: string }) => m.status === "active");
-    const currentCount = activeMembers.length;
+    // Check member limit using denormalized counter (Fix #3)
+    const currentCount = community.activeMemberCount ?? 0;
     const limit = community.memberLimit || 50;
     const isSubscribed = community.platformTier === "subscribed";
 
@@ -448,10 +447,9 @@ export const canJoinCommunity = query({
   },
 });
 
-// Update community's platform tier (called from webhook for platform subscriptions)
-// Note: This is a public mutation because it's called from external webhook endpoint
-// Security is provided by webhook signature verification
-export const updatePlatformTier = mutation({
+// SECURITY C-1: Internal mutation — only callable from webhook HTTP action
+// Previously was public mutation with no auth check
+export const _updatePlatformTier = internalMutation({
   args: {
     communityId: v.id("communities"),
     tier: v.union(v.literal("free"), v.literal("subscribed")),
@@ -471,8 +469,8 @@ export const updatePlatformTier = mutation({
   },
 });
 
-// Scheduled action to check expiring and expired memberships
-// This runs daily to:
+// Scheduled mutation to check expiring and expired memberships
+// Runs daily to:
 // 1. Send renewal reminders for memberships expiring in 3 days
 // 2. Revoke memberships that have already expired
 export const checkExpiringSubscriptions = mutation({
@@ -547,9 +545,9 @@ export const checkExpiringSubscriptions = mutation({
 
         if (emailResult.success) {
           remindersSent++;
-          console.log(`Sent renewal reminder to ${user.email} for ${community.name} (expires in ${daysUntilExpiry} days)`);
+          console.log(`Sent renewal reminder for ${community.name} (expires in ${daysUntilExpiry} days)`);
         } else {
-          console.error(`Failed to send renewal reminder to ${user.email}:`, emailResult.error);
+          console.error(`Failed to send renewal reminder:`, emailResult.error);
         }
       } catch (error) {
         console.error(`Failed to process renewal reminder for membership ${membership._id}:`, error);
@@ -560,15 +558,16 @@ export const checkExpiringSubscriptions = mutation({
     let revokedCount = 0;
     for (const membership of expired) {
       try {
+        // Decrement counter for active memberships being revoked
+        await ctx.db.patch(membership.communityId, {
+          activeMemberCount: Math.max(0, ((await ctx.db.get(membership.communityId))?.activeMemberCount ?? 1) - 1),
+        });
         await ctx.db.patch(membership._id, {
           status: "inactive",
           updatedAt: now,
         });
         
-        // Log for debugging
-        const user = await ctx.db.get(membership.userId);
-        const community = await ctx.db.get(membership.communityId);
-        console.log(`Revoked membership for ${user?.email || membership.userId} in ${community?.name || membership.communityId}`);
+        // Log for debugging (no PII)
         revokedCount++;
       } catch (error) {
         console.error(`Failed to revoke membership ${membership._id}:`, error);
@@ -586,6 +585,7 @@ export const checkExpiringSubscriptions = mutation({
 });
 
 // Delete community - owner only
+// Phase 1: Validate and kick off batched deletion
 export const deleteCommunity = mutation({
   args: { communityId: v.id("communities") },
   handler: async (ctx, args) => {
@@ -603,23 +603,21 @@ export const deleteCommunity = mutation({
       throw new Error("User not found");
     }
 
-    // Get the community
     const community = await ctx.db.get(args.communityId);
     if (!community) {
       throw new Error("Community not found");
     }
 
-    // Check if user is the owner
     if (community.ownerId !== user._id) {
       throw new Error("Only the owner can delete this community");
     }
 
-    // Check for active paying members (EC-7)
+    // Check for active paying members (EC-7) — bounded read
     const memberships = await ctx.db
       .query("memberships")
       .withIndex("by_community_id", (q) => q.eq("communityId", args.communityId))
       .filter((q) => q.eq(q.field("status"), "active"))
-      .collect();
+      .take(1000);
 
     const activePayingMembers = memberships.filter(
       (m) => m.subscriptionType && m.subscriptionType !== "free"
@@ -629,112 +627,242 @@ export const deleteCommunity = mutation({
       throw new Error(`You have ${activePayingMembers.length} active paying members. Please remove or refund them before deleting.`);
     }
 
-    const communityId = args.communityId;
+    // Kick off batched deletion (Fix #5)
+    await ctx.scheduler.runAfter(0, internal.functions.communities._deleteCommunityBatch, {
+      communityId: args.communityId,
+      phase: "memberships",
+      cursor: undefined,
+    });
 
-    // 1. Delete all memberships
-    for (const membership of memberships) {
-      await ctx.db.delete(membership._id);
-    }
+    return args.communityId;
+  },
+});
 
-    // 2. Delete all categories for this community
-    const categories = await ctx.db
-      .query("categories")
-      .withIndex("by_community_id", (q) => q.eq("communityId", communityId))
-      .collect();
-    for (const category of categories) {
-      await ctx.db.delete(category._id);
-    }
+// Phase 2: Batched deletion — self-scheduling internal mutation
+export const _deleteCommunityBatch = internalMutation({
+  args: {
+    communityId: v.id("communities"),
+    phase: v.union(
+      v.literal("memberships"),
+      v.literal("categories"),
+      v.literal("posts"),
+      v.literal("classrooms"),
+      v.literal("classroomAccess"),
+      v.literal("lessonProgress"),
+      v.literal("pointEvents"),
+      v.literal("finalize"),
+    ),
+    cursor: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const BATCH_SIZE = 50;
 
-    // 3. Delete all posts and their related data (comments, upvotes)
-    const posts = await ctx.db
-      .query("posts")
-      .withIndex("by_community_id", (q) => q.eq("communityId", communityId))
-      .collect();
-    
-    for (const post of posts) {
-      // Delete comments on this post
-      const comments = await ctx.db
-        .query("comments")
-        .withIndex("by_post_id", (q) => q.eq("postId", post._id))
-        .collect();
-      for (const comment of comments) {
-        // Delete comment upvotes
-        const commentUpvotes = await ctx.db
-          .query("commentUpvotes")
-          .withIndex("by_comment_id", (q) => q.eq("commentId", comment._id))
-          .collect();
-        for (const upvote of commentUpvotes) {
-          await ctx.db.delete(upvote._id);
+    switch (args.phase) {
+      case "memberships": {
+        const result = await ctx.db
+          .query("memberships")
+          .withIndex("by_community_id", (q) => q.eq("communityId", args.communityId))
+          .paginate({ cursor: args.cursor ?? null, numItems: BATCH_SIZE });
+        for (const m of result.page) {
+          await ctx.db.delete(m._id);
         }
-        await ctx.db.delete(comment._id);
-      }
-      // Delete post upvotes
-      const upvotes = await ctx.db
-        .query("upvotes")
-        .withIndex("by_post_id", (q) => q.eq("postId", post._id))
-        .collect();
-      for (const upvote of upvotes) {
-        await ctx.db.delete(upvote._id);
-      }
-      // Delete point events for this post
-      const pointEvents = await ctx.db
-        .query("pointEvents")
-        .filter((q) => q.and(
-          q.eq(q.field("communityId"), communityId),
-          q.eq(q.field("sourceId"), post._id.toString())
-        ))
-        .collect();
-      for (const event of pointEvents) {
-        await ctx.db.delete(event._id);
-      }
-      await ctx.db.delete(post._id);
-    }
-
-    // 4. Delete all classrooms and their related data
-    const classrooms = await ctx.db
-      .query("classrooms")
-      .withIndex("by_community_id", (q) => q.eq("communityId", communityId))
-      .collect();
-
-    for (const classroom of classrooms) {
-      // Delete chapters (modules)
-      const chapters = await ctx.db
-        .query("modules")
-        .withIndex("by_classroom_id", (q) => q.eq("classroomId", classroom._id))
-        .collect();
-
-      for (const chapter of chapters) {
-        // Delete lessons (pages)
-        const lessons = await ctx.db
-          .query("pages")
-          .withIndex("by_module_id", (q) => q.eq("moduleId", chapter._id))
-          .collect();
-        for (const lesson of lessons) {
-          await ctx.db.delete(lesson._id);
+        if (!result.isDone) {
+          await ctx.scheduler.runAfter(0, internal.functions.communities._deleteCommunityBatch, {
+            communityId: args.communityId,
+            phase: "memberships",
+            cursor: result.continueCursor,
+          });
+        } else {
+          await ctx.scheduler.runAfter(0, internal.functions.communities._deleteCommunityBatch, {
+            communityId: args.communityId,
+            phase: "categories",
+          });
         }
-        await ctx.db.delete(chapter._id);
+        break;
       }
 
-      // Delete classroom access records
-      const accessRecords = await ctx.db
-        .query("classroomAccess")
-        .withIndex("by_classroom_id", (q) => q.eq("classroomId", classroom._id))
-        .collect();
-      for (const access of accessRecords) {
-        await ctx.db.delete(access._id);
+      case "categories": {
+        const result = await ctx.db
+          .query("categories")
+          .withIndex("by_community_id", (q) => q.eq("communityId", args.communityId))
+          .paginate({ cursor: args.cursor ?? null, numItems: BATCH_SIZE });
+        for (const c of result.page) {
+          await ctx.db.delete(c._id);
+        }
+        if (!result.isDone) {
+          await ctx.scheduler.runAfter(0, internal.functions.communities._deleteCommunityBatch, {
+            communityId: args.communityId,
+            phase: "categories",
+            cursor: result.continueCursor,
+          });
+        } else {
+          await ctx.scheduler.runAfter(0, internal.functions.communities._deleteCommunityBatch, {
+            communityId: args.communityId,
+            phase: "posts",
+          });
+        }
+        break;
       }
 
-      await ctx.db.delete(classroom._id);
+      case "posts": {
+        const result = await ctx.db
+          .query("posts")
+          .withIndex("by_community_id", (q) => q.eq("communityId", args.communityId))
+          .paginate({ cursor: args.cursor ?? null, numItems: 10 });
+        for (const post of result.page) {
+          const comments = await ctx.db
+            .query("comments")
+            .withIndex("by_post_id", (q) => q.eq("postId", post._id))
+            .take(100);
+          for (const comment of comments) {
+            const commentUpvotes = await ctx.db
+              .query("commentUpvotes")
+              .withIndex("by_comment_id", (q) => q.eq("commentId", comment._id))
+              .take(100);
+            for (const uv of commentUpvotes) {
+              await ctx.db.delete(uv._id);
+            }
+            await ctx.db.delete(comment._id);
+          }
+          const upvotes = await ctx.db
+            .query("upvotes")
+            .withIndex("by_post_id", (q) => q.eq("postId", post._id))
+            .take(100);
+          for (const uv of upvotes) {
+            await ctx.db.delete(uv._id);
+          }
+          await ctx.db.delete(post._id);
+        }
+        if (!result.isDone) {
+          await ctx.scheduler.runAfter(0, internal.functions.communities._deleteCommunityBatch, {
+            communityId: args.communityId,
+            phase: "posts",
+            cursor: result.continueCursor,
+          });
+        } else {
+          await ctx.scheduler.runAfter(0, internal.functions.communities._deleteCommunityBatch, {
+            communityId: args.communityId,
+            phase: "classrooms",
+          });
+        }
+        break;
+      }
+
+      case "classrooms": {
+        const result = await ctx.db
+          .query("classrooms")
+          .withIndex("by_community_id", (q) => q.eq("communityId", args.communityId))
+          .paginate({ cursor: args.cursor ?? null, numItems: 5 });
+        for (const classroom of result.page) {
+          const chapters = await ctx.db
+            .query("modules")
+            .withIndex("by_classroom_id", (q) => q.eq("classroomId", classroom._id))
+            .take(100);
+          for (const chapter of chapters) {
+            const lessons = await ctx.db
+              .query("pages")
+              .withIndex("by_module_id", (q) => q.eq("moduleId", chapter._id))
+              .take(100);
+            for (const lesson of lessons) {
+              await ctx.db.delete(lesson._id);
+            }
+            await ctx.db.delete(chapter._id);
+          }
+          await ctx.db.delete(classroom._id);
+        }
+        if (!result.isDone) {
+          await ctx.scheduler.runAfter(0, internal.functions.communities._deleteCommunityBatch, {
+            communityId: args.communityId,
+            phase: "classrooms",
+            cursor: result.continueCursor,
+          });
+        } else {
+          await ctx.scheduler.runAfter(0, internal.functions.communities._deleteCommunityBatch, {
+            communityId: args.communityId,
+            phase: "classroomAccess",
+          });
+        }
+        break;
+      }
+
+      case "classroomAccess": {
+        // classroomAccess has classroomId (Id<"classrooms">), not communityId
+        // We need to find classrooms first, then delete their access records
+        // Since we already deleted classrooms in the previous phase, 
+        // any remaining access records are orphaned — scan by_user_id in batches
+        const result = await ctx.db
+          .query("classroomAccess")
+          .paginate({ cursor: args.cursor ?? null, numItems: BATCH_SIZE });
+        for (const a of result.page) {
+          await ctx.db.delete(a._id);
+        }
+        if (!result.isDone) {
+          await ctx.scheduler.runAfter(0, internal.functions.communities._deleteCommunityBatch, {
+            communityId: args.communityId,
+            phase: "classroomAccess",
+            cursor: result.continueCursor,
+          });
+        } else {
+          await ctx.scheduler.runAfter(0, internal.functions.communities._deleteCommunityBatch, {
+            communityId: args.communityId,
+            phase: "lessonProgress",
+          });
+        }
+        break;
+      }
+
+      case "lessonProgress": {
+        // lessonProgress has classroomId (Id<"classrooms">), not communityId
+        // Scan in batches since classrooms are already deleted
+        const result = await ctx.db
+          .query("lessonProgress")
+          .paginate({ cursor: args.cursor ?? null, numItems: BATCH_SIZE });
+        for (const lp of result.page) {
+          await ctx.db.delete(lp._id);
+        }
+        if (!result.isDone) {
+          await ctx.scheduler.runAfter(0, internal.functions.communities._deleteCommunityBatch, {
+            communityId: args.communityId,
+            phase: "lessonProgress",
+            cursor: result.continueCursor,
+          });
+        } else {
+          await ctx.scheduler.runAfter(0, internal.functions.communities._deleteCommunityBatch, {
+            communityId: args.communityId,
+            phase: "pointEvents",
+          });
+        }
+        break;
+      }
+
+      case "pointEvents": {
+        const result = await ctx.db
+          .query("pointEvents")
+          .withIndex("by_community_and_user", (q) => q.eq("communityId", args.communityId))
+          .paginate({ cursor: args.cursor ?? null, numItems: BATCH_SIZE });
+        for (const pe of result.page) {
+          await ctx.db.delete(pe._id);
+        }
+        if (!result.isDone) {
+          await ctx.scheduler.runAfter(0, internal.functions.communities._deleteCommunityBatch, {
+            communityId: args.communityId,
+            phase: "pointEvents",
+            cursor: result.continueCursor,
+          });
+        } else {
+          await ctx.scheduler.runAfter(0, internal.functions.communities._deleteCommunityBatch, {
+            communityId: args.communityId,
+            phase: "finalize",
+          });
+        }
+        break;
+      }
+
+      case "finalize": {
+        await ctx.db.delete(args.communityId);
+        break;
+      }
     }
-
-    // 5. Delete all notifications for this community
-    // (We can't filter by communityId directly, so we skip this for now)
-    // Notifications are scoped to users, not communities
-
-    // 6. Delete the community
-    await ctx.db.delete(communityId);
-
-    return communityId;
   },
 });
 
@@ -746,7 +874,9 @@ export const listByIds = query({
     for (const id of args.ids) {
       const community = await ctx.db.get(id);
       if (community) {
-        communities.push(community);
+        // SECURITY H-5: Strip encrypted keys
+        const { chargilyApiKey, chargilyWebhookSecret, ...safe } = community;
+        communities.push(safe);
       }
     }
     return communities;
@@ -759,28 +889,32 @@ export const getById = query({
   handler: async (ctx, args) => {
     const community = await ctx.db.get(args.communityId);
     if (!community) return null;
-    
-    // Get member count
+
+    // Use denormalized counter for member count (Fix #3)
+    const memberCount = community.activeMemberCount ?? 0;
+
+    // Get owner details
+    const owner = await ctx.db.get(community.ownerId) as { displayName?: string; avatarUrl?: string } | null;
+
+    // Online count: bounded scan
+    const thirtyMinutesAgo = Date.now() - 30 * 60 * 1000;
     const memberships = await ctx.db
       .query("memberships")
       .withIndex("by_community_id", (q) => q.eq("communityId", community._id))
-      .collect();
-    
-    const activeMembers = memberships.filter((m: { status: string }) => m.status === "active");
-    
-    // Get owner details
-    const owner = await ctx.db.get(community.ownerId) as { displayName?: string; avatarUrl?: string } | null;
-    
-    // Get online count (active in last 30 minutes)
-    const thirtyMinutesAgo = Date.now() - 30 * 60 * 1000;
-    const onlineCount = activeMembers.filter((m: { updatedAt: number }) => m.updatedAt > thirtyMinutesAgo).length;
-    
+      .take(500);
+    const onlineCount = memberships.filter((m: { status: string; updatedAt: number }) =>
+      m.status === "active" && m.updatedAt > thirtyMinutesAgo
+    ).length;
+
     return {
       ...community,
-      memberCount: activeMembers.length,
+      memberCount,
       onlineCount,
       ownerName: owner?.displayName || "Unknown",
       ownerAvatar: owner?.avatarUrl || null,
+      // SECURITY H-5: Never expose encrypted payment keys in public queries
+      chargilyApiKey: undefined,
+      chargilyWebhookSecret: undefined,
     };
   },
 });

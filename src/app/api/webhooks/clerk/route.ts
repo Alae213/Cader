@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { api } from "@/convex/_generated/api";
 import { ConvexHttpClient } from "convex/browser";
 import crypto from "crypto";
 
@@ -10,27 +9,6 @@ function getConvexClient(): ConvexHttpClient {
     throw new Error("NEXT_PUBLIC_CONVEX_URL not configured");
   }
   return new ConvexHttpClient(convexUrl);
-}
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function verifySignature(payload: string, signature: string, secret: string): boolean {
-  const timestamp = signature.split("t=")[1]?.split(",")[0] || "";
-  const sig = signature.split("v1=")[1] || signature;
-  
-  // Build the signed payload: timestamp + "." + payload
-  const signedPayload = timestamp + "." + payload;
-  
-  // Compute expected signature
-  const expectedSignature = crypto
-    .createHmac("sha256", secret)
-    .update(signedPayload)
-    .digest("hex");
-  
-  // Use timing-safe comparison
-  return crypto.timingSafeEqual(
-    Buffer.from(sig),
-    Buffer.from(expectedSignature)
-  );
 }
 
 export async function POST(req: NextRequest) {
@@ -91,68 +69,16 @@ export async function POST(req: NextRequest) {
     
     console.log("Clerk webhook received:", event.type);
 
-    // Get Convex client for mutations
+    // SECURITY H-2: Forward to Convex HTTP action instead of calling public mutation
+    // The HTTP action calls internal.functions.users._syncUser which is not publicly accessible
     const convex = getConvexClient();
-
-    // Handle Clerk events
-    switch (event.type) {
-      case "user.created": {
-        const { id: clerkId, email_addresses, first_name, last_name, image_url } = event.data;
-        
-        // Get primary email
-        const email = email_addresses?.[0]?.email_address || "";
-        
-        // Build display name from first + last name
-        const displayName = [first_name, last_name].filter(Boolean).join(" ") || email.split("@")[0];
-        
-        // Create user in Convex
-        console.log("Syncing new user:", { clerkId, email, displayName });
-        
-        await convex.mutation(api.functions.users.syncUser, {
-          clerkId,
-          email,
-          displayName,
-          avatarUrl: image_url || undefined,
-        });
-        
-        break;
-      }
-
-      case "user.updated": {
-        const { id: clerkId, email_addresses, first_name, last_name, image_url } = event.data;
-        
-        const email = email_addresses?.[0]?.email_address || "";
-        const displayName = [first_name, last_name].filter(Boolean).join(" ") || email.split("@")[0];
-        
-        // Update user in Convex
-        console.log("Updating user:", { clerkId, email, displayName });
-        
-        await convex.mutation(api.functions.users.syncUser, {
-          clerkId,
-          email,
-          displayName,
-          avatarUrl: image_url || undefined,
-        });
-        
-        break;
-      }
-
-      case "user.deleted": {
-        const { id: clerkId } = event.data;
-        
-        // For soft-delete, we could update a deleted flag
-        // For now, just log it - full implementation would depend on requirements
-        console.log("User deleted in Clerk:", clerkId);
-        
-        // TODO: Implement soft-delete in Convex user table
-        // Could add a deletedAt field and filter out deleted users in queries
-        
-        break;
-      }
-
-      default:
-        console.log("Unhandled Clerk event type:", event.type);
-    }
+    const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
+    
+    await fetch(`${convexUrl}/api/handleClerkWebhook`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: payload,
+    });
 
     return NextResponse.json({ received: true });
   } catch (error) {

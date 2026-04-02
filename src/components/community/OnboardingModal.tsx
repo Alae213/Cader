@@ -116,14 +116,9 @@ export function OnboardingModal({ community, open, onOpenChange, onComplete }: O
     setError("");
     
     try {
-      // Use grantMembership (no displayName/phone needed)
-       
       await mutateFreeJoin({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         communityId: community._id as any,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        userId: convexUser._id as any,
-        paymentReference: `free_${Date.now()}`,
       });
       
       toast.success("Welcome to the community!");
@@ -177,7 +172,7 @@ export function OnboardingModal({ community, open, onOpenChange, onComplete }: O
   };
 
   // Mutations
-  const mutateFreeJoin = useMutation(api.functions.memberships.grantMembership);
+  const mutateFreeJoin = useMutation(api.functions.memberships.joinFreeCommunity);
   const createCheckout = useMutation(api.functions.payments.createChargilyCheckout);
 
   // Render payment status message

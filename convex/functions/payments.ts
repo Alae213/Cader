@@ -1,6 +1,7 @@
-import { mutation, query } from "../_generated/server";
+import { mutation, query, internalMutation } from "../_generated/server";
 import { v } from "convex/values";
 import { safeDecrypt } from "../lib/encryption";
+import { enforceRateLimit } from "../lib/rateLimit";
 
 interface ChargilyCheckoutArgs {
   apiKey: string;
@@ -79,12 +80,39 @@ export const getExpectedPrice = query({
 });
 
 // Validate Chargily API keys
+// SECURITY C-4: Now requires auth. communityId is optional:
+// - When provided: verifies ownership before validating (edit flow)
+// - When omitted: validates keys without ownership check (create flow, still requires auth)
 export const validateChargilyKeys = mutation({
   args: {
+    communityId: v.optional(v.id("communities")),
     apiKey: v.string(),
     webhookSecret: v.string(),
   },
-  handler: async (_ctx, args) => {
+  handler: async (ctx, args) => {
+    // SECURITY: Require authentication (prevents anonymous key oracle)
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("You must be signed in");
+    }
+
+    // SECURITY: When communityId provided, verify ownership
+    if (args.communityId) {
+      const community = await ctx.db.get(args.communityId);
+      if (!community) {
+        throw new Error("Community not found");
+      }
+
+      const user = await ctx.db
+        .query("users")
+        .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+        .first();
+
+      if (!user || community.ownerId !== user._id) {
+        throw new Error("Only the community owner can validate payment keys");
+      }
+    }
+
     try {
       const response = await fetch("https://pay.chargily.net/api/v2/checkouts", {
         method: "GET",
@@ -155,6 +183,12 @@ export const createChargilyCheckout = mutation({
     }
 
     if (amount <= 0) throw new Error("Invalid price for this purchase");
+
+    // SECURITY C-5: Rate limit checkout creation
+    const identity = await ctx.auth.getUserIdentity();
+    if (identity) {
+      await enforceRateLimit(ctx, identity.tokenIdentifier, "checkout_creation");
+    }
 
     return createChargilySession({
       apiKey: chargilyApiKey,
@@ -243,8 +277,9 @@ export const cancelPlatformSubscription = mutation({
   },
 });
 
-// Grant classroom access after successful payment
-export const grantClassroomAccess = mutation({
+// SECURITY C-3: Internal mutation — only callable from webhook HTTP action
+// Previously was public mutation with no auth check
+export const _grantClassroomAccess = internalMutation({
   args: {
     classroomId: v.id("classrooms"),
     userId: v.id("users"),

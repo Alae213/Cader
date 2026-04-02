@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { api } from "@/convex/_generated/api";
-import { verifySignature } from "@chargily/chargily-pay";
 import { ConvexHttpClient } from "convex/browser";
+import { verifySignature } from "@chargily/chargily-pay";
 import type { Id } from "@/convex/_generated/dataModel";
 
 // Chargily webhook events we care about
@@ -28,8 +27,8 @@ interface ChargilyWebhookPayload {
       userId: string;
       type: "community" | "classroom" | "platform";
       classroomId?: string;
-      mode?: "test" | "live"; // G-009: Test/live mode verification
-      priceAmount?: number; // EC-18: Store price at checkout creation
+      mode?: "test" | "live";
+      priceAmount?: number;
     };
   };
 }
@@ -46,17 +45,14 @@ function checkRateLimit(ip: string, limit: number = 100, windowMs: number = 6000
   const record = rateLimitMap.get(key);
 
   if (!record || now > record.resetTime) {
-    // First request or window expired - reset
     rateLimitMap.set(key, { count: 1, resetTime: now + windowMs });
     return true;
   }
 
   if (record.count >= limit) {
-    // Rate limit exceeded
     return false;
   }
 
-  // Increment count
   record.count++;
   return true;
 }
@@ -68,55 +64,11 @@ function getClientIP(req: NextRequest): string {
 }
 
 // ============================================================================
-// USER EXISTENCE CHECK (G-003)
-// Verify user exists before granting access
-// ============================================================================
-async function verifyUserExists(convex: ConvexHttpClient, userId: string): Promise<boolean> {
-  try {
-    const user = await convex.query(api.functions.users.getUserById, {
-      userId: userId as Id<"users">,
-    });
-    return !!user;
-  } catch {
-    return false;
-  }
-}
-
-// ============================================================================
-// PLATFORM TIER VERIFICATION (G-006)
-// Verify community exists and has correct tier before processing platform subscription
-// ============================================================================
-async function verifyPlatformTier(
-  convex: ConvexHttpClient, 
-  communityId: string
-): Promise<{ valid: boolean; reason?: string }> {
-  try {
-    const community = await convex.query(api.functions.communities.getById, {
-      communityId: communityId as Id<"communities">,
-    });
-
-    if (!community) {
-      return { valid: false, reason: "Community not found" };
-    }
-
-    // If already subscribed, still allow (for renewal)
-    if (community.platformTier === "subscribed") {
-      console.log("Community already subscribed, allowing renewal:", communityId);
-    }
-
-    return { valid: true };
-  } catch {
-    return { valid: false, reason: "Failed to verify community" };
-  }
-}
-
-// ============================================================================
 // TEST/LIVE MODE VERIFICATION (G-009)
 // Reject test checkouts in production
 // ============================================================================
 function verifyMode(metadata: ChargilyWebhookPayload["data"]["metadata"]): { valid: boolean; reason?: string } {
   if (!metadata?.mode) {
-    // No mode specified - allow for backward compatibility
     return { valid: true };
   }
 
@@ -134,7 +86,7 @@ function verifyMode(metadata: ChargilyWebhookPayload["data"]["metadata"]): { val
   return { valid: true };
 }
 
-// Create Convex HTTP client for server-side mutations
+// Create Convex HTTP client for server-side queries
 function getConvexClient(): ConvexHttpClient {
   const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
   if (!convexUrl) {
@@ -144,7 +96,6 @@ function getConvexClient(): ConvexHttpClient {
 }
 
 // Verify that the paid amount matches the expected price
-// This prevents price manipulation attacks where an attacker changes the price
 async function verifyPaymentAmount(
   convex: ConvexHttpClient,
   metadata: ChargilyWebhookPayload["data"]["metadata"],
@@ -168,6 +119,7 @@ async function verifyPaymentAmount(
   }
 
   // Get expected price from database
+  const { api } = await import("@/convex/_generated/api");
   const priceInfo = await convex.query(api.functions.payments.getExpectedPrice, {
     communityId: metadata.communityId as Id<"communities">,
     type: metadata.type,
@@ -178,7 +130,6 @@ async function verifyPaymentAmount(
     return { valid: false, reason: "Could not determine expected price" };
   }
 
-  // Verify amount matches (with 0 tolerance - exact match required)
   if (paidAmount !== priceInfo.expectedAmount) {
     return { 
       valid: false, 
@@ -208,7 +159,6 @@ export async function POST(req: NextRequest) {
     const payloadBuffer = Buffer.from(payloadText);
     const signature = req.headers.get("x-chargily-signature");
     
-    // Get webhook secret from environment
     const webhookSecret = process.env.CHARGILY_WEBHOOK_SECRET;
 
     if (!webhookSecret) {
@@ -233,9 +183,6 @@ export async function POST(req: NextRequest) {
     const event: ChargilyWebhookPayload = JSON.parse(payloadText);
     
     console.log("Chargily webhook received:", event.event, event.data.id);
-
-    // Get Convex client for mutations
-    const convex = getConvexClient();
 
     // Handle based on event type
     switch (event.event) {
@@ -262,34 +209,8 @@ export async function POST(req: NextRequest) {
           );
         }
 
-        // =========================================================================
-        // USER EXISTENCE CHECK (G-003)
-        // =========================================================================
-        const userExists = await verifyUserExists(convex, metadata.userId);
-        if (!userExists) {
-          console.error("User not found:", metadata.userId);
-          // Return 200 to prevent retry, but don't grant access
-          return NextResponse.json(
-            { received: true, warning: "User not found - access not granted" },
-            { status: 200 }
-          );
-        }
-
-        // =========================================================================
-        // PLATFORM TIER VERIFICATION (G-006) - for platform subscriptions
-        // =========================================================================
-        if (metadata.type === "platform") {
-          const tierCheck = await verifyPlatformTier(convex, metadata.communityId);
-          if (!tierCheck.valid) {
-            console.error("Platform tier verification failed:", tierCheck.reason);
-            return NextResponse.json(
-              { received: true, warning: tierCheck.reason },
-              { status: 200 }
-            );
-          }
-        }
-
         // SECURITY: Verify payment amount matches expected price
+        const convex = getConvexClient();
         const amountVerification = await verifyPaymentAmount(
           convex,
           metadata,
@@ -305,8 +226,6 @@ export async function POST(req: NextRequest) {
             metadata,
           });
           
-          // Log the suspicious activity but still return 200 to Chargily
-          // to prevent webhook retries. The access is simply not granted.
           return NextResponse.json(
             { 
               received: true, 
@@ -317,46 +236,31 @@ export async function POST(req: NextRequest) {
           );
         }
 
-        // Amount verified - proceed with granting access
-        if (metadata.type === "platform") {
-          // Update platform tier to subscribed
-          console.log("Upgrading community to subscribed tier:", {
-            communityId: metadata.communityId,
-            verifiedAmount: event.data.amount,
-          });
+        // SECURITY C-1/C-2/C-3: Forward to Convex HTTP action
+        // The HTTP action calls internal mutations that are NOT publicly accessible
+        // This prevents any authenticated user from calling grantMembership directly
+        const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
+        const httpResponse = await fetch(`${convexUrl}/api/handleChargilyWebhook`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            event: event.event,
+            data: {
+              id: event.data.id,
+              amount: event.data.amount,
+              currency: event.data.currency,
+              metadata: {
+                communityId: metadata.communityId,
+                userId: metadata.userId,
+                type: metadata.type,
+                classroomId: metadata.classroomId,
+              },
+            },
+          }),
+        });
 
-          await convex.mutation(api.functions.communities.updatePlatformTier, {
-            communityId: metadata.communityId as Id<"communities">,
-            tier: "subscribed",
-          });
-        } else if (metadata.type === "classroom" && metadata.classroomId) {
-          // Grant classroom access
-          console.log("Granting classroom access:", {
-            classroomId: metadata.classroomId,
-            userId: metadata.userId,
-            paymentReference: event.data.id,
-            verifiedAmount: event.data.amount,
-          });
-
-          await convex.mutation(api.functions.payments.grantClassroomAccess, {
-            classroomId: metadata.classroomId as Id<"classrooms">,
-            userId: metadata.userId as Id<"users">,
-            paymentReference: event.data.id,
-          });
-        } else {
-          // Grant community membership
-          console.log("Granting membership:", {
-            communityId: metadata.communityId,
-            userId: metadata.userId,
-            paymentReference: event.data.id,
-            verifiedAmount: event.data.amount,
-          });
-
-          await convex.mutation(api.functions.memberships.grantMembership, {
-            communityId: metadata.communityId as Id<"communities">,
-            userId: metadata.userId as Id<"users">,
-            paymentReference: event.data.id,
-          });
+        if (!httpResponse.ok) {
+          console.error("Convex HTTP action failed:", httpResponse.status);
         }
         
         break;

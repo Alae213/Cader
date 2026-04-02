@@ -166,7 +166,6 @@ export function ChapterItem({
               <LessonItem
                 key={page._id}
                 page={page}
-                moduleId={module._id}
                 isSelected={selectedPageId === page._id}
                 isOwner={isOwner}
                 onSelect={() => onSelectPage(page._id)}

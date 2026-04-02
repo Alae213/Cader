@@ -171,6 +171,8 @@ export function EditCommunityModal({ open, onOpenChange, community }: EditCommun
     
     try {
       const validation = await validateChargilyKeys({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        communityId: community._id as any,
         apiKey: chargilyApiKey,
         webhookSecret: chargilyWebhookSecret,
       });

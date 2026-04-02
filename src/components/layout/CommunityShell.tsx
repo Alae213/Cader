@@ -81,7 +81,7 @@ export function CommunityShell({
   
   // Client-side tab state
   const [activeTab, setActiveTab] = useState<string>(() => 
-    getInitialTab(community.slug, isOwner, isMember, isAuthenticated)
+    getInitialTab(community.slug, isOwner, isMember)
   );
 
   // Handle tab change

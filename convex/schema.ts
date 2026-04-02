@@ -28,24 +28,27 @@ export default defineSchema({
     videoUrl: v.optional(v.string()),
     links: v.optional(v.array(v.string())),
     wilaya: v.optional(v.string()), // Deprecated - kept for data migration
-    
+
     // Ownership
     ownerId: v.id("users"),
-    
+
     // Pricing
     pricingType: v.union(v.literal("free"), v.literal("monthly"), v.literal("annual"), v.literal("one_time")),
     priceDzd: v.optional(v.number()),
-    
+
     // Chargily keys (encrypted)
     chargilyApiKey: v.optional(v.string()),
     chargilyWebhookSecret: v.optional(v.string()),
-    
+
     // Platform tier
     platformTier: v.optional(v.union(v.literal("free"), v.literal("subscribed"))),
-    
+
     // Limits
     memberLimit: v.number(),
-    
+
+    // Denormalized counters (avoid scanning memberships table)
+    activeMemberCount: v.optional(v.number()),
+
     // Timestamps
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -121,7 +124,8 @@ export default defineSchema({
     .index("by_author_id", ["authorId"])
     .index("by_category_id", ["categoryId"])
     .index("by_created_at", ["createdAt"])
-    .index("by_pinned", ["isPinned"]),
+    .index("by_community_and_pinned_and_created", ["communityId", "isPinned", "createdAt"])
+    .index("by_community_and_category_and_pinned_and_created", ["communityId", "categoryId", "isPinned", "createdAt"]),
 
   // Comments on posts
   comments: defineTable({
@@ -319,4 +323,27 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_user_id", ["userId"]),
+
+  // Rate limits - server-side abuse prevention (SECURITY: C-5)
+  rateLimits: defineTable({
+    userId: v.string(), // tokenIdentifier from Clerk
+    action: v.union(
+      v.literal("community_creation"),
+      v.literal("post_creation"),
+      v.literal("comment_creation"),
+      v.literal("checkout_creation"),
+    ),
+    timestamp: v.number(),
+  }).index("by_user_and_action", ["userId", "action"])
+    .index("by_timestamp", ["timestamp"]),
+
+  // Poll votes - one per user per poll (M-3: prevents duplicate voting)
+  pollVotes: defineTable({
+    postId: v.id("posts"),
+    userId: v.id("users"),
+    optionIndex: v.number(),
+    createdAt: v.number(),
+  }).index("by_post_id", ["postId"])
+    .index("by_user_id", ["userId"])
+    .index("by_post_and_user", ["postId", "userId"]),
 });

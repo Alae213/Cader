@@ -1,6 +1,7 @@
 import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
-import { Id } from "../_generated/dataModel";
+import { Doc, Id } from "../_generated/dataModel";
+import { enforceRateLimit } from "../lib/rateLimit";
 
 // Helper to validate video URLs
 function isValidVideoUrl(url: string): boolean {
@@ -19,59 +20,68 @@ export const listPosts = query({
     communityId: v.id("communities"),
     categoryId: v.optional(v.id("categories")),
     sortBy: v.optional(v.union(v.literal("newest"), v.literal("most_liked"), v.literal("most_commented"))),
-    limit: v.optional(v.number()),
-    cursor: v.optional(v.number()),
+    paginationOpts: v.object({
+      numItems: v.number(),
+      cursor: v.union(v.string(), v.null()),
+      id: v.optional(v.number()),
+    }),
   },
   handler: async (ctx, args) => {
-    const limit = args.limit || 20;
     const communityId = args.communityId;
     const sortBy = args.sortBy || "newest";
 
-    // Get all posts for this community
+    // Use compound index for efficient storage-level filtering
+    // The index [communityId, isPinned, createdAt] lets us read in pinned-first order
     const postsQuery = ctx.db
       .query("posts")
-      .withIndex("by_community_id", (q) => q.eq("communityId", communityId));
+      .withIndex("by_community_and_pinned_and_created", (q) =>
+        q.eq("communityId", communityId)
+      )
+      .order("desc");
 
     // Filter by category if provided
-    let posts = await postsQuery.collect();
-
+    let posts;
     if (args.categoryId) {
-      posts = posts.filter((p) => 
-        p.categoryId && p.categoryId === args.categoryId
-      );
+      // Use the category compound index for filtered queries
+      posts = await ctx.db
+        .query("posts")
+        .withIndex("by_community_and_category_and_pinned_and_created", (q) =>
+          q.eq("communityId", communityId).eq("categoryId", args.categoryId)
+        )
+        .order("desc")
+        .paginate(args.paginationOpts);
+    } else {
+      posts = await postsQuery.paginate(args.paginationOpts);
     }
 
-    // Sort: pinned first, then by selected sort order
-    posts.sort((a: { isPinned: boolean; createdAt: number; upvoteCount: number; commentCount: number }, b: { isPinned: boolean; createdAt: number; upvoteCount: number; commentCount: number }) => {
+    // Sort: pinned first (isPinned=true sorts before false in desc order)
+    // Then apply secondary sort (newest, most_liked, most_commented) for non-pinned
+    const sortedPage = [...posts.page].sort((a, b) => {
       // Pinned posts always come first
       if (a.isPinned && !b.isPinned) return -1;
       if (!a.isPinned && b.isPinned) return 1;
-      
-      // Then sort by selected criteria (non-pinned posts only)
-      if (!a.isPinned && !b.isPinned) {
-        switch (sortBy) {
-          case "most_liked":
-            return b.upvoteCount - a.upvoteCount;
-          case "most_commented":
-            return b.commentCount - a.commentCount;
-          case "newest":
-          default:
-            return b.createdAt - a.createdAt;
-        }
-      }
-      return 0;
-    });
 
-    // Apply pagination slicing
-    const cursor = args.cursor ?? 0;
-    const page = posts.slice(cursor, cursor + limit);
-    const isDone = cursor + limit >= posts.length;
-    const continueCursor = cursor + limit;
+      // Both pinned or both non-pinned: apply secondary sort
+      if (a.isPinned && b.isPinned) {
+        return b.createdAt - a.createdAt; // pinned sorted by newest
+      }
+
+      // Non-pinned: apply selected sort
+      switch (sortBy) {
+        case "most_liked":
+          return b.upvoteCount - a.upvoteCount || b.createdAt - a.createdAt;
+        case "most_commented":
+          return b.commentCount - a.commentCount || b.createdAt - a.createdAt;
+        case "newest":
+        default:
+          return b.createdAt - a.createdAt;
+      }
+    });
 
     // Get author details for each post in the current page only
     const postsWithAuthors = await Promise.all(
-      page.map(async (post) => {
-        const author = await ctx.db.get(post.authorId);
+      sortedPage.map(async (post) => {
+        const author = await ctx.db.get(post.authorId) as Doc<"users"> | null;
         let category = null;
         if (post.categoryId) {
           category = await ctx.db.get(post.categoryId);
@@ -95,9 +105,8 @@ export const listPosts = query({
 
     return {
       page: postsWithAuthors,
-      isDone,
-      continueCursor,
-      totalCount: posts.length,
+      isDone: posts.isDone,
+      continueCursor: posts.continueCursor,
     };
   },
 });
@@ -175,6 +184,9 @@ export const createPost = mutation({
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#039;");
+
+    // SECURITY C-5: Rate limit post creation
+    await enforceRateLimit(ctx, identity.tokenIdentifier, "post_creation");
 
     // Extract mentions from content
     // Note: mentions are stored as string[] but schema expects Id<"users">[]
@@ -265,6 +277,9 @@ export const createComment = mutation({
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#039;");
 
+    // SECURITY C-5: Rate limit comment creation
+    await enforceRateLimit(ctx, identity.tokenIdentifier, "comment_creation");
+
     // Extract mentions (stored as string array for MVP)
     const mentionMatches = sanitizedContent.match(/@(\w+)/g) || [];
 
@@ -297,40 +312,44 @@ export const createComment = mutation({
 export const listComments = query({
   args: {
     postId: v.id("posts"),
-    cursor: v.optional(v.string()),
-    limit: v.optional(v.number()),
+    paginationOpts: v.object({
+      numItems: v.number(),
+      cursor: v.union(v.string(), v.null()),
+    }),
     sortBy: v.optional(v.union(v.literal("top"), v.literal("newest"))),
   },
   handler: async (ctx, args) => {
-    const limit = args.limit || 5;
     const sortBy = args.sortBy || "top";
 
     // Get current user for upvote status
     const identity = await ctx.auth.getUserIdentity();
-    let currentUserId = null;
+    let currentUserId: Id<"users"> | null = null;
     if (identity) {
       const currentUser = await ctx.db
         .query("users")
         .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
         .first();
-      currentUserId = currentUser?._id;
+      currentUserId = currentUser?._id ?? null;
     }
-
-    // Get all comments for this post
-    const commentQuery = ctx.db
-      .query("comments")
-      .withIndex("by_post_id", (q) => q.eq("postId", args.postId));
-
-    const allComments = await commentQuery.collect();
 
     // Get the post to find the community
     const post = await ctx.db.get(args.postId);
 
-    // Get author details for each comment
+    // Paginate top-level comments only (reduces read set significantly)
+    const topLevelQuery = ctx.db
+      .query("comments")
+      .withIndex("by_post_id", (q) => q.eq("postId", args.postId))
+      .filter((q) => q.eq(q.field("parentCommentId"), undefined));
+
+    // Apply sort order via filter — we sort in JS since Convex has no index on upvoteCount
+    // but we now only read the paginated page, not all comments
+    const topLevelPage = await topLevelQuery.paginate(args.paginationOpts);
+
+    // Get author details and upvote status for each comment in the page
     const commentsWithAuthors = await Promise.all(
-      allComments.map(async (comment) => {
+      topLevelPage.page.map(async (comment) => {
         const author = await ctx.db.get(comment.authorId);
-        
+
         // Check if current user has upvoted this comment
         let hasUpvoted = false;
         if (currentUserId) {
@@ -373,38 +392,74 @@ export const listComments = query({
       })
     );
 
-    // Organize into threads: top-level + replies
-    const topLevel = commentsWithAuthors.filter((c) => !c.parentCommentId);
-    const replies = commentsWithAuthors.filter((c) => !!c.parentCommentId);
-
-    // Sort top-level comments
+    // Sort the page by selected criteria
     if (sortBy === "top") {
-      topLevel.sort((a, b) => (b.upvoteCount ?? 0) - (a.upvoteCount ?? 0) || b.createdAt - a.createdAt);
+      commentsWithAuthors.sort((a, b) => (b.upvoteCount ?? 0) - (a.upvoteCount ?? 0) || b.createdAt - a.createdAt);
     } else {
-      topLevel.sort((a, b) => b.createdAt - a.createdAt);
+      commentsWithAuthors.sort((a, b) => b.createdAt - a.createdAt);
     }
 
-    // Sort replies by upvotes
-    replies.sort((a, b) => (b.upvoteCount ?? 0) - (a.upvoteCount ?? 0) || b.createdAt - a.createdAt);
+    // Fetch replies for the comments on this page (bounded: only replies to visible top-level comments)
+    const allReplies = await Promise.all(
+      topLevelPage.page.map(async (parentComment) => {
+        const replies = await ctx.db
+          .query("comments")
+          .withIndex("by_parent_comment_id", (q) => q.eq("parentCommentId", parentComment._id))
+          .collect();
 
-    // Apply pagination to top-level comments
-    const cursorNum = args.cursor ? parseInt(args.cursor, 10) : 0;
-    const paginatedTopLevel = topLevel.slice(cursorNum, cursorNum + limit);
-    
+        return Promise.all(
+          replies.map(async (reply) => {
+            const author = await ctx.db.get(reply.authorId);
+            let hasUpvoted = false;
+            if (currentUserId) {
+              const upvote = await ctx.db
+                .query("commentUpvotes")
+                .withIndex("by_comment_and_user", (q) =>
+                  q.eq("commentId", reply._id).eq("userId", currentUserId)
+                )
+                .first();
+              hasUpvoted = !!upvote;
+            }
+            let authorIsOwner = false;
+            let authorIsAdmin = false;
+            if (post?.communityId && author) {
+              const authorMembership = await ctx.db
+                .query("memberships")
+                .withIndex("by_community_and_user", (q) =>
+                  q.eq("communityId", post.communityId).eq("userId", author._id)
+                )
+                .first();
+              if (authorMembership) {
+                authorIsOwner = authorMembership.role === "owner";
+                authorIsAdmin = authorMembership.role === "admin" || authorMembership.role === "owner";
+              }
+            }
+            return {
+              ...reply,
+              author: author ? {
+                _id: author._id,
+                displayName: author.displayName,
+                avatarUrl: author.avatarUrl,
+              } : null,
+              hasUpvoted,
+              authorIsOwner,
+              authorIsAdmin,
+            };
+          })
+        );
+      })
+    );
+
     // Attach replies to their parents
-    const threadedComments = paginatedTopLevel.map((comment) => ({
+    const threadedComments = commentsWithAuthors.map((comment, i) => ({
       ...comment,
-      replies: replies.filter((r) => r.parentCommentId === comment._id),
+      replies: allReplies[i],
     }));
 
-    // Check if there are more comments
-    const hasMore = cursorNum + limit < topLevel.length;
-    const nextCursor = hasMore ? String(cursorNum + limit) : undefined;
-
     return {
-      comments: threadedComments,
-      nextCursor,
-      totalCount: topLevel.length,
+      page: threadedComments,
+      isDone: topLevelPage.isDone,
+      continueCursor: topLevelPage.continueCursor,
     };
   },
 });
@@ -641,6 +696,7 @@ export const toggleCommentUpvote = mutation({
 });
 
 // Vote on a poll option
+// SECURITY M-3: One vote per user per poll with dedup protection
 export const votePoll = mutation({
   args: {
     postId: v.id("posts"),
@@ -675,6 +731,27 @@ export const votePoll = mutation({
     if (args.optionIndex < 0 || args.optionIndex >= pollOptions.length) {
       throw new Error("Invalid option");
     }
+
+    // SECURITY M-3: Check if user already voted on this poll
+    const existingVote = await ctx.db
+      .query("pollVotes")
+      .withIndex("by_post_and_user", (q) =>
+        q.eq("postId", args.postId).eq("userId", user._id)
+      )
+      .first();
+
+    if (existingVote) {
+      // User already voted — don't allow double voting
+      return { success: false, reason: "already_voted" };
+    }
+
+    // Record the vote for dedup tracking
+    await ctx.db.insert("pollVotes", {
+      postId: args.postId,
+      userId: user._id,
+      optionIndex: args.optionIndex,
+      createdAt: Date.now(),
+    });
 
     // Update the vote count for the selected option
     const updatedOptions = pollOptions.map((opt, i) => {
