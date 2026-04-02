@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Link as LinkIcon, Plus, X } from "lucide-react";
+import { Link as LinkIcon, Plus, Trash } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Text } from "@/components/ui/Text";
 import { Button } from "@/components/ui/Button";
@@ -110,7 +110,7 @@ export function LinkInputs({ links = [], isOwner, onSave }: LinkInputsProps) {
               onBlur={() => handleBlur(index)}
               onKeyDown={(e) => handleKeyDown(e, index)}
               placeholder="Paste URL..."
-              className="flex-1 text-sm h-8"
+              className="flex-1 text-sm h-8 rounded-md bg-bg-subtle hover:bg-bg-elevated focus:bg-bg-elevated transition-colors"
               autoFocus
             />
           ) : (
@@ -123,27 +123,32 @@ export function LinkInputs({ links = [], isOwner, onSave }: LinkInputsProps) {
               <span className="truncate">{link.trim() || `Link ${index + 1}`}</span>
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => handleRemoveLink(index)}
-            className="p-1 rounded hover:bg-bg-elevated text-text-muted hover:text-text-primary"
-          >
-            <X className="w-3 h-3" />
-          </button>
+          {inputValues.length > 1 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7 p-0 rounded-md hover:bg-red-600/5 hover:text-red-600"
+              onClick={() => handleRemoveLink(index)}
+            >
+              <Trash className="w-3 h-3" />
+            </Button>
+          )}
         </div>
       ))}
 
       {/* Show add button if can add more */}
       {canAddMore && (
+        <div className="flex justify-center">
         <Button
           variant="ghost"
           size="sm"
-          className="h-7 text-xs"
+          className="h-7 text-xs gap-1 rounded-md w-fit hover:bg-bg-elevated"
           onClick={handleAddLink}
         >
-          <Plus className="w-3 h-3 mr-1" />
+          <Plus className="w-3 h-3" />
           Add link
         </Button>
+        </div>
       )}
     </div>
   );

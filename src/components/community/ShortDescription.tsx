@@ -27,7 +27,8 @@ export function ShortDescription({ value = "", isOwner, onSave }: ShortDescripti
       const textarea = textareaRef.current;
       if (textarea) {
         textarea.style.height = "auto";
-        textarea.style.height = textarea.scrollHeight + "px";
+        const newHeight = Math.min(textarea.scrollHeight, 120); // Max height limit
+        textarea.style.height = newHeight + "px";
       }
     }, 0);
   }, [value]);
@@ -68,7 +69,8 @@ export function ShortDescription({ value = "", isOwner, onSave }: ShortDescripti
         const textarea = textareaRef.current;
         if (textarea) {
           textarea.style.height = "auto";
-          textarea.style.height = textarea.scrollHeight + "px";
+          const newHeight = Math.min(textarea.scrollHeight, 120); // Max height limit
+          textarea.style.height = newHeight + "px";
         }
       }, 0);
     }
@@ -101,7 +103,7 @@ export function ShortDescription({ value = "", isOwner, onSave }: ShortDescripti
   // Owner editing mode
   if (isOwner) {
     return (
-      <div className="space-y-1">
+      <div>
         <textarea
           ref={textareaRef}
           value={inputValue}
@@ -109,7 +111,7 @@ export function ShortDescription({ value = "", isOwner, onSave }: ShortDescripti
           onFocus={handleFocus}
           onBlur={handleBlur}
           placeholder="Write a short description..."
-          className="w-full p-1 bg-bg-subtle hover:bg-bg-elevated focus:bg-bg-elevated rounded-lg text-text-primary resize-none focus:outline-none transition-colors text-sm"
+          className="text-text-secondary w-full p-1 bg-bg-transparent hover:bg-bg-elevated focus:bg-bg-elevated rounded-lg text-text-primary resize-none focus:outline-none transition-colors text-sm overflow-hidden "
           style={{ height: "auto" }}
           rows={1}
         />
@@ -127,7 +129,7 @@ export function ShortDescription({ value = "", isOwner, onSave }: ShortDescripti
 
   // Non-owner view mode
   return (
-    <Text size="3" theme="secondary" className="text-center">
+    <Text size="3" theme="secondary" className="text-text-secondary">
       {value}
     </Text>
   );

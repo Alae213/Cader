@@ -18,6 +18,7 @@ import { Text } from "@/components/ui/Text";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/ToggleGroup";
 
 interface Community {
   _id: string;
@@ -36,10 +37,10 @@ interface EditCommunityModalProps {
 }
 
 const PRICING_TYPES = [
-  { value: "free", label: "Free - No payment required" },
-  { value: "monthly", label: "Monthly subscription" },
-  { value: "annual", label: "Annual subscription" },
-  { value: "one_time", label: "One-time payment" },
+  { value: "free", label: "Free" },
+  { value: "monthly", label: "Monthly" },
+  { value: "annual", label: "Annual" },
+  { value: "one_time", label: "One-time" },
 ];
 
 type TabType = "basic" | "pricing";
@@ -261,76 +262,92 @@ export function EditCommunityModal({ open, onOpenChange, community }: EditCommun
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Edit Community</DialogTitle>
-          <DialogDescription>
-            Update your community details
-          </DialogDescription>
+          <DialogTitle>
+            
+            <Text size="6" >This is what people
+            <br />
+            will see.</Text>
+          </DialogTitle>
+      
+          
         </DialogHeader>
 
-        <hr
-          className="h-px w-full border-0"
-          style={{
-            background: "rgba(242, 242, 242, 0.25)",
-            boxShadow: "0 1px 0 0 rgba(0, 0, 0, 0.50)",
-          }}
-        />
+        <hr className="h-px w-full border-0 rounded-full "
+                      style={{
+                        background: "rgba(242, 242, 242, 0.20)",
+                        boxShadow: "0 1px 0 0 rgba(0, 0, 0, 0.50)",
+                      }}/>
 
         {/* Tabs */}
-        <div className="flex border-b border-border">
-          <button
-            onClick={() => !loading && setActiveTab("basic")}
-            className={`flex-1 py-2 text-sm font-medium transition-colors ${
-              activeTab === "basic"
-                ? "text-accent border-b-2 border-accent"
-                : "text-text-muted hover:text-text-primary"
-            }`}
-          >
-            Basic
-          </button>
-          <button
-            onClick={() => !loading && setActiveTab("pricing")}
-            disabled={loading}
-            className={`flex-1 py-2 text-sm font-medium transition-colors ${
-              activeTab === "pricing"
-                ? "text-accent border-b-2 border-accent"
-                : "text-text-muted hover:text-text-primary"
-            } ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
-          >
-            Pricing
-          </button>
-        </div>
+        <ToggleGroup
+          value={activeTab}
+          onValueChange={(value) => value && !loading && setActiveTab(value as TabType)}
+        >
+          <ToggleGroupItem value="basic" disabled={loading}>
+            <Text size="2" theme="muted">Website</Text>
+          </ToggleGroupItem>
+          <ToggleGroupItem value="pricing" disabled={loading}>
+            <Text size="2" theme="muted">Pricing</Text>
+          </ToggleGroupItem>
+        </ToggleGroup>
 
-        <DialogBody className="space-y-4">
+        <DialogBody className="space-y-4 py-3">
+          
           {/* Basic Tab */}
           {activeTab === "basic" && (
-            <div className="space-y-4">
-              {/* Community Name */}
-              <div>
-                <label className="block text-sm font-medium text-text-primary mb-1">
-                  Community Name
-                </label>
-                <Input
-                  value={name}
-                  onChange={(e) => handleNameChange(e.target.value)}
-                  placeholder="type name..."
-                  disabled={loading}
-                />
-              </div>
-
-              {/* Slug */}
-              <div>
-                <label className="block text-sm font-medium text-text-primary mb-1">
-                  Community URL
-                </label>
-                <div className="flex items-center gap-2">
-                  <span className="text-text-secondary text-sm">cader.com/</span>
+            <div className="space-y-4"> 
+              <div className="flex flex-col gap-[11px] p-[12px] rounded-[22px] bg-white/2 shadow-card-shadow overflow-visible">
+                {/* Name row */}
+                <div className="flex flex-row gap-4 items-center w-full pl-1">
+                  <img src="/windw.svg" alt="Website" width={33} height={9} />
+                  <div className="flex flex-row gap-1 items-center w-full">
+                  
                   <Input
-                    value={slug}
-                    onChange={(e) => handleSlugChange(e.target.value)}
-                    placeholder="type url..."
-                    className="flex-1"
+                    value={name}
+                    onChange={(e) => handleNameChange(e.target.value)}
+                    placeholder="type name..."
+                    className="w-full bg-black/60 text-text-primary placeholder-text-muted transition-colors duration-300 ease-in-out focus:outline-none"
                     disabled={loading}
                   />
+                  </div>
+                </div>
+
+                {/* URL row */}
+                <div className="relative">
+                  <Input
+                    value={`cader.com/${slug}`}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      const prefix = "cader.com/";
+                      if (raw.startsWith(prefix)) {
+                        handleSlugChange(raw.slice(prefix.length));
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      const input = e.target as HTMLInputElement;
+                      const prefix = "cader.com/";
+                      if (
+                        (e.key === "Backspace" || e.key === "Delete") &&
+                        input.selectionStart !== null &&
+                        input.selectionStart !== undefined &&
+                        input.selectionStart <= prefix.length
+                      ) {
+                        e.preventDefault();
+                      }
+                      if (
+                        e.key === "ArrowLeft" &&
+                        input.selectionStart !== null &&
+                        input.selectionStart !== undefined &&
+                        input.selectionStart <= prefix.length
+                      ) {
+                        e.preventDefault();
+                      }
+                    }}
+                    placeholder="cader.com/type-url..."
+                    className="bg-black/60"                   
+                    disabled={loading}
+                  />
+                  
                 </div>
                 {slugChecking && (
                   <Text size="2" theme="muted" className="mt-1">
@@ -362,9 +379,6 @@ export function EditCommunityModal({ open, onOpenChange, community }: EditCommun
             <div className="space-y-4">
               {/* Pricing Type */}
               <div>
-                <label className="block text-sm font-medium text-text-primary mb-1">
-                  Pricing Type
-                </label>
                 <Select 
                   value={pricingType} 
                   onValueChange={setPricingType}

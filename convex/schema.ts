@@ -346,4 +346,15 @@ export default defineSchema({
   }).index("by_post_id", ["postId"])
     .index("by_user_id", ["userId"])
     .index("by_post_and_user", ["postId", "userId"]),
+
+  // Presence - real-time online status per community
+  // Separate from memberships to avoid write contention on the membership record
+  presence: defineTable({
+    communityId: v.id("communities"),
+    userId: v.id("users"),
+    lastSeen: v.number(), // epoch ms of last heartbeat
+  }).index("by_community_id", ["communityId"])
+    .index("by_user_id", ["userId"])
+    .index("by_community_and_user", ["communityId", "userId"])
+    .index("by_community_and_last_seen", ["communityId", "lastSeen"]),
 });

@@ -115,16 +115,15 @@ export const getBySlug = query({
     // Get owner details
     const owner = await ctx.db.get(community.ownerId) as { displayName?: string; avatarUrl?: string } | null;
 
-    // Online count: bounded scan for recently active members
-    // This is an approximation using updatedAt as a proxy for "online"
-    const thirtyMinutesAgo = Date.now() - 30 * 60 * 1000;
-    const memberships = await ctx.db
-      .query("memberships")
-      .withIndex("by_community_id", (q) => q.eq("communityId", community._id))
-      .take(500); // bounded: only communities with <500 members get accurate online count
-    const onlineCount = memberships.filter((m: { status: string; updatedAt: number }) =>
-      m.status === "active" && m.updatedAt > thirtyMinutesAgo
-    ).length;
+    // Online count: presence heartbeats in last 5 minutes
+    const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+    const onlinePresence = await ctx.db
+      .query("presence")
+      .withIndex("by_community_and_last_seen", (q) =>
+        q.eq("communityId", community._id).gte("lastSeen", fiveMinutesAgo)
+      )
+      .collect();
+    const onlineCount = onlinePresence.length;
 
     return {
       ...community,
@@ -149,22 +148,57 @@ export const getCommunityStats = query({
     // Use denormalized counter for member count (Fix #3)
     const memberCount = community.activeMemberCount ?? 0;
 
-    // Online count: bounded scan for recently active members
-    const thirtyMinutesAgo = Date.now() - 30 * 60 * 1000;
-    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    const memberships = await ctx.db
-      .query("memberships")
-      .withIndex("by_community_id", (q) => q.eq("communityId", args.communityId))
-      .take(500); // bounded
-    const activeMembers = memberships.filter((m: { status: string }) => m.status === "active");
-    const onlineCount = activeMembers.filter((m: { updatedAt: number }) => m.updatedAt > thirtyMinutesAgo).length;
-    const hasRecentActivity = activeMembers.some((m: { updatedAt: number }) => m.updatedAt > sevenDaysAgo);
+    // Online count: users with presence heartbeat in last 5 minutes
+    const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+    const onlinePresence = await ctx.db
+      .query("presence")
+      .withIndex("by_community_and_last_seen", (q) =>
+        q.eq("communityId", args.communityId).gte("lastSeen", fiveMinutesAgo)
+      )
+      .collect();
+    const onlineCount = onlinePresence.length;
 
-    // Calculate streak (consecutive days with activity)
-    let streak = 0;
-    if (hasRecentActivity) {
-      streak = Math.floor(Math.random() * 30) + 1; // Placeholder for MVP
+    // Streak: count consecutive days (including today) where at least one member
+    // has a streak_day_awarded pointEvent. Walk backwards from today until we find a gap.
+    // If today has no activity, streak = 1 (today counts as the start of a new streak).
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const oneDayMs = 24 * 60 * 60 * 1000;
+
+    // Get all streak events for this community in the last 30 days (bounded scan)
+    const thirtyDaysAgo = Date.now() - 30 * oneDayMs;
+    const streakEvents = await ctx.db
+      .query("pointEvents")
+      .withIndex("by_community_id", (q) => q.eq("communityId", args.communityId))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("eventType"), "streak_day_awarded"),
+          q.gte(q.field("createdAt"), thirtyDaysAgo)
+        )
+      )
+      .collect();
+
+    // Collect the set of days (UTC day number) that had at least one streak event
+    const daysWithActivity = new Set<number>();
+    for (const event of streakEvents) {
+      daysWithActivity.add(Math.floor(event.createdAt / oneDayMs));
     }
+
+    const todayDay = Math.floor(today.getTime() / oneDayMs);
+    let streak = 0;
+    let checkDay = todayDay - 1;
+
+    // Walk backwards from yesterday counting consecutive days
+    while (daysWithActivity.has(checkDay)) {
+      streak++;
+      checkDay--;
+    }
+
+    // Today always counts as at least day 1 (even if no one has visited yet today)
+    // If someone already visited today, the while loop above already counted today
+    // so we add 1 for today. If today hasn't been recorded yet, we still return 1
+    // so the streak never shows 0.
+    streak += 1;
 
     return {
       memberCount,
@@ -896,15 +930,15 @@ export const getById = query({
     // Get owner details
     const owner = await ctx.db.get(community.ownerId) as { displayName?: string; avatarUrl?: string } | null;
 
-    // Online count: bounded scan
-    const thirtyMinutesAgo = Date.now() - 30 * 60 * 1000;
-    const memberships = await ctx.db
-      .query("memberships")
-      .withIndex("by_community_id", (q) => q.eq("communityId", community._id))
-      .take(500);
-    const onlineCount = memberships.filter((m: { status: string; updatedAt: number }) =>
-      m.status === "active" && m.updatedAt > thirtyMinutesAgo
-    ).length;
+    // Online count: presence heartbeats in last 5 minutes
+    const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+    const onlinePresence = await ctx.db
+      .query("presence")
+      .withIndex("by_community_and_last_seen", (q) =>
+        q.eq("communityId", community._id).gte("lastSeen", fiveMinutesAgo)
+      )
+      .collect();
+    const onlineCount = onlinePresence.length;
 
     return {
       ...community,
@@ -916,5 +950,79 @@ export const getById = query({
       chargilyApiKey: undefined,
       chargilyWebhookSecret: undefined,
     };
+  },
+});
+
+// --- Presence / Online Tracking ---
+
+/**
+ * Send a heartbeat to mark the current user as online in a community.
+ * Creates or updates a presence record. Call every 30s from the client.
+ */
+export const sendHeartbeat = mutation({
+  args: { communityId: v.id("communities") },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+    if (!user) throw new Error("User not found");
+
+    // Verify the user is an active member of this community
+    const membership = await ctx.db
+      .query("memberships")
+      .withIndex("by_community_and_user", (q) =>
+        q.eq("communityId", args.communityId).eq("userId", user._id)
+      )
+      .first();
+    if (!membership || membership.status !== "active") return null;
+
+    const now = Date.now();
+
+    // Upsert presence record
+    const existing = await ctx.db
+      .query("presence")
+      .withIndex("by_community_and_user", (q) =>
+        q.eq("communityId", args.communityId).eq("userId", user._id)
+      )
+      .first();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, { lastSeen: now });
+    } else {
+      await ctx.db.insert("presence", {
+        communityId: args.communityId,
+        userId: user._id,
+        lastSeen: now,
+      });
+    }
+
+    return { ok: true };
+  },
+});
+
+/**
+ * Clean up stale presence records (no heartbeat in 5 minutes).
+ * Run periodically via Convex cron.
+ */
+export const cleanupPresence = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+
+    // Find all stale presence records
+    const allPresence = await ctx.db.query("presence").collect();
+    let cleaned = 0;
+    for (const p of allPresence) {
+      if (p.lastSeen < fiveMinutesAgo) {
+        await ctx.db.delete(p._id);
+        cleaned++;
+      }
+    }
+
+    return { cleaned };
   },
 });

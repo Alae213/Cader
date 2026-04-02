@@ -2,8 +2,9 @@
 
 import { useAuth, SignInButton } from "@clerk/nextjs";
 import { Edit3, Share2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/Card";
-import { Heading } from "@/components/ui/Text";
+import { Text } from "@/components/ui/Text";
 import { Button } from "@/components/ui/Button";
 import { ThumbnailUpload } from "./ThumbnailUpload";
 import { ShortDescription } from "./ShortDescription";
@@ -22,6 +23,7 @@ interface Community {
   priceDzd?: number;
   memberCount: number;
   onlineCount?: number;
+  [key: string]: unknown; // Allow extra fields from Convex queries
 }
 
 interface QuickInfoCardProps {
@@ -51,6 +53,13 @@ export function QuickInfoCard({
 }: QuickInfoCardProps) {
   const { userId } = useAuth();
 
+  // Build the join button label and detect if it's long
+  const joinLabel =
+    community.pricingType === "free"
+      ? "Join Free"
+      : `Buy ${community.priceDzd ?? 0} DZD${community.pricingType !== "one-time" ? "/month" : ""}`;
+  const isJoinLabelLong = joinLabel.length > 16;
+
   return (
     <Card className="max-w-[260px]">
       <CardContent className="p-0 flex flex-col gap-2">
@@ -65,13 +74,26 @@ export function QuickInfoCard({
           />
         </div>
 
-        {/* Title */}
-        <Heading size="4" className="font-sans text-left">
-          {community.name}
-        </Heading>
+        
 
-        {/* Short Description */}
+        
         <div>
+          {/* Title */}
+          {isOwner ? (
+            <div 
+              className="p-1 rounded-lg w-fit hover:bg-bg-elevated cursor-pointer"
+              onClick={onEditClick}
+            >
+              <Text size="4" className="font-sans text-left">
+                {community.name}
+              </Text>
+            </div>
+          ) : (
+            <Text size="4" className="font-sans text-left p-1">
+              {community.name}
+            </Text>
+          )}
+          {/* Short Description */}
           <ShortDescription
             value={community.tagline}
             isOwner={isOwner}
@@ -103,20 +125,20 @@ export function QuickInfoCard({
         {!isMember && !isOwner && (
           userId ? (
             <Button
-              className="w-full"
-              size="lg"
+              className={cn("w-full", isJoinLabelLong && "text-sm")}
+              size="md"
               onClick={onJoinClick}
             >
-              {community.pricingType === "free" ? "Join Free" : "Join Now"}
+              {joinLabel}
             </Button>
           ) : (
             <SignInButton mode="modal">
               <Button
-                className="w-full"
-                size="lg"
+                className={cn("w-full", isJoinLabelLong && "text-sm")}
+                size="md"
                 onClick={() => sessionStorage.setItem("joinCommunitySlug", community.slug)}
               >
-                {community.pricingType === "free" ? "Join Free" : "Join Now"}
+                {joinLabel}
               </Button>
             </SignInButton>
           )
@@ -134,8 +156,8 @@ export function QuickInfoCard({
           </Button>
         )}
 
-        {/* Invite Friend Button - show for members and owners */}
-        {(isMember || isOwner) && onInviteClick && (
+        {/* Invite Friend Button - show for members only */}
+        {isMember && !isOwner && onInviteClick && (
           <Button
             className="w-full"
             variant="secondary"

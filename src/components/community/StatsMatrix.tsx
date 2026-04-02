@@ -10,9 +10,9 @@ interface StatsMatrixProps {
 
 export function StatsMatrix({ memberCount, onlineCount, streak }: StatsMatrixProps) {
   return (
-    <div className="flex items-center justify-center divide-x divide-border">
+    <div className="flex items-center justify-center divide-x divide-bg-elevated py-2">
       {/* Members */}
-      <div className="flex-1 text-center px-3 py-2">
+      <div className="flex-1 text-center px-3 py-1">
         <Text size="4" className="font-semibold text-text-primary">
           {memberCount.toLocaleString()}
         </Text>
@@ -22,7 +22,7 @@ export function StatsMatrix({ memberCount, onlineCount, streak }: StatsMatrixPro
       </div>
 
       {/* Online */}
-      <div className="flex-1 text-center px-3 py-2">
+      <div className="flex-1 text-center px-3 py-1">
         <Text size="4" className="font-semibold text-text-primary">
           {onlineCount.toLocaleString()}
         </Text>
@@ -32,12 +32,12 @@ export function StatsMatrix({ memberCount, onlineCount, streak }: StatsMatrixPro
       </div>
 
       {/* Streak */}
-      <div className="flex-1 text-center px-3 py-2">
+      <div className="flex-1 text-center px-3 py-1">
         <Text size="4" className="font-semibold text-text-primary">
-          {streak}
+          {streak.toLocaleString()}
         </Text>
         <Text size="1" theme="muted">
-          Day streak
+          {streak === 1 ? "Day" : "Days"}
         </Text>
       </div>
     </div>

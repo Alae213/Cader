@@ -17,6 +17,7 @@ import type * as functions_feed from "../functions/feed.js";
 import type * as functions_index from "../functions/index.js";
 import type * as functions_leaderboard from "../functions/leaderboard.js";
 import type * as functions_memberships from "../functions/memberships.js";
+import type * as functions_migrations from "../functions/migrations.js";
 import type * as functions_notifications from "../functions/notifications.js";
 import type * as functions_payments from "../functions/payments.js";
 import type * as functions_scheduler from "../functions/scheduler.js";
@@ -44,6 +45,7 @@ declare const fullApi: ApiFromModules<{
   "functions/index": typeof functions_index;
   "functions/leaderboard": typeof functions_leaderboard;
   "functions/memberships": typeof functions_memberships;
+  "functions/migrations": typeof functions_migrations;
   "functions/notifications": typeof functions_notifications;
   "functions/payments": typeof functions_payments;
   "functions/scheduler": typeof functions_scheduler;

@@ -39,3 +39,14 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+#docs
+context/
+.obsidian/
+.claude/
+.agents/
+.next/
+.opencode/
+.windsurf/
+docs/
+

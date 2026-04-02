@@ -1,15 +1,15 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
-import { Text } from "@/components/ui/Text";
+import { Text, Heading } from "@/components/ui/Text";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card, CardContent } from "@/components/ui/Card";
-import { Users, Edit3, Play, Lock, Star, Ticket, X, Check } from "lucide-react";
+import { Users, Edit3, Play, Lock, Star, Ticket, X, Check, Trash } from "lucide-react";
 import { QuickInfoCard } from "./QuickInfoCard";
 import { EditCommunityModal } from "./EditCommunityModal";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/Dialog";
@@ -105,7 +105,7 @@ function VideoModal({
         
         <div className="space-y-4">
           {/* URL Input */}
-          <div>
+          <div className="p-1 relative">
             <Input
               value={inputValue}
               onChange={(e) => {
@@ -115,12 +115,25 @@ function VideoModal({
               placeholder="Paste YouTube, Vimeo, or Google Drive link"
               className={!isValid ? "border-red-500" : ""}
             />
+            {inputValue && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 p-0 bg-bg-surface rounded-md hover:bg-error/20 hover:text-error backdrop-blur-lg"
+                onClick={() => {
+                  setInputValue("");
+                  setError("");
+                }}
+              >
+                <Trash className="w-3 h-3" />
+              </Button>
+            )}
             {error && <Text size="2" theme="error" className="mt-1">{error}</Text>}
           </div>
 
           {/* Live Preview */}
-          {embedUrl && (
-            <div className="relative aspect-video rounded-lg overflow-hidden bg-bg-elevated">
+          {embedUrl ? (
+            <div className="relative aspect-video rounded-lg overflow-hidden bg-bg-surface">
               <iframe
                 title="Video preview"
                 src={embedUrl}
@@ -128,6 +141,12 @@ function VideoModal({
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
               />
+            </div>
+          ) : (
+            <div className="relative aspect-video rounded-lg overflow-hidden bg-bg-surface justify-center items-center flex">
+              <div className="text-center">
+                <Text size="3" theme="secondary">Video preview will appear here</Text>
+              </div>
             </div>
           )}
 
@@ -147,18 +166,13 @@ function VideoModal({
         </div>
 
         {/* Actions */}
-        <div className="flex justify-between mt-4">
-          {url && (
-            <Button variant="ghost" onClick={handleRemove}>
-              <X className="w-4 h-4 mr-1" /> Remove
-            </Button>
-          )}
-          <div className="flex gap-2 ml-auto">
-            <Button variant="ghost" onClick={() => onOpenChange(false)}>
+        <div className="flex justify-between mt-4 w-full">
+          <div className="flex gap-2 ml-auto w-full">
+            <Button variant="ghost" size="md" onClick={() => onOpenChange(false)} className="w-full">
               Cancel
             </Button>
-            <Button onClick={handleSave}>
-              <Check className="w-4 h-4 mr-1" /> Save
+            <Button size="md" onClick={handleSave} className="w-full">
+              <Check className="w-4 h-4 mr-1" /> Done
             </Button>
           </div>
         </div>
@@ -187,7 +201,7 @@ function VideoEmbed({
   if (embedUrl) {
     return (
       <>
-        <div className="relative aspect-video rounded-[16px] overflow-hidden bg-bg-elevated">
+        <div className="relative aspect-video rounded-[16px] overflow-hidden bg-bg-elevated ">
           <iframe
             title="Community video introduction"
             src={embedUrl}
@@ -223,7 +237,7 @@ function VideoEmbed({
     return (
       <>
         <div 
-          className="aspect-video rounded-[16px] bg-bg-elevated border-2 border-dashed border-border flex items-center justify-center cursor-pointer hover:border-accent transition-colors"
+          className="aspect-video hover:bg-accent-subtle rounded-[16px] bg-black/50 shadow-input-shadow border-2 border-dashed border-white/20 flex items-center justify-center cursor-pointer hover:border-accent transition-colors"
           onClick={() => onModalOpenChange?.(true)}
         >
           <div className="text-center">
@@ -295,6 +309,12 @@ export function AboutTab({
 }: AboutTabProps) {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [videoModalOpen, setVideoModalOpen] = useState(false);
+  
+  // Fetch community stats for streak
+  const communityStats = useQuery(
+    api.functions.communities.getCommunityStats,
+    { communityId: community._id as Id<"communities"> }
+  );
   
   // Mutations for inline editing
   const updateCommunity = useMutation(api.functions.communities.updateCommunity);
@@ -432,6 +452,7 @@ export function AboutTab({
     <div className="flex flex-col lg:flex-row gap-4">
       {/* Left Column - Full Width */}
       <div className="flex-1">
+        
         <Card className="space-y-2">
         {/* Video Embed */}
         <VideoEmbed 
@@ -445,43 +466,42 @@ export function AboutTab({
         {/* Owner Info + Stats */}
         <div>
           <CardContent className="pt-4">
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-7 px-3">
               {/* Privet */}
               <div className="flex items-center gap-2">
-                <Lock className="w-4 h-4 text-text-muted" />
-                <Text size="2" theme="secondary">Privet</Text>
+                <Lock className="w-6 h-6 text-text-muted text-reglure" />
+                <Text size="4" theme="secondary">Privet</Text>
               </div>
 
               {/* Members */}
               <div className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-text-muted" />
-                <Text size="2">{community.memberCount} members</Text>
+                <Users className="w-6 h-6 text-text-muted text-reglure" />
+                <Text size="4">{community.memberCount} members</Text>
               </div>
 
               {/* Price */}
               <div className="flex items-center gap-2">
-                <Ticket className="w-4 h-4 text-text-muted" />
-                <Text size="2">{formatPrice(community.pricingType, community.priceDzd)}</Text>
+                <Ticket className="w-6 h-6 text-text-muted text-reglure" />
+                <Text size="4">{formatPrice(community.pricingType, community.priceDzd)}</Text>
               </div>
 
               {/* Avatar + Name + Star */}
               <div className="flex items-center gap-2">
-                <div className="h-4 w-4 rounded-full bg-bg-elevated border border-border flex items-center justify-center">
+                <div className="h-6 w-6 rounded-full bg-bg-elevated border border-border/50 flex items-center justify-center">
                   {community.ownerAvatar ? (
-                    // eslint-disable-next-line @next/next/no-img-element
                     <img 
-                      src={community.ownerAvatar} 
+                      src={community.ownerAvatar}  
                       alt={community.ownerName || "Owner"}
                       className="h-full w-full rounded-full object-cover"
                     />
                   ) : (
-                    <span className="text-[8px] font-medium text-text-primary">
+                    <span className="text-[8px] font-medium text-text-primary text-reglure">
                       {community.ownerName ? getInitials(community.ownerName) : "?"}
                     </span>
                   )}
                 </div>
-                <Text size="2" className="font-medium">{community.ownerName || "Unknown"}</Text>
-                <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
+                <Text size="4" className="font-medium text-reglure">{community.ownerName || "Unknown"}</Text>
+                <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
               </div>
             </div>
           </CardContent>
@@ -492,7 +512,7 @@ export function AboutTab({
           <CardContent className="pt-2">
             <textarea
               ref={textareaRef}
-              className="w-full p-3 text-sm bg-bg-subtle hover:bg-bg-elevated focus:bg-bg-elevated rounded-lg resize-none focus:outline-none transition-colors"
+              className="w-full p-2 bg-bg-transparent hover:bg-bg-elevated focus:bg-bg-elevated rounded-lg text-text-primary resize-none focus:outline-none transition-colors text-sm overflow-hidden "
               placeholder="Write a description..."
               value={description}
               onChange={(e) => {
@@ -512,21 +532,38 @@ export function AboutTab({
           </CardContent>
         ) : null}
 
+        
       </Card>
+
       </div>
 
       {/* Right Column - QuickInfoCard */}
-      <div>
+      <div className="flex flex-col gap-4">
         <QuickInfoCard
           community={community}
           isOwner={isOwner}
           isMember={isMember}
+          streak={communityStats?.streak || 0}
           onJoinClick={onJoinClick}
           onEditClick={() => setEditModalOpen(true)}
           onThumbnailChange={handleThumbnailChange}
           onTaglineChange={handleTaglineChange}
           onLinksChange={handleLinksChange}
         />
+        <Text size="2" className="text-text-secondary text-center flex items-center justify-center gap-1">
+          Powered by
+          <svg 
+              width="18" 
+              height="18" 
+              viewBox="0 0 16 16" 
+              fill="none" 
+              xmlns="http://www.w3.org/2000/svg"
+              className="flex-shrink-0"
+            >
+              <path d="M15.9502 2.68053C15.95 1.97316 15.669 1.29482 15.1688 0.794634C14.6686 0.294447 13.9902 0.0133573 13.2829 0.0131584C11.9891 3.34419e-05 10.9204 0.924408 10.6552 2.13903H10.5892C10.4662 1.53766 10.1397 0.997068 9.66463 0.60835C9.18957 0.219633 8.59504 0.00655129 7.98121 0.0050099C7.36739 0.00346851 6.77179 0.213562 6.29479 0.599888C5.81778 0.986215 5.48852 1.52516 5.36249 2.12591H5.29649C5.19833 1.65187 4.97337 1.21336 4.64561 0.857102C4.31785 0.500846 3.89957 0.2402 3.43534 0.102946C2.97111 -0.034308 2.47834 -0.0430266 2.00955 0.0777195C1.54076 0.198466 1.11351 0.444151 0.773352 0.78859C0.433193 1.13303 0.192869 1.56331 0.0779936 2.03358C-0.0368817 2.50384 -0.0220025 2.99647 0.121045 3.45894C0.264093 3.92142 0.529948 4.33641 0.890275 4.65969C1.2506 4.98297 1.69189 5.20243 2.16712 5.29466V5.34753C1.55751 5.46642 1.00821 5.79356 0.613293 6.27293C0.218378 6.7523 0.00242551 7.35407 0.00242551 7.97516C0.00242551 8.59625 0.218378 9.19802 0.613293 9.67739C1.00821 10.1568 1.55751 10.4839 2.16712 10.6028V10.6553C1.69141 10.7457 1.24922 10.9637 0.887841 11.286C0.526461 11.6083 0.259487 12.0227 0.115472 12.485C-0.0285422 12.9473 -0.0441795 13.4401 0.0702328 13.9106C0.184645 14.3811 0.424803 14.8117 0.765021 15.1562C1.10524 15.5008 1.53272 15.7464 2.00174 15.8667C2.47076 15.9871 2.96368 15.9777 3.42777 15.8396C3.89187 15.7014 4.30968 15.4397 4.63653 15.0825C4.96338 14.7252 5.18696 14.2858 5.28337 13.8113H5.34937C5.60024 15.0259 6.68287 15.9488 7.96387 15.9488C8.58005 15.9516 9.178 15.7398 9.65503 15.3498C10.1321 14.9597 10.4584 14.4158 10.578 13.8113H10.644C10.8949 15.0259 11.9775 15.9488 13.2585 15.9488C13.9224 15.9472 14.5619 15.6985 15.0525 15.2512C15.5431 14.8039 15.8495 14.1899 15.9122 13.529C15.9748 12.868 15.7891 12.2074 15.3913 11.6759C14.9935 11.1444 14.412 10.78 13.7602 10.6538V10.6013C14.3699 10.4824 14.9192 10.1553 15.3141 9.67589C15.709 9.19652 15.9249 8.59475 15.9249 7.97366C15.9249 7.35257 15.709 6.7508 15.3141 6.27143C14.9192 5.79206 14.3699 5.46492 13.7602 5.34603V5.29316C14.3743 5.1849 14.9305 4.86358 15.3311 4.38572C15.7317 3.90786 15.9509 3.30407 15.9502 2.68053ZM12.2662 11.6457C12.2664 11.7272 12.2504 11.808 12.2193 11.8833C12.1882 11.9587 12.1425 12.0272 12.0848 12.0848C12.0271 12.1425 11.9587 12.1882 11.8833 12.2193C11.8079 12.2505 11.7272 12.2664 11.6456 12.2663H4.31774C4.2362 12.2664 4.15543 12.2505 4.08007 12.2193C4.0047 12.1882 3.93623 12.1425 3.87857 12.0848C3.82091 12.0272 3.7752 11.9587 3.74406 11.8833C3.71292 11.808 3.69697 11.7272 3.69712 11.6457V4.31778C3.69697 4.23624 3.71292 4.15547 3.74406 4.0801C3.7752 4.00474 3.82091 3.93626 3.87857 3.8786C3.93623 3.82094 4.0047 3.77524 4.08007 3.7441C4.15543 3.71296 4.2362 3.69701 11.6456 3.69716H11.6456C11.7272 3.69701 11.8079 3.71296 11.8833 3.7441C11.9587 3.77524 12.0271 3.82094 12.0848 3.8786C12.1425 3.93626 12.1882 4.00474 12.2193 4.0801C12.2504 4.15547 12.2664 4.23624 12.2662 4.31778V11.6457Z" fill="currentColor"/>
+            </svg>
+            
+        </Text>
       </div>
 
       {/* Edit Community Modal */}
