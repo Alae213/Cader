@@ -35,16 +35,16 @@ export function FeedFilters({
   const sortTriggerRef = useRef<HTMLButtonElement>(null);
 
   return (
-    <nav className="w-full flex justify-between items-center flex-wrap" aria-label="Feed filters">
+    <nav className="w-full flex justify-between items-center flex-wrap " aria-label="Feed filters">
       {/* Category Pills using ToggleGroup */}
       <ToggleGroup
         value={selectedCategoryId ?? ""}
-        onValueChange={(value) => setSelectedCategoryId(value || null)}
-        className="w-fit rounded-[16px]"
+        onValueChange={(value) => setSelectedCategoryId(value || null)} 
+        className="w-fit rounded-[16px] "
       >
         <ToggleGroupItem
           value=""
-          className="whitespace-nowrap rounded-[12px] px-4"
+          className="whitespace-nowrap rounded-[12px] px-4 py-1"
         >
           All
         </ToggleGroupItem>
@@ -52,7 +52,7 @@ export function FeedFilters({
           <ToggleGroupItem
             key={cat._id}
             value={cat._id}
-            className="whitespace-nowrap rounded-[12px] flex items-center gap-2 px-4"
+            className="whitespace-nowrap rounded-[12px] flex items-center gap-2 px-4 py-1"
           >
             {cat.name}
           </ToggleGroupItem>

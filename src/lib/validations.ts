@@ -62,7 +62,7 @@ export const communityUpdateSchema = z.object({
 export const postCreateSchema = z.object({
   communityId: z.string(),
   content: z.string().min(1, "Post content is required").max(10000),
-  contentType: z.enum(["text", "image", "video", "gif", "poll"]),
+  contentType: z.enum(["text", "image", "video", "poll"]),
   categoryId: z.string().optional(),
   mediaUrls: z.array(z.string().url()).max(10).optional(),
   videoUrl: z.string().url().optional().or(z.literal("")),

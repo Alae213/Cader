@@ -206,15 +206,11 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
 
   // Submit handler
   const handleComposerSubmit = useCallback(async (data: {
-    postType: "text" | "image" | "video" | "gif" | "poll";
+    postType: "text" | "image" | "video";
     content: string;
     categoryId?: string;
     imageUrls?: string[];
     videoUrl?: string;
-    gifUrl?: string;
-    pollQuestion?: string;
-    pollOptions?: { text: string; votes: number }[];
-    pollEndDate?: number;
   }) => {
     if (!userId || !isMember) return;
 
@@ -234,16 +230,6 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
       }
       if (data.postType === "video" && data.videoUrl) {
         postData.videoUrl = data.videoUrl;
-      }
-      if (data.postType === "gif" && data.gifUrl) {
-        postData.mediaUrls = [data.gifUrl];
-      }
-      if (data.postType === "poll") {
-        postData.pollOptions = data.pollOptions || [];
-        postData.content = data.pollQuestion || data.content;
-        if (data.pollEndDate) {
-          postData.pollEndDate = data.pollEndDate;
-        }
       }
 
       await createPost(postData);
@@ -331,14 +317,6 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
             onCategoryIdChange={composer.setCategoryId}
             videoUrl={composer.videoUrl}
             onVideoUrlChange={composer.setVideoUrl}
-            gifUrl={composer.gifUrl}
-            onGifUrlChange={composer.setGifUrl}
-            pollQuestion={composer.pollQuestion}
-            onPollQuestionChange={composer.setPollQuestion}
-            pollOptions={composer.pollOptions}
-            onPollOptionsChange={composer.setPollOptions}
-            pollEndDate={composer.pollEndDate}
-            onPollEndDateChange={composer.setPollEndDate}
             prefersReducedMotion={prefersReducedMotion}
           />
         </div>

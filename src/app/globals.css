@@ -307,6 +307,13 @@ body {
   outline-offset: 2px;
 }
 
+/* Disable focus outline for specific components */
+textarea.no-border:focus-visible,
+textarea.no-border:focus {
+  outline: none !important;
+  outline-offset: 0 !important;
+}
+
 /* ============================================
    COMPOSER ANIMATIONS
    ============================================ */

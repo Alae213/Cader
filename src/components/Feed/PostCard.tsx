@@ -7,9 +7,16 @@ import { api } from "../../../convex/_generated/api";
 import { useAuth } from "@clerk/nextjs";
 import { toast } from "sonner";
 import { Text } from "@/components/ui/Text";
+import { Card } from "@/components/ui/Card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from "@/components/ui/select";
 import { Avatar } from "@/components/shared/Avatar";
 import { 
-  ThumbsUp, 
+  Heart, 
   MessageCircle, 
   MoreHorizontal, 
   Pin,
@@ -37,11 +44,9 @@ interface PostCardProps {
       color: string;
     } | null;
     content: string;
-    contentType: "text" | "image" | "video" | "gif" | "poll";
+    contentType: "text" | "image" | "video";
     mediaUrls?: string[];
     videoUrl?: string;
-    pollOptions?: { text: string; votes: number }[];
-    pollEndDate?: number;
     isPinned: boolean;
     upvoteCount: number;
     commentCount: number;
@@ -66,7 +71,6 @@ export function PostCard({ post, communityId, currentUserId, isAdmin = false, is
   const [showMenu, setShowMenu] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [isUpvoting, setIsUpvoting] = useState(false);
-  const [isVotingPoll, setIsVotingPoll] = useState(false);
   const [isPinning, setIsPinning] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [localUpvoteCount, setLocalUpvoteCount] = useState(post.upvoteCount ?? 0);
@@ -80,7 +84,6 @@ export function PostCard({ post, communityId, currentUserId, isAdmin = false, is
 
   // Mutations
   const toggleUpvote = useMutation(api.functions.feed.toggleUpvote);
-  const votePoll = useMutation(api.functions.feed.votePoll);
   const pinPost = useMutation(api.functions.feed.pinPost);
   const unpinPost = useMutation(api.functions.feed.unpinPost);
 
@@ -95,30 +98,17 @@ export function PostCard({ post, communityId, currentUserId, isAdmin = false, is
   );
   const deletePost = useMutation(api.functions.feed.deletePost);
 
-  // Local state for poll — derive hasVoted from post data when available
-  const [localPollOptions, setLocalPollOptions] = useState(post.pollOptions || []);
-  const [hasVoted, setHasVoted] = useState(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (post as any).pollVoterIds?.includes(userId ?? "") ?? false
-  );
-
   // Sync local state when post prop changes (e.g. after refetch)
    
   useEffect(() => {
     setLocalUpvoteCount(post.upvoteCount ?? 0);
     setLocalCommentCount(post.commentCount ?? 0);
-    setLocalPollOptions(post.pollOptions || []);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if ((post as any).userHasUpvoted !== undefined) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setHasUpvoted((post as any).userHasUpvoted);
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if ((post as any).pollVoterIds !== undefined) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setHasVoted((post as any).pollVoterIds?.includes(userId ?? "") ?? false);
-    }
-  }, [post._id, post.upvoteCount, post.commentCount, post.pollOptions, post, userId]);
+  }, [post._id, post.upvoteCount, post.commentCount, post, userId]);
 
   // Close dropdown menu on outside click
   const menuRef = useRef<HTMLDivElement>(null);
@@ -196,91 +186,80 @@ export function PostCard({ post, communityId, currentUserId, isAdmin = false, is
     return `${Math.floor(months / 12)}y`;
   };
 
-  // Handle upvote
+  // Handle upvote with optimistic UI
   const handleUpvote = async () => {
     if (!userId) {
       toast.error("You must be signed in to upvote");
       return;
     }
 
+    // Optimistic update: immediately update UI before server responds
+    const wasUpvoted = hasUpvoted;
+    const previousCount = localUpvoteCount;
+    
+    setHasUpvoted(!wasUpvoted);
+    setLocalUpvoteCount(wasUpvoted ? previousCount - 1 : previousCount + 1);
+    
     setIsUpvoting(true);
+    
     try {
+      // Fire mutation without awaiting for instant feel
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const result = await toggleUpvote({ postId: post._id as any });
-      setLocalUpvoteCount(result.newCount);
-      setHasUpvoted(result.upvoted);
+      toggleUpvote({ postId: post._id as any })
+        .then((result) => {
+          // Server confirmed - sync with actual server state
+          setLocalUpvoteCount(result.newCount);
+          setHasUpvoted(result.upvoted);
+        })
+        .catch((error) => {
+          // Server rejected - revert optimistic changes
+          setHasUpvoted(wasUpvoted);
+          setLocalUpvoteCount(previousCount);
+          toast.error(error instanceof Error ? error.message : "Failed to upvote");
+        })
+        .finally(() => {
+          setIsUpvoting(false);
+        });
     } catch (error) {
+      // Revert on error
+      setHasUpvoted(wasUpvoted);
+      setLocalUpvoteCount(previousCount);
       toast.error(error instanceof Error ? error.message : "Failed to upvote");
-    } finally {
       setIsUpvoting(false);
     }
   };
 
-  // Handle poll vote
-  const handlePollVote = async (optionIndex: number) => {
-    if (!userId) {
-      toast.error("You must be signed in to vote");
-      return;
-    }
-
-    if (hasVoted) {
-      toast.error("You have already voted");
-      return;
-    }
-
-    setIsVotingPoll(true);
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await votePoll({ postId: post._id as any, optionIndex });
-      
-      // Optimistic update — server returns { success: true } only
-      // The useEffect sync will correct if server data differs
-      const updatedOptions = localPollOptions.map((opt, i) => {
-        if (i === optionIndex) {
-          return { ...opt, votes: (opt.votes || 0) + 1 };
-        }
-        return opt;
-      });
-      setLocalPollOptions(updatedOptions);
-      setHasVoted(true);
-      toast.success("Vote recorded!");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to vote");
-      // Revert optimistic update on error
-      setLocalPollOptions(post.pollOptions || []);
-    } finally {
-      setIsVotingPoll(false);
-    }
-  };
-
-  // Handle pin/unpin
+  // Handle pin/unpin with optimistic UI
   const handleTogglePin = async () => {
     if (!userId) {
       toast.error("You must be signed in");
       return;
     }
 
+    // Optimistic update: immediately update pinned state
+    const wasPinned = post.isPinned;
+    
+    setShowMenu(false);
     setIsPinning(true);
+    
+    const mutation = wasPinned ? unpinPost : pinPost;
+    const loadingToast = toast.loading(wasPinned ? "Unpinning post..." : "Pinning post...");
+    
     try {
-      if (post.isPinned) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await unpinPost({ postId: post._id as any });
-        toast.success("Post unpinned");
-      } else {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await pinPost({ postId: post._id as any });
-        toast.success("Post pinned");
-      }
-      setShowMenu(false);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await mutation({ postId: post._id as any });
+      // Server confirmed
+      toast.success(wasPinned ? "Post unpinned" : "Post pinned", { id: loadingToast });
       onDeleted?.();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to pin post");
+      console.error("Pin error:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to pin post", { id: loadingToast });
     } finally {
       setIsPinning(false);
     }
   };
 
-  // Handle delete
+  // Handle delete with optimistic UI
   const handleDelete = async () => {
     if (!userId) {
       toast.error("You must be signed in");
@@ -291,15 +270,22 @@ export function PostCard({ post, communityId, currentUserId, isAdmin = false, is
       return;
     }
 
+    // Optimistic update: immediately mark as deleting
+    setShowMenu(false);
     setIsDeleting(true);
+    
+    // Show loading toast
+    const loadingToast = toast.loading("Deleting post...");
+    
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await deletePost({ postId: post._id as any });
-      toast.success("Post deleted");
-      setShowMenu(false);
+      // Server confirmed
+      toast.success("Post deleted", { id: loadingToast });
       onDeleted?.();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to delete post");
+      console.error("Delete error:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to delete post", { id: loadingToast });
     } finally {
       setIsDeleting(false);
     }
@@ -313,17 +299,16 @@ export function PostCard({ post, communityId, currentUserId, isAdmin = false, is
     onCommentPosted?.();
   };
 
-  // Calculate total votes for poll
-  const totalPollVotes = localPollOptions.reduce((sum, opt) => sum + (opt.votes || 0), 0);
-
-  // Check if poll is still active
-  const isPollActive = !post.pollEndDate || post.pollEndDate > Date.now();
+  // Handle comment deleted — update local count
+  const handleCommentDeleted = () => {
+    setLocalCommentCount(prev => prev - 1);
+  };
 
   return (
-    <div 
+    <Card 
       className={`
-        group rounded-2xl p-5 transition-colors duration-200
-        ${post.isPinned ? "bg-primary/5" : "bg-bg-elevated hover:bg-bg-muted/50"}
+        group rounded-[24px] p-4 transition-colors duration-200 overflow-visible
+        ${post.isPinned ? "bg-primary/5" : "bg-bg-base hover:bg-bg-muted/50"}
       `}
     >
       {/* Header */}
@@ -349,9 +334,7 @@ export function PostCard({ post, communityId, currentUserId, isAdmin = false, is
               >
                 <Text fontWeight="semibold">{post.author?.displayName || "User"}</Text>
               </button>
-              {post.author?.username && (
-                <Text size="sm" theme="muted">@{post.author.username}</Text>
-              )}
+              
               {authorLevel && authorLevel > 1 && (
                 <LevelBadge level={authorLevel} />
               )}
@@ -367,54 +350,50 @@ export function PostCard({ post, communityId, currentUserId, isAdmin = false, is
                 </span>
               )}
             </div>
+            <div className="flex flex-row items-center gap-2">
+            {post.author?.username && (
+                <Text size="sm" theme="muted">@{post.author.username}</Text>
+              )}
             <Text size="sm" theme="muted">{formatTimeAgo(post.createdAt)}</Text>
+            </div>
           </div>
         </div>
 
         {canModify && (
-          <div className="relative">
-            <button
-              onClick={() => setShowMenu(!showMenu)}
-              className="p-2 rounded-xl hover:bg-bg-muted transition-colors"
-            >
+          <Select open={showMenu} onOpenChange={setShowMenu}>
+            <SelectTrigger className="w-fit p-2 rounded-[16px] transition-colors [&>span]:hidden [&>svg:last-child]:hidden bg-transparent hover:bg-white/10 cursor-pointer">
               <MoreHorizontal className="w-5 h-5" />
-            </button>
-            
-            {showMenu && (
-              <div className="absolute right-0 top-full mt-1 bg-bg-elevated rounded-xl py-1 min-w-[140px] z-10">
-                <button 
-                  onClick={handleDelete}
-                  className="w-full px-4 py-2.5 text-left hover:bg-bg-elevated flex items-center gap-3 text-red-500"
-                  disabled={isDeleting}
-                >
+            </SelectTrigger>
+            <SelectContent className="w-[160px]">
+              <SelectItem 
+                value="delete" 
+                onSelect={() => { handleDelete(); setShowMenu(false); }}
+                className="text-red-500 focus:text-red-500"
+                hideCheck
+                disabled={isDeleting}
+              >
+                <div className="flex items-center gap-3">
                   <Trash2 className="w-4 h-4" />
                   <Text size="sm">Delete</Text>
-                </button>
-                <button 
-                  onClick={handleTogglePin}
-                  className="w-full px-4 py-2.5 text-left hover:bg-bg-elevated flex items-center gap-3"
-                  disabled={isPinning}
-                >
+                </div>
+              </SelectItem>
+              <SelectItem 
+                value="pin"
+                onSelect={() => { handleTogglePin(); setShowMenu(false); }}
+                hideCheck
+                disabled={isPinning}
+              >
+                <div className="flex items-center gap-3">
                   <Pin className="w-4 h-4" />
                   <Text size="sm">{post.isPinned ? "Unpin" : "Pin"}</Text>
-                </button>
-              </div>
-            )}
-          </div>
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
         )}
       </div>
 
-      {/* Category Tag */}
-      {post.category && (
-        <div className="mb-3">
-          <span 
-            className="inline-block px-3 py-1 rounded-full text-xs font-medium text-white"
-            style={{ backgroundColor: post.category.color }}
-          >
-            {post.category.name}
-          </span>
-        </div>
-      )}
+      
 
       {/* Content */}
       <div 
@@ -426,14 +405,14 @@ export function PostCard({ post, communityId, currentUserId, isAdmin = false, is
       >
         {/* Text content */}
         {post.content && (
-          <Text className="mb-4 whitespace-pre-wrap leading-relaxed">
+          <Text className="my-2 px-2 whitespace-pre-wrap leading-relaxed">
             {renderContentWithMentions(post.content)}
           </Text>
         )}
 
         {/* Media: Single Image */}
         {post.mediaUrls && post.mediaUrls.length === 1 && (
-          <div className="mb-4 rounded-2xl overflow-hidden bg-bg-muted">
+          <div className="rounded-2xl overflow-hidden bg-bg-muted">
             <Image 
               src={post.mediaUrls[0]} 
               alt="" 
@@ -445,7 +424,7 @@ export function PostCard({ post, communityId, currentUserId, isAdmin = false, is
                 target.style.display = "none";
                 const parent = target.parentElement;
                 if (parent) {
-                  parent.className = "mb-4 rounded-2xl overflow-hidden bg-bg-muted flex items-center justify-center min-h-[120px]";
+                  parent.className = "rounded-2xl overflow-hidden bg-bg-muted flex items-center justify-center min-h-[120px]";
                   parent.innerHTML = '<span class="text-text-muted text-sm">Image unavailable</span>';
                 }
               }}
@@ -455,7 +434,7 @@ export function PostCard({ post, communityId, currentUserId, isAdmin = false, is
 
         {/* Media: Multiple Images */}
         {post.mediaUrls && post.mediaUrls.length > 1 && (
-          <div className={`grid gap-1 mb-4 rounded-2xl overflow-hidden ${
+          <div className={`grid gap-1 rounded-2xl overflow-hidden ${
             post.mediaUrls.length === 2 ? "grid-cols-2" :
             post.mediaUrls.length === 3 ? "grid-cols-2" :
             "grid-cols-2 grid-rows-2"
@@ -486,124 +465,86 @@ export function PostCard({ post, communityId, currentUserId, isAdmin = false, is
 
         {/* Video embed */}
         {post.videoUrl && (
-          <div className="mb-4 rounded-2xl overflow-hidden">
+          <div className="rounded-2xl overflow-hidden">
             <VideoEmbed url={post.videoUrl} />
-          </div>
-        )}
-
-        {/* Poll */}
-        {localPollOptions && localPollOptions.length > 0 && (
-          <div className="mb-4 space-y-2">
-            {localPollOptions.map((option, i) => {
-              const percentage = totalPollVotes > 0 ? Math.round(((option.votes || 0) / totalPollVotes) * 100) : 0;
-              
-              return (
-                <button
-                  key={i}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handlePollVote(i);
-                  }}
-                  disabled={hasVoted || isVotingPoll || !isPollActive}
-                  className={`
-                    w-full relative overflow-hidden rounded-xl p-4 text-left transition-all
-                    ${hasVoted || !isPollActive
-                      ? "bg-bg-muted"
-                      : "hover:bg-bg-muted bg-bg-elevated"
-                    }
-                  `}
-                >
-                  {/* Progress bar background */}
-                  {(hasVoted || !isPollActive) && (
-                    <div 
-                      className="absolute inset-y-0 left-0 bg-primary/20 transition-all duration-500"
-                      style={{ width: `${percentage}%` }}
-                    />
-                  )}
-                  
-                  <div className="relative flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={`
-                        w-5 h-5 rounded-full border-2 shrink-0 transition-colors
-                        ${hasVoted ? "border-primary bg-primary" : "border-border"}
-                      `}>
-                        {hasVoted && (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                            </svg>
-                          </div>
-                        )}
-                      </div>
-                      <Text fontWeight="medium">{option.text}</Text>
-                    </div>
-                    {(hasVoted || !isPollActive) && (
-                      <Text size="sm" fontWeight="semibold" theme="muted">
-                        {percentage}%
-                      </Text>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
-            <div className="flex items-center justify-between pt-1">
-              <Text size="sm" theme="muted">
-                {totalPollVotes} {totalPollVotes === 1 ? "vote" : "votes"}
-              </Text>
-              {!isPollActive && (
-                <Text size="sm" fontWeight="medium" className="text-amber-400">
-                  Poll closed
-                </Text>
-              )}
-            </div>
           </div>
         )}
       </div>
 
       {/* Footer Actions */}
-      <div className="flex items-center gap-1 pt-4 mt-2 border-t border-border/50">
-        <button 
-          onClick={handleUpvote}
-          className={`
-            flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-200
-            ${hasUpvoted 
-              ? "text-primary bg-primary/10" 
-              : "hover:bg-bg-muted text-text-secondary"
-            }
-          `}
-          disabled={isUpvoting}
-        >
-          <ThumbsUp className={`w-4 h-4 ${hasUpvoted ? "fill-current" : ""}`} />
-          <Text size="sm" fontWeight="medium" className="tabular-nums">
-            {Number.isFinite(localUpvoteCount) ? localUpvoteCount : 0}
-          </Text>
-        </button>
-        
+      <div className="flex items-center my-3 justify-between">
+        <div className="flex items-center gap-2">
+        <div className="divide-y- divide-white/10 flex h-9 items-center gap-0 divide-x rounded-full border border-white/20 bg-bg-canvas/80">
+          {/* Upvote Button */}
+          <button 
+            onClick={handleUpvote}
+            className={`
+              flex items-center gap-1.5 h-full cursor-pointer rounded-l-full px-3 py-1.5 transition-colors
+              ${hasUpvoted 
+                ? "text-red-500 bg-red-500/10" 
+                : "hover:bg-red-500/10 hover:text-red-500 text-text-secondary cursor-pointer "
+              }
+            `}
+            disabled={isUpvoting}
+          >
+            <Heart className={`w-[18px] h-[18px] ${hasUpvoted ? "fill-current" : ""}`} />
+            <Text size="sm" fontWeight="medium" className="hidden md:inline tabular-nums">
+              Like
+            </Text>
+          </button>
+          
+          {/* Upvote Count */}
+          <span className="flex items-center">
+            <button 
+              onClick={handleUpvote}
+              className={`
+                h-9 gap-1.5 rounded-none rounded-r-full pr-3 pl-2.5  
+                 focus:bg-white/10 active:bg-white/10 transition-colors
+                ${hasUpvoted ? "text-primary" : "text-text-secondary"}
+              `}
+              disabled={isUpvoting}
+            >
+              <Text size="sm" fontWeight="medium" className="tabular-nums">
+                {Number.isFinite(localUpvoteCount) ? localUpvoteCount : 0}
+              </Text>
+            </button>
+          </span>
+        </div>
+
+        {/* Comments Button */}
         <button 
           onClick={() => setShowComments(prev => !prev)}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-colors ${
-            showComments 
-              ? "bg-accent/10 text-accent" 
-              : "hover:bg-bg-muted text-text-secondary"
-          }`}
+          className="flex items-center gap-1.5 h-9 rounded-full px-3 pr-4 py-1.5 text-text-secondary hover:bg-white/10 transition-colors cursor-pointer"
         >
-          <MessageCircle className="w-4 h-4" />
-          <Text size="sm" fontWeight="medium" className="tabular-nums">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square" strokeLinejoin="round">
+            <path d="M21.5 12c0-5-3.694-8-9.5-8s-9.5 3-9.5 8c0 1.294.894 3.49 1.037 3.83l.037.092c.098.266.49 1.66-1.074 3.722 2.111 1 4.353-.644 4.353-.644 1.551.815 3.397 1 5.147 1 5.806 0 9.5-3 9.5-8Z" stroke="currentColor" strokeWidth="2" strokeLinecap="square" strokeLinejoin="round"></path>
+          </svg>
+          <Text size="sm" fontWeight="medium" className="hidden md:inline tabular-nums">
+            {Number.isFinite(localCommentCount) ? localCommentCount : 0} comments
+          </Text>
+          <Text size="sm" fontWeight="medium" className="inline md:hidden tabular-nums">
             {Number.isFinite(localCommentCount) ? localCommentCount : 0}
           </Text>
         </button>
-      </div>
+        </div>
 
-      {/* Always-visible comment input */}
-      {communityId && (
-        <div className="pt-3">
-          <CommentInput
-            postId={post._id}
-            communityId={communityId}
-            onSubmit={handleCommentPosted}
-          />
+        {/* Category Tag */}
+      {post.category && (
+        <div className="mb-2">
+          <span 
+            className="inline-block px-3 py-1 rounded-[8px] text-xs font-medium text-white bg-white/5"
+          >
+            {post.category.name}
+          </span>
         </div>
       )}
+      </div>
+
+       <hr className="h-px w-full border-0 rounded-full "
+                      style={{
+                        background: "rgba(242, 242, 242, 0.15)",
+                        boxShadow: "0 1px 0 0 rgba(0, 0, 0, 0.70)",
+                      }}/>
 
       {/* Comments Thread (toggleable) */}
       {showComments && communityId && (
@@ -615,9 +556,23 @@ export function PostCard({ post, communityId, currentUserId, isAdmin = false, is
           isAdmin={isAdmin}
           isOwner={isOwner}
           hideInput={true}
+          onCommentDeleted={handleCommentDeleted}
         />
       )}
-    </div>
+
+      {/* Always-visible comment input */}
+      {communityId && (
+        <div>
+          <CommentInput
+            postId={post._id}
+            communityId={communityId}
+            onSubmit={handleCommentPosted}
+          />
+        </div>
+      )}
+
+      
+    </Card>
   );
 }
 

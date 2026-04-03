@@ -150,6 +150,7 @@ export default function CommunityPage() {
     imageUrl: community.logoUrl,
     memberCount: community.memberCount,
     isVerified: false,
+    platformTier: community.platformTier || "free",
   };
 
   return (

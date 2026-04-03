@@ -1,8 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import type { PostType, ComposerState, ComposerActions } from "@/types/composer";
 
-const DEFAULT_POLL_OPTIONS = ["", ""];
-
 interface UseComposerStateOptions {
   communityId: string;
   onResetImages?: () => void;
@@ -27,10 +25,6 @@ export function useComposerState({
   const [content, setContent] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
-  const [gifUrl, setGifUrl] = useState("");
-  const [pollQuestion, setPollQuestion] = useState("");
-  const [pollOptions, setPollOptions] = useState<string[]>(DEFAULT_POLL_OPTIONS);
-  const [pollEndDate, setPollEndDate] = useState("");
   const [error, setError] = useState("");
 
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -40,11 +34,7 @@ export function useComposerState({
   const hasContent =
     content.trim().length > 0 ||
     videoUrl.trim().length > 0 ||
-    gifUrl.trim().length > 0 ||
-    pollQuestion.trim().length > 0 ||
-    pollOptions.some((o) => o.trim().length > 0) ||
-    categoryId.length > 0 ||
-    pollEndDate.length > 0;
+    categoryId.length > 0;
 
   // --- Draft persistence ---
   const saveDraft = useCallback(
@@ -53,10 +43,6 @@ export function useComposerState({
       content: string;
       categoryId: string;
       videoUrl: string;
-      gifUrl: string;
-      pollQuestion: string;
-      pollOptions: string[];
-      pollEndDate: string;
     }) => {
       if (typeof window === "undefined") return;
       if (!expanded) return;
@@ -85,10 +71,6 @@ export function useComposerState({
       setContent: (v: string) => void;
       setCategoryId: (v: string) => void;
       setVideoUrl: (v: string) => void;
-      setGifUrl: (v: string) => void;
-      setPollQuestion: (v: string) => void;
-      setPollOptions: (v: string[]) => void;
-      setPollEndDate: (v: string) => void;
     }) => {
       if (typeof window === "undefined") return;
       try {
@@ -108,11 +90,6 @@ export function useComposerState({
         if (draft.content) actions.setContent(draft.content);
         if (raw.categoryId) actions.setCategoryId(raw.categoryId as string);
         if (draft.videoUrl) actions.setVideoUrl(draft.videoUrl);
-        if (draft.gifUrl) actions.setGifUrl(draft.gifUrl);
-        if (draft.pollQuestion) actions.setPollQuestion(draft.pollQuestion);
-        if (draft.pollOptions?.length >= 2)
-          actions.setPollOptions(draft.pollOptions);
-        if (draft.pollEndDate) actions.setPollEndDate(draft.pollEndDate);
       } catch {
         // Corrupted draft — ignore
       }
@@ -127,10 +104,6 @@ export function useComposerState({
       setContent,
       setCategoryId,
       setVideoUrl,
-      setGifUrl,
-      setPollQuestion,
-      setPollOptions,
-      setPollEndDate,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -142,20 +115,12 @@ export function useComposerState({
       content,
       categoryId,
       videoUrl,
-      gifUrl,
-      pollQuestion,
-      pollOptions,
-      pollEndDate,
     });
   }, [
     postType,
     content,
     categoryId,
     videoUrl,
-    gifUrl,
-    pollQuestion,
-    pollOptions,
-    pollEndDate,
     saveDraft,
   ]);
 
@@ -177,10 +142,6 @@ export function useComposerState({
     setContent("");
     setCategoryId("");
     setVideoUrl("");
-    setGifUrl("");
-    setPollQuestion("");
-    setPollOptions(DEFAULT_POLL_OPTIONS);
-    setPollEndDate("");
     setPostType("text");
     setError("");
     onResetImages?.();
@@ -200,10 +161,6 @@ export function useComposerState({
     content,
     categoryId,
     videoUrl,
-    gifUrl,
-    pollQuestion,
-    pollOptions,
-    pollEndDate,
     error,
     hasContent,
     expand,
@@ -213,10 +170,6 @@ export function useComposerState({
     setContent,
     setCategoryId,
     setVideoUrl,
-    setGifUrl,
-    setPollQuestion,
-    setPollOptions,
-    setPollEndDate,
     setError,
   };
 }

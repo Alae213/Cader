@@ -8,6 +8,7 @@ export const _syncUser = internalMutation({
     clerkId: v.string(),
     email: v.string(),
     displayName: v.string(),
+    username: v.string(),
     avatarUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -22,6 +23,7 @@ export const _syncUser = internalMutation({
       await ctx.db.patch(existing._id, {
         email: args.email,
         displayName: args.displayName,
+        username: args.username,
         avatarUrl: args.avatarUrl,
         updatedAt: Date.now(),
       });
@@ -34,6 +36,7 @@ export const _syncUser = internalMutation({
       clerkId: args.clerkId,
       email: args.email,
       displayName: args.displayName,
+      username: args.username,
       avatarUrl: args.avatarUrl,
       createdAt: now,
       updatedAt: now,

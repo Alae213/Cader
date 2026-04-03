@@ -3,10 +3,15 @@
 import { useState } from "react";
 import { usePaginatedQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import { Id } from "../../../convex/_generated/dataModel";
 import { Text } from "@/components/ui/Text";
 import { Button } from "@/components/ui/Button";
 import { Comment, CommentData } from "./Comment";
 import { CommentInput } from "./CommentInput";
+
+// Configurable pagination constants
+const INITIAL_COMMENTS = 5;
+const LOAD_MORE_COUNT = 5;
 
 interface CommentsSectionProps {
   postId: string;
@@ -16,6 +21,10 @@ interface CommentsSectionProps {
   isAdmin?: boolean;
   isOwner?: boolean;
   hideInput?: boolean;
+  initialLoad?: number;
+  loadMoreCount?: number;
+  replyingToCommentId?: string | null;
+  onCommentDeleted?: () => void;
 }
 
 export function CommentsSection({
@@ -26,19 +35,28 @@ export function CommentsSection({
   isAdmin = false,
   isOwner = false,
   hideInput = false,
+  initialLoad = INITIAL_COMMENTS,
+  loadMoreCount = LOAD_MORE_COUNT,
+  replyingToCommentId: externalReplyId,
+  onCommentDeleted,
 }: CommentsSectionProps) {
-  const [replyToCommentId, setReplyToCommentId] = useState<string | undefined>();
+  const [internalReplyId, setInternalReplyId] = useState<string | undefined>();
   const [sortBy, setSortBy] = useState<"top" | "newest">("top");
 
-  // Fetch comments with native Convex pagination (Fix #2)
-  const { results, status, loadMore } = usePaginatedQuery(
+  // Use either internal state or external prop
+  const replyToCommentId = externalReplyId ?? internalReplyId;
+
+  const validatedPostId = postId as Id<"posts">;
+  const validatedCommunityId = communityId as Id<"communities">;
+
+  // Fetch comments with native Convex pagination
+  const { results, status, loadMore, isLoading } = usePaginatedQuery(
     api.functions.feed.listComments,
     {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      postId: postId as any,
+      postId: validatedPostId,
       sortBy,
     },
-    { initialNumItems: 5 }
+    { initialNumItems: initialLoad }
   );
 
   // Derive comments from results
@@ -47,24 +65,24 @@ export function CommentsSection({
 
   const handleLoadMore = () => {
     if (hasMore) {
-      loadMore(5);
+      loadMore(loadMoreCount);
     }
   };
 
   const handleReply = (commentId: string) => {
-    setReplyToCommentId(commentId);
+    setInternalReplyId(commentId);
   };
 
   const handleReplySubmit = () => {
-    setReplyToCommentId(undefined);
+    setInternalReplyId(undefined);
   };
 
   const handleReplyCancel = () => {
-    setReplyToCommentId(undefined);
+    setInternalReplyId(undefined);
   };
 
   return (
-    <div className="mt-4 pt-4 border-t border-border">
+    <div className="mt-4 ">
       {/* Section header */}
       <div className="flex items-center justify-between mb-4">
         <Text fontWeight="semibold">
@@ -75,7 +93,11 @@ export function CommentsSection({
         <div className="flex items-center gap-2">
           <button
             onClick={() => setSortBy("top")}
-            className={`px-2 py-1 rounded-md text-xs transition-colors ${
+            role="radio"
+            aria-checked={sortBy === "top"}
+            aria-label="Sort by top comments"
+            tabIndex={0}
+            className={`cursor-pointer px-2 py-1 rounded-md text-xs transition-colors ${
               sortBy === "top" 
                 ? "bg-accent/10 text-accent" 
                 : "hover:bg-bg-muted text-text-secondary"
@@ -85,7 +107,11 @@ export function CommentsSection({
           </button>
           <button
             onClick={() => setSortBy("newest")}
-            className={`px-2 py-1 rounded-md text-xs transition-colors ${
+            role="radio"
+            aria-checked={sortBy === "newest"}
+            aria-label="Sort by newest comments"
+            tabIndex={0}
+            className={`cursor-pointer px-2 py-1 rounded-md text-xs transition-colors ${
               sortBy === "newest" 
                 ? "bg-accent/10 text-accent" 
                 : "hover:bg-bg-muted text-text-secondary"
@@ -101,30 +127,44 @@ export function CommentsSection({
         <div className="mb-4">
           <CommentInput
             postId={postId}
-            communityId={communityId}
+            communityId={validatedCommunityId}
             onSubmit={handleReplySubmit}
           />
         </div>
       )}
 
+      {/* Loading state */}
+      {isLoading && (
+        <div className="py-8 text-center">
+          <Text size="sm" theme="muted">Loading comments...</Text>
+        </div>
+      )}
+
       {/* Comments list */}
-      <div className="space-y-4">
-        {comments.map((comment) => (
-          <Comment
-            key={comment._id}
-            comment={comment}
-            postAuthorId={postAuthorId}
-            communityId={communityId}
-            currentUserId={currentUserId}
-            isAdmin={isAdmin}
-            isOwner={isOwner}
-            onReply={handleReply}
-          />
-        ))}
-      </div>
+      {!isLoading && (
+        <div className="space-y-4">
+          {comments.map((comment) => (
+            <Comment
+              key={comment._id}
+              comment={comment}
+              postAuthorId={postAuthorId}
+              communityId={communityId}
+              currentUserId={currentUserId}
+              isAdmin={isAdmin}
+              isOwner={isOwner}
+              onReply={handleReply}
+              onReplySubmit={handleReplySubmit}
+              onReplyCancel={handleReplyCancel}
+              replyToCommentId={replyToCommentId}
+              postId={postId}
+              onCommentDeleted={onCommentDeleted}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Load more button */}
-      {hasMore && (
+      {hasMore && !isLoading && (
         <div className="mt-4 text-center">
           <Button 
             variant="secondary" 
@@ -137,26 +177,11 @@ export function CommentsSection({
       )}
 
       {/* Empty state - only show after loading completes */}
-      {results !== undefined && comments.length === 0 && (
+      {!isLoading && results !== undefined && comments.length === 0 && (
         <div className="py-8 text-center">
           <Text theme="muted" size="sm">
             No comments yet
           </Text>
-        </div>
-      )}
-
-      {/* Reply input (shown when replying) */}
-      {replyToCommentId && (
-        <div className="mt-4 pl-8 md:pl-4">
-          <CommentInput
-            postId={postId}
-            parentCommentId={replyToCommentId}
-            communityId={communityId}
-            onSubmit={handleReplySubmit}
-            onCancel={handleReplyCancel}
-            placeholder="Write a reply..."
-            autoFocus
-          />
         </div>
       )}
     </div>

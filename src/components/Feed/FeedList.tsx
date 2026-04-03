@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { PostCard } from "./PostCard";
 import { Button } from "@/components/ui/Button";
 import { Heading, Text } from "@/components/ui/Text";
+import { Card } from "../ui/Card";
 
 export interface Post {
   _id: string;
@@ -13,11 +14,9 @@ export interface Post {
   categoryId?: string;
   category?: { _id: string; name: string; color: string } | null;
   content: string;
-  contentType: "text" | "image" | "video" | "gif" | "poll";
+  contentType: "text" | "image" | "video" | "gif";
   mediaUrls?: string[];
   videoUrl?: string;
-  pollOptions?: { text: string; votes: number }[];
-  pollEndDate?: number;
   isPinned: boolean;
   upvoteCount: number;
   commentCount: number;
@@ -52,23 +51,23 @@ export function FeedList({
 
   if (posts.length === 0) {
     return (
-      <div className="rounded-2xl p-12 text-center bg-bg-elevated">
+      <Card>
         <Heading size="h4" className="mb-2">
           No posts yet
         </Heading>
         <Text theme="muted">Be the first to post in this community!</Text>
-      </div>
+      </Card>
     );
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4  ">
       {pinnedPosts.length > 0 && (
         <>
-          {pinnedPosts.map((post) => (
+          {pinnedPosts.map((post) => (  
             <PostCard
               key={post._id}
-              post={{ ...post, communityId }}
+              post={{ ...post, communityId } as any}
               communityId={communityId}
               currentUserId={userId}
               isAdmin={isAdmin}
@@ -83,7 +82,7 @@ export function FeedList({
       {regularPosts.map((post) => (
         <PostCard
           key={post._id}
-          post={{ ...post, communityId }}
+          post={{ ...post, communityId } as any}
           communityId={communityId}
           currentUserId={userId}
           isAdmin={isAdmin}

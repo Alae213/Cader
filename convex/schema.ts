@@ -97,18 +97,15 @@ export default defineSchema({
     
     // Content
     content: v.string(),
-    contentType: v.union(v.literal("text"), v.literal("image"), v.literal("video"), v.literal("gif"), v.literal("poll")),
+    contentType: v.union(v.literal("text"), v.literal("image"), v.literal("video"), v.literal("poll")),
+    
+    // Poll specific fields
+    pollOptions: v.optional(v.array(v.object({ text: v.string(), votes: v.number() }))),
+    pollEndDate: v.optional(v.number()),
     
     // Media
     mediaUrls: v.optional(v.array(v.string())),
     videoUrl: v.optional(v.string()),
-    
-    // Poll
-    pollOptions: v.optional(v.array(v.object({
-      text: v.string(),
-      votes: v.number(),
-    }))),
-    pollEndDate: v.optional(v.number()),
     
     // Pinning
     isPinned: v.boolean(),
@@ -338,17 +335,6 @@ export default defineSchema({
     timestamp: v.number(),
   }).index("by_user_and_action", ["userId", "action"])
     .index("by_timestamp", ["timestamp"]),
-
-  // Poll votes - one per user per poll (M-3: prevents duplicate voting)
-  pollVotes: defineTable({
-    postId: v.id("posts"),
-    userId: v.id("users"),
-    optionIndex: v.number(),
-    createdAt: v.number(),
-  }).index("by_post_id", ["postId"])
-    .index("by_user_id", ["userId"])
-    .index("by_post_and_user", ["postId", "userId"]),
-
   // Presence - real-time online status per community
   // Separate from memberships to avoid write contention on the membership record
   presence: defineTable({

@@ -23,11 +23,9 @@ export interface Post {
     color: string;
   } | null;
   content: string;
-  contentType: "text" | "image" | "video" | "gif" | "poll";
+  contentType: "text" | "image" | "video";
   mediaUrls?: string[];
   videoUrl?: string;
-  pollOptions?: { text: string; votes: number }[];
-  pollEndDate?: number;
   isPinned: boolean;
   upvoteCount: number;
   commentCount: number;

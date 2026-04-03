@@ -96,12 +96,12 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
   const isAdmin = memberships?.some((m) => m && m.userId === currentUser?._id && m.role === "admin") ?? false;
 
   useEffect(() => {
-    if (!initialSection) {
-      if (communitySlug && isOwner) {
-        setActiveSection("admins");
-      } else {
-        setActiveSection("account");
-      }
+    if (initialSection) {
+      setActiveSection(initialSection);
+    } else if (!communitySlug) {
+      setActiveSection("account");
+    } else if (isOwner) {
+      setActiveSection("admins");
     }
   // eslint-disable-next-line react-hooks/set-state-in-effect
   }, [communitySlug, isOwner, initialSection]);
@@ -476,6 +476,7 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
               </div>
             )}
 
+            {/* Only show upgrade options when NOT in member view mode */}
             {isAtLimit && (
               <div className="p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
                 <Text size="sm">You&apos;ve reached the 50 member limit. Subscribe to add more members.</Text>

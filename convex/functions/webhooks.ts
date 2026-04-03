@@ -115,6 +115,7 @@ export const handleClerkWebhook = httpAction(async (ctx, request) => {
       email_addresses?: Array<{ email_address: string }>;
       first_name?: string;
       last_name?: string;
+      username?: string;
       image_url?: string;
     };
   };
@@ -123,12 +124,15 @@ export const handleClerkWebhook = httpAction(async (ctx, request) => {
   const displayName =
     [event.data.first_name, event.data.last_name].filter(Boolean).join(" ") ||
     email.split("@")[0];
+  // Use Clerk username if available, otherwise derive from email
+  const username = event.data.username || email.split("@")[0];
 
   try {
     await ctx.runMutation(internal.functions.users._syncUser, {
       clerkId: event.data.id,
       email,
       displayName,
+      username,
       avatarUrl: event.data.image_url || undefined,
     });
   } catch (error) {

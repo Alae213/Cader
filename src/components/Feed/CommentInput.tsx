@@ -1,20 +1,26 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, forwardRef, useImperativeHandle, useCallback } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import { Id } from "../../../convex/_generated/dataModel";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { toast } from "sonner";
 import { Text } from "@/components/ui/Text";
 import { Avatar } from "@/components/shared/Avatar";
-import { Button } from "@/components/ui/Button";
 import { 
-  Send,
+  ArrowUp,
   Image as ImageIcon,
   X,
   AtSign,
   Loader2,
+  Plus,
 } from "lucide-react";
+
+// Constants
+const COMMENT_MAX_LENGTH = 2000;
+const COMMENT_RATE_LIMIT_MS = 2000;
+const MENTION_DEBOUNCE_MS = 300;
 
 interface CommentInputProps {
   postId: string;
@@ -63,6 +69,26 @@ const compressImage = (file: File, maxWidth: number = 800, quality: number = 0.6
   });
 };
 
+// Custom textarea with no border/ring/outline - using CSS classes instead of inline styles
+const NoBorderTextarea = forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttributes<HTMLTextAreaElement>>(({
+  className,
+  ...props
+}, ref) => {
+  const innerRef = useRef<HTMLTextAreaElement>(null);
+  
+  useImperativeHandle(ref, () => innerRef.current as HTMLTextAreaElement);
+  
+  return (
+    <textarea
+      ref={innerRef}
+      {...props}
+      className={`w-full resize-none text-sm min-h-[24px] pt-[2px] placeholder:text-text-muted no-border outline-none focus:outline-none bg-transparent ${className || ""}`}
+    />
+  );
+});
+
+NoBorderTextarea.displayName = "NoBorderTextarea";
+
 export function CommentInput({ 
   postId, 
   parentCommentId,
@@ -80,21 +106,37 @@ export function CommentInput({
   const [mediaUrls, setMediaUrls] = useState<string[]>([]);
   const [showMentions, setShowMentions] = useState(false);
   const [mentionSearch, setMentionSearch] = useState("");
+  const [debouncedMentionSearch, setDebouncedMentionSearch] = useState("");
   const [mentionPosition, setMentionPosition] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [lastSubmitTime, setLastSubmitTime] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mentionDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
   const createComment = useMutation(api.functions.feed.createComment);
   
-  // Search members for mentions
+  // Debounce mention search
+  useEffect(() => {
+    if (mentionDebounceRef.current) {
+      clearTimeout(mentionDebounceRef.current);
+    }
+    mentionDebounceRef.current = setTimeout(() => {
+      setDebouncedMentionSearch(mentionSearch);
+    }, MENTION_DEBOUNCE_MS);
+    return () => {
+      if (mentionDebounceRef.current) {
+        clearTimeout(mentionDebounceRef.current);
+      }
+    };
+  }, [mentionSearch]);
+
+  // Search members for mentions (debounced)
   const searchResults = useQuery(
     api.functions.notifications.searchMembers,
-     
-    communityId && mentionSearch.length >= 1 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ? { communityId: communityId as any, searchQuery: mentionSearch }
+    communityId && debouncedMentionSearch.length >= 1 
+      ? { communityId: communityId as Id<"communities">, searchQuery: debouncedMentionSearch }
       : "skip"
   );
 
@@ -109,9 +151,25 @@ export function CommentInput({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Auto-expand textarea height
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = "auto";
+      textarea.style.height = Math.min(textarea.scrollHeight, 200) + "px";
+    }
+  }, [content]);
+
   const handleSubmit = async () => {
     if (!userId) {
       toast.error("You must be signed in to comment");
+      return;
+    }
+
+    // Rate limiting check
+    const now = Date.now();
+    if (now - lastSubmitTime < COMMENT_RATE_LIMIT_MS) {
+      toast.error("Please wait before posting another comment");
       return;
     }
 
@@ -120,25 +178,45 @@ export function CommentInput({
       return;
     }
 
+    // Store content for optimistic display
+    const pendingContent = content.trim();
+    const pendingMedia = [...mediaUrls];
+    
+    // Optimistic update: clear input immediately
     setIsLoading(true);
+    setLastSubmitTime(now);
+    setContent("");
+    setMediaUrls([]);
+    
+    // Trigger onSubmit immediately for instant feedback
+    onSubmit?.();
+    
     try {
-       
-      await createComment({
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // Fire mutation without awaiting - UI already updated
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      createComment({
         postId: postId as any,
-        content: content.trim(),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        parentCommentId: parentCommentId as any,
-        mediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined,
-      });
-      
-      setContent("");
-      setMediaUrls([]);
-      onSubmit?.();
-      toast.success("Comment posted!");
+        content: pendingContent,
+        parentCommentId: parentCommentId ? parentCommentId as any : undefined,
+        mediaUrls: pendingMedia.length > 0 ? pendingMedia : undefined,
+      })
+        .then(() => {
+          toast.success("Comment posted!");
+        })
+        .catch((error) => {
+          // Revert content on error
+          setContent(pendingContent);
+          setMediaUrls(pendingMedia);
+          toast.error(error instanceof Error ? error.message : "Failed to post comment");
+        })
+        .finally(() => {
+          setIsLoading(false);
+        });
     } catch (error) {
+      // Revert on error
+      setContent(pendingContent);
+      setMediaUrls(pendingMedia);
       toast.error(error instanceof Error ? error.message : "Failed to post comment");
-    } finally {
       setIsLoading(false);
     }
   };
@@ -148,32 +226,41 @@ export function CommentInput({
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
+    // Only allow one image
+    if (mediaUrls.length >= 1) {
+      toast.error("You can only attach one image per comment");
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      return;
+    }
+
     setIsUploadingImages(true);
     try {
-      for (const file of Array.from(files)) {
-        // Validate file type
-        if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.type)) {
-          toast.error("Invalid format. Use JPG, PNG, WebP, or GIF.");
-          continue;
-        }
-
-        // Validate file size (max 10MB)
-        if (file.size > 10 * 1024 * 1024) {
-          toast.error("File too large. Maximum size is 10MB.");
-          continue;
-        }
-
-        // Compress and add to mediaUrls
-        const compressed = await compressImage(file, 800, 0.6);
-        
-        // Check base64 size (Convex 1MB limit, base64 is ~33% larger)
-        if (compressed.length > 700 * 1024) {
-          toast.error("Image too large after compression. Please try a smaller image.");
-          continue;
-        }
-
-        setMediaUrls(prev => [...prev, compressed]);
+      const file = files[0];
+      // Validate file type
+      if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.type)) {
+        toast.error("Invalid format. Use JPG, PNG, WebP, or GIF.");
+        return;
       }
+
+      // Validate file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error("File too large. Maximum size is 10MB.");
+        return;
+      }
+
+      // Compress and add to mediaUrls
+      const compressed = await compressImage(file, 800, 0.6);
+      
+      // Check base64 size (Convex 1MB limit, base64 is ~33% larger)
+      if (compressed.length > 700 * 1024) {
+        toast.error("Image too large after compression. Please try a smaller image.");
+        return;
+      }
+
+      setMediaUrls(prev => [...prev, compressed]);
     } catch {
       toast.error("Failed to process image");
     } finally {
@@ -271,6 +358,8 @@ export function CommentInput({
     }
   };
 
+  const isDisabled = isLoading || (!content.trim() && mediaUrls.length === 0);
+
   if (!userId) {
     return (
       <div className="flex items-center gap-3 p-3 rounded-xl bg-bg-elevated">
@@ -285,115 +374,109 @@ export function CommentInput({
   }
 
   return (
-    <div className="relative">
-      <div className="flex gap-3 p-3 rounded-xl bg-bg-elevated">
+    <div className="relative flex flex-row w-full items-center gap-2 justify-center mt-4">
+      <div className="border-white/25 border-b-1 rounded-full">
         <Avatar
           src={user?.imageUrl}
           name={user?.firstName || user?.username || "User"}
-          size="sm"
+          className="h-10 w-10 "
         />
+      </div>
+      
+      <div className="flex w-full grow flex-col bg-bg-canvas gap-3 overflow-hidden p-2 justify-start items-start rounded-[20px] border-white/25  border-b-1 hover:bg-bg-elevated">
         
-        <div className="flex-1">
-          {/* Image previews */}
-          {mediaUrls.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-2">
-              {mediaUrls.map((url, i) => (
-                <div key={i} className="relative group">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img 
-                    src={url} 
-                    alt="" 
-                    className="w-20 h-20 rounded-lg object-cover"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeImage(i)}
-                    className="absolute -top-2 -right-2 bg-red-500 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <X className="w-3 h-3 text-white" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-          
-          <textarea
-            ref={textareaRef}
-            value={content}
-            onChange={handleChange}
-            onKeyDown={handleKeyDown}
-            placeholder={placeholder}
-            autoFocus={autoFocus}
-            className="w-full bg-transparent resize-none outline-none text-sm min-h-[40px] max-h-[200px] placeholder:text-text-muted"
-            rows={1}
+        
+        <div className="flex gap-2 items-start w-full  ">
+          {/* Add image button */}
+          <button
+            type="button"
+            className="rounded-full cursor-pointer text-white bg-accent hover:bg-accent-hover transition-colors p-1"
+            title="Add image"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploadingImages}
+            aria-label="Attach image"
+          >
+            {isUploadingImages ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : (
+              <Plus className="w-4 h-4 stroke-3" />
+            )}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            className="hidden"
+            onChange={handleImageSelect}
           />
-          
-          {/* Actions */}
-          <div className="flex items-center justify-between mt-2">
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                className="p-1.5 rounded-md hover:bg-bg-muted transition-colors"
-                title="Add image"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isUploadingImages}
-              >
-                {isUploadingImages ? (
-                  <Loader2 className="w-4 h-4 text-text-muted animate-spin" />
-                ) : (
-                  <ImageIcon className="w-4 h-4 text-text-muted" />
-                )}
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp,image/gif"
-                multiple
-                className="hidden"
-                onChange={handleImageSelect}
-              />
-              <button
-                type="button"
-                className="p-1.5 rounded-md hover:bg-bg-muted transition-colors"
-                title="Mention someone"
-                onClick={() => {
-                  const cursorPos = textareaRef.current?.selectionStart || 0;
-                  const before = content.slice(0, cursorPos);
-                  const newContent = `${before}@`;
-                  setContent(newContent);
-                  setShowMentions(true);
-                  setMentionSearch("");
-                  setMentionPosition(cursorPos);
-                  textareaRef.current?.focus();
-                }}
-              >
-                <AtSign className="w-4 h-4 text-text-muted" />
-              </button>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              {onCancel && (
-                <Button variant="ghost" size="sm" onClick={onCancel}>
-                  Cancel
-                </Button>
-              )}
-              <Button 
-                size="sm" 
-                onClick={handleSubmit}
-                disabled={isLoading || (!content.trim() && mediaUrls.length === 0)}
-              >
-                <Send className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
+
+          {/* Textarea */}
+            <NoBorderTextarea
+              ref={textareaRef}
+              value={content}
+              onChange={handleChange}
+              onKeyDown={handleKeyDown}
+              placeholder={placeholder}
+              autoFocus={autoFocus}
+              className="bg-transparent"
+              rows={1}
+              maxLength={COMMENT_MAX_LENGTH}
+              aria-label={placeholder}
+            />
+            {/* Send button */}
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={isDisabled}
+            aria-label={isLoading ? "Posting comment..." : "Post comment"}
+            className={`
+              rounded-full p-1 transition-colors cursor-pointer
+              ${isDisabled 
+                ? "bg-bg-muted text-text-muted cursor-not-allowed" 
+                : "bg-accent text-white hover:bg-accent-hover"
+              }
+            `}
+          >
+            {isLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <ArrowUp className="w-4 h-4" />
+            )} 
+          </button>
+         
         </div>
+
+        {/* Image previews */}
+        {mediaUrls.length > 0 && (
+          <div aria-live="polite" className="flex flex-wrap gap-2 mt-2">
+            {mediaUrls.map((url, i) => (
+              <div key={i} className="relative group">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img 
+                  src={url} 
+                  alt="" 
+                  className="w-20 h-20 rounded-lg object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeImage(i)}
+                  className="absolute -top-2 -right-2 bg-red-500 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                  aria-label={`Remove image ${i + 1}`}
+                >
+                  <X className="w-3 h-3 text-white" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
       </div>
 
       {/* Mentions dropdown */}
       {showMentions && searchResults && searchResults.length > 0 && (
         <div 
           ref={dropdownRef}
-          className="absolute left-3 top-full mt-1 bg-bg-elevated rounded-lg py-1 max-h-48 overflow-y-auto z-20 min-w-[200px]"
+          className="absolute left-10 top-full mt-1 bg-bg-elevated rounded-lg py-1 max-h-48 overflow-y-auto z-20 min-w-[200px] border border-[var(--border)] shadow-lg"
           role="listbox"
           aria-label="Mentions"
         >

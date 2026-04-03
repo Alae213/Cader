@@ -1,24 +1,22 @@
 import { useEffect, useRef, useCallback } from 'react';
 
 interface DraftSetters {
-  setPostType: (v: "text" | "image" | "video" | "gif" | "poll") => void;
+  setPostType: (v: "text" | "image" | "video" | "poll") => void;
   setContent: (v: string) => void;
   setComposerCategoryId: (v: string) => void;
   setImageUrls: (v: string[]) => void;
   setVideoUrl: (v: string) => void;
-  setGifUrl: (v: string) => void;
   setPollQuestion: (v: string) => void;
   setPollOptions: (v: string[]) => void;
   setPollEndDate: (v: string) => void;
 }
 
 interface DraftState {
-  postType: "text" | "image" | "video" | "gif" | "poll";
+  postType: "text" | "image" | "video" | "poll";
   content: string;
   composerCategoryId: string;
   imageUrls: string[];
   videoUrl: string;
-  gifUrl: string;
   pollQuestion: string;
   pollOptions: string[];
   pollEndDate: string;
@@ -89,7 +87,6 @@ export function useDraftPersistence(
           setters.setComposerCategoryId(draft.composerCategoryId);
         if (draft.imageUrls?.length) setters.setImageUrls(draft.imageUrls);
         if (draft.videoUrl) setters.setVideoUrl(draft.videoUrl);
-        if (draft.gifUrl) setters.setGifUrl(draft.gifUrl);
         if (draft.pollQuestion) setters.setPollQuestion(draft.pollQuestion);
         if (draft.pollOptions?.length >= 2)
           setters.setPollOptions(draft.pollOptions);

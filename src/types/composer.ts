@@ -12,17 +12,12 @@ export interface ComposerUser {
   fullName?: string | null;
 }
 
-export type PostType = "text" | "image" | "video" | "gif" | "poll";
+export type PostType = "text" | "image" | "video";
 
 export interface ComposerCategory {
   _id: string;
   name: string;
   color: string;
-}
-
-export interface PollOption {
-  text: string;
-  votes: number;
 }
 
 export interface ComposerSubmitData {
@@ -31,10 +26,6 @@ export interface ComposerSubmitData {
   categoryId?: string;
   imageUrls?: string[];
   videoUrl?: string;
-  gifUrl?: string;
-  pollQuestion?: string;
-  pollOptions?: PollOption[];
-  pollEndDate?: number;
 }
 
 export interface ComposerState {
@@ -43,10 +34,6 @@ export interface ComposerState {
   content: string;
   categoryId: string;
   videoUrl: string;
-  gifUrl: string;
-  pollQuestion: string;
-  pollOptions: string[];
-  pollEndDate: string;
   error: string;
 }
 
@@ -58,9 +45,5 @@ export interface ComposerActions {
   setContent: (content: string) => void;
   setCategoryId: (id: string) => void;
   setVideoUrl: (url: string) => void;
-  setGifUrl: (url: string) => void;
-  setPollQuestion: (q: string) => void;
-  setPollOptions: (options: string[]) => void;
-  setPollEndDate: (date: string) => void;
   setError: (error: string) => void;
 }

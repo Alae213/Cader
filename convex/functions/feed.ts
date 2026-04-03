@@ -2,6 +2,7 @@ import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { Doc, Id } from "../_generated/dataModel";
 import { enforceRateLimit } from "../lib/rateLimit";
+import { paginationOptsValidator } from "convex/server";
 
 // Helper to validate video URLs
 function isValidVideoUrl(url: string): boolean {
@@ -20,11 +21,7 @@ export const listPosts = query({
     communityId: v.id("communities"),
     categoryId: v.optional(v.id("categories")),
     sortBy: v.optional(v.union(v.literal("newest"), v.literal("most_liked"), v.literal("most_commented"))),
-    paginationOpts: v.object({
-      numItems: v.number(),
-      cursor: v.union(v.string(), v.null()),
-      id: v.optional(v.number()),
-    }),
+    paginationOpts: paginationOptsValidator,
   },
   handler: async (ctx, args) => {
     const communityId = args.communityId;
@@ -117,15 +114,10 @@ export const createPost = mutation({
   args: {
     communityId: v.id("communities"),
     content: v.string(),
-    contentType: v.union(v.literal("text"), v.literal("image"), v.literal("video"), v.literal("gif"), v.literal("poll")),
+    contentType: v.union(v.literal("text"), v.literal("image"), v.literal("video")),
     categoryId: v.optional(v.id("categories")),
     mediaUrls: v.optional(v.array(v.string())),
     videoUrl: v.optional(v.string()),
-    pollOptions: v.optional(v.array(v.object({
-      text: v.string(),
-      votes: v.number(),
-    }))),
-    pollEndDate: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     // Get authenticated user from Clerk
@@ -157,18 +149,8 @@ export const createPost = mutation({
     }
 
     // Validate content
-    if (!args.content && !args.mediaUrls?.length && !args.videoUrl && !args.pollOptions) {
+    if (!args.content && !args.mediaUrls?.length && !args.videoUrl) {
       throw new Error("Post must have some content");
-    }
-
-    // For polls, validate options
-    if (args.contentType === "poll") {
-      if (!args.pollOptions || args.pollOptions.length < 2) {
-        throw new Error("Poll must have at least 2 options");
-      }
-      if (args.pollOptions.length > 4) {
-        throw new Error("Poll can have at most 4 options");
-      }
     }
 
     // Validate video URL if provided
@@ -204,10 +186,6 @@ export const createPost = mutation({
       contentType: args.contentType,
       mediaUrls: args.mediaUrls,
       videoUrl: args.videoUrl,
-      pollOptions: args.contentType === "poll" 
-        ? args.pollOptions?.map(opt => ({ ...opt, votes: 0 }))
-        : undefined,
-      pollEndDate: args.pollEndDate,
       isPinned: false,
       mentions: mentionedUserIds,
       upvoteCount: 0,
@@ -313,10 +291,7 @@ export const createComment = mutation({
 export const listComments = query({
   args: {
     postId: v.id("posts"),
-    paginationOpts: v.object({
-      numItems: v.number(),
-      cursor: v.union(v.string(), v.null()),
-    }),
+    paginationOpts: paginationOptsValidator,
     sortBy: v.optional(v.union(v.literal("top"), v.literal("newest"))),
   },
   handler: async (ctx, args) => {
@@ -402,14 +377,42 @@ export const listComments = query({
     }
 
     // Fetch replies for the comments on this page (bounded: only replies to visible top-level comments)
-    const allReplies = await Promise.all(
+    // Use a Map to associate replies with their parent comment ID for correct attachment after sorting
+    type ReplyWithAuthor = {
+      _id: string;
+      postId: string;
+      authorId: string;
+      parentCommentId?: string;
+      content: string;
+      mentions?: string[];
+      mediaUrls?: string[];
+      upvoteCount?: number;
+      createdAt: number;
+      updatedAt: number;
+      author: { _id: string; displayName: string; username?: string; avatarUrl?: string } | null;
+      hasUpvoted: boolean;
+      authorIsOwner: boolean;
+      authorIsAdmin: boolean;
+    };
+    
+    const repliesMap = new Map<string, ReplyWithAuthor[]>();
+    
+    await Promise.all(
       topLevelPage.page.map(async (parentComment) => {
         const replies = await ctx.db
           .query("comments")
           .withIndex("by_parent_comment_id", (q) => q.eq("parentCommentId", parentComment._id))
           .collect();
 
-        return Promise.all(
+        // Sort replies by the same criteria as top-level comments
+        if (sortBy === "top") {
+          replies.sort((a, b) => (b.upvoteCount ?? 0) - (a.upvoteCount ?? 0) || b.createdAt - a.createdAt);
+        } else {
+          replies.sort((a, b) => b.createdAt - a.createdAt);
+        }
+
+        // Store in Map keyed by parent comment ID
+        repliesMap.set(parentComment._id, await Promise.all(
           replies.map(async (reply) => {
             const author = await ctx.db.get(reply.authorId);
             let hasUpvoted = false;
@@ -449,14 +452,14 @@ export const listComments = query({
               authorIsAdmin,
             };
           })
-        );
+        ));
       })
     );
 
-    // Attach replies to their parents
-    const threadedComments = commentsWithAuthors.map((comment, i) => ({
+    // Attach replies to their parents using Map (works correctly after sorting)
+    const threadedComments = commentsWithAuthors.map((comment) => ({
       ...comment,
-      replies: allReplies[i],
+      replies: repliesMap.get(comment._id) || [],
     }));
 
     return {
@@ -695,80 +698,6 @@ export const toggleCommentUpvote = mutation({
 
       return { upvoted: true, newCount: (comment.upvoteCount ?? 0) + 1 };
     }
-  },
-});
-
-// Vote on a poll option
-// SECURITY M-3: One vote per user per poll with dedup protection
-export const votePoll = mutation({
-  args: {
-    postId: v.id("posts"),
-    optionIndex: v.number(),
-  },
-  handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("You must be signed in to vote");
-    }
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .first();
-
-    if (!user) {
-      throw new Error("User not found");
-    }
-
-    const post = await ctx.db.get(args.postId);
-    if (!post) {
-      throw new Error("Post not found");
-    }
-
-    if (post.contentType !== "poll") {
-      throw new Error("This post is not a poll");
-    }
-
-    // Get current poll options
-    const pollOptions = post.pollOptions || [];
-    if (args.optionIndex < 0 || args.optionIndex >= pollOptions.length) {
-      throw new Error("Invalid option");
-    }
-
-    // SECURITY M-3: Check if user already voted on this poll
-    const existingVote = await ctx.db
-      .query("pollVotes")
-      .withIndex("by_post_and_user", (q) =>
-        q.eq("postId", args.postId).eq("userId", user._id)
-      )
-      .first();
-
-    if (existingVote) {
-      // User already voted — don't allow double voting
-      return { success: false, reason: "already_voted" };
-    }
-
-    // Record the vote for dedup tracking
-    await ctx.db.insert("pollVotes", {
-      postId: args.postId,
-      userId: user._id,
-      optionIndex: args.optionIndex,
-      createdAt: Date.now(),
-    });
-
-    // Update the vote count for the selected option
-    const updatedOptions = pollOptions.map((opt, i) => {
-      if (i === args.optionIndex) {
-        return { ...opt, votes: (opt.votes || 0) + 1 };
-      }
-      return opt;
-    });
-
-    await ctx.db.patch(args.postId, {
-      pollOptions: updatedOptions,
-    });
-
-    return { success: true };
   },
 });
 

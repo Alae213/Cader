@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { TextArea } from "@/components/ui/TextArea";
 import { Input } from "@/components/ui/Input";
 import { Text } from "@/components/ui/Text";
-import { Image as ImageIcon, Video, Gift, BarChart3, X, Plus, ImagePlus } from "lucide-react";
+import { Image as ImageIcon, Video, X, Plus, ImagePlus } from "lucide-react";
 import type { ComposerUser, ComposerCategory, PostType, ComposerSubmitData } from "@/types/composer";
 import {  Card } from "../ui/Card";
 
@@ -13,16 +13,7 @@ const POST_TYPES: { value: PostType; label: string; icon: React.ReactNode }[] = 
   { value: "text", label: "Text", icon: null },
   { value: "image", label: "Image", icon: <ImageIcon className="w-4 h-4" /> },
   { value: "video", label: "Video", icon: <Video className="w-4 h-4" /> },
-  { value: "gif", label: "GIF", icon: <Gift className="w-4 h-4" /> },
-  { value: "poll", label: "Poll", icon: <BarChart3 className="w-4 h-4" /> },
 ];
-
-// Pre-compute poll min date (1 hour from now) at module load
-function getPollMinDate(): string {
-  const d = new Date(Date.now() + 60 * 60 * 1000);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 
 function ComposerAvatar({ user }: { user?: ComposerUser }) {
   if (user?.imageUrl) {
@@ -52,19 +43,6 @@ function isValidVideoUrl(url: string): boolean {
   const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
   const driveMatch = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
   return !!(youtubeMatch || vimeoMatch || driveMatch);
-}
-
-function isValidGifUrl(url: string): boolean {
-  if (!url) return false;
-  try {
-    new URL(url);
-  } catch {
-    return false;
-  }
-  const urlWithoutQuery = url.split('?')[0].toLowerCase();
-  if (urlWithoutQuery.endsWith('.gif')) return true;
-  const gifHosts = ['giphy.com', 'tenor.com', 'gfycat.com', 'imgur.com'];
-  return gifHosts.some(host => url.includes(host));
 }
 
 interface PostComposerProps {
@@ -98,14 +76,6 @@ interface PostComposerProps {
   onCategoryIdChange: (id: string) => void;
   videoUrl: string;
   onVideoUrlChange: (url: string) => void;
-  gifUrl: string;
-  onGifUrlChange: (url: string) => void;
-  pollQuestion: string;
-  onPollQuestionChange: (q: string) => void;
-  pollOptions: string[];
-  onPollOptionsChange: (options: string[]) => void;
-  pollEndDate: string;
-  onPollEndDateChange: (date: string) => void;
   prefersReducedMotion: boolean;
 }
 
@@ -140,19 +110,10 @@ export function PostComposer({
   onCategoryIdChange,
   videoUrl,
   onVideoUrlChange,
-  gifUrl,
-  onGifUrlChange,
-  pollQuestion,
-  onPollQuestionChange,
-  pollOptions,
-  onPollOptionsChange,
-  pollEndDate,
-  onPollEndDateChange,
   prefersReducedMotion,
 }: PostComposerProps) {
   // Debounced URL validation — only show errors after user stops typing (300ms)
   const [showVideoError, setShowVideoError] = useState(false);
-  const [showGifError, setShowGifError] = useState(false);
   const prevPostTypeRef = useRef(postType);
   const postTypeBarRef = useRef<HTMLDivElement>(null);
 
@@ -181,7 +142,6 @@ export function PostComposer({
     if (prevPostTypeRef.current !== postType) {
       // Clear URL errors when switching post types
       setShowVideoError(false);
-      setShowGifError(false);
       prevPostTypeRef.current = postType;
     }
   }, [postType]);
@@ -194,15 +154,6 @@ export function PostComposer({
     const timer = setTimeout(() => setShowVideoError(true), 300);
     return () => clearTimeout(timer);
   }, [videoUrl]);
-
-  useEffect(() => {
-    if (!gifUrl || isValidGifUrl(gifUrl)) {
-      setShowGifError(false);
-      return;
-    }
-    const timer = setTimeout(() => setShowGifError(true), 300);
-    return () => clearTimeout(timer);
-  }, [gifUrl]);
 
   const handleValidateAndSubmit = async () => {
     onErrorChange("");
@@ -228,44 +179,9 @@ export function PostComposer({
       }
     }
 
-    if (postType === "gif") {
-      if (!gifUrl.trim()) {
-        onErrorChange("Please enter a GIF URL");
-        return;
-      }
-      if (!isValidGifUrl(gifUrl)) {
-        onErrorChange("Invalid GIF URL");
-        return;
-      }
-    }
-
-    if (postType === "poll") {
-      if (!pollQuestion.trim()) {
-        onErrorChange("Please enter a poll question");
-        return;
-      }
-      const validOptions = pollOptions.filter(o => o.trim());
-      if (validOptions.length < 2) {
-        onErrorChange("Please add at least 2 options");
-        return;
-      }
-      const uniqueOptions = new Set(validOptions.map(o => o.trim().toLowerCase()));
-      if (uniqueOptions.size < validOptions.length) {
-        onErrorChange("Poll options must be unique");
-        return;
-      }
-      if (pollEndDate) {
-        const endDate = new Date(pollEndDate);
-        if (endDate.getTime() <= Date.now()) {
-          onErrorChange("Poll end date must be in the future");
-          return;
-        }
-      }
-    }
-
     const submitData: Parameters<typeof onSubmit>[0] = {
       postType,
-      content: postType === "poll" ? pollQuestion.trim() : content.trim(),
+      content: content.trim(),
       categoryId: composerCategoryId || undefined,
     };
 
@@ -275,38 +191,8 @@ export function PostComposer({
     if (postType === "video" && videoUrl) {
       submitData.videoUrl = videoUrl;
     }
-    if (postType === "gif" && gifUrl) {
-      submitData.gifUrl = gifUrl;
-    }
-    if (postType === "poll") {
-      submitData.pollQuestion = pollQuestion.trim();
-      submitData.pollOptions = pollOptions
-        .filter(o => o.trim())
-        .map(text => ({ text: text.trim(), votes: 0 }));
-      if (pollEndDate) {
-        submitData.pollEndDate = new Date(pollEndDate).getTime();
-      }
-    }
 
     await onSubmit(submitData);
-  };
-
-  const addPollOption = () => {
-    if (pollOptions.length < 4) {
-      onPollOptionsChange([...pollOptions, ""]);
-    }
-  };
-
-  const removePollOption = (index: number) => {
-    if (pollOptions.length > 2) {
-      onPollOptionsChange(pollOptions.filter((_, i) => i !== index));
-    }
-  };
-
-  const updatePollOption = (index: number, value: string) => {
-    const newOptions = [...pollOptions];
-    newOptions[index] = value;
-    onPollOptionsChange(newOptions);
   };
 
   // Compute whether the form is valid for the current post type (enables proactive submit button state)
@@ -314,12 +200,6 @@ export function PostComposer({
     if (postType === "text") return content.trim().length > 0;
     if (postType === "image") return imageUrls.length > 0 || content.trim().length > 0;
     if (postType === "video") return videoUrl.trim().length > 0 && isValidVideoUrl(videoUrl);
-    if (postType === "gif") return gifUrl.trim().length > 0 && isValidGifUrl(gifUrl);
-    if (postType === "poll") {
-      const validOptions = pollOptions.filter(o => o.trim());
-      const uniqueOptions = new Set(validOptions.map(o => o.trim().toLowerCase()));
-      return pollQuestion.trim().length > 0 && validOptions.length >= 2 && uniqueOptions.size === validOptions.length;
-    }
     return false;
   })();
 
@@ -339,45 +219,9 @@ export function PostComposer({
         <div
           className="space-y-4  p-2  rounded-xl"
         >
-          <div className="flex items-center gap-3">
-            <ComposerAvatar user={user} />
-            <div className="flex-1 min-w-0">
-              <Text fontWeight="semibold" className="truncate">
-                {user?.fullName || user?.username || "User"}
-              </Text>
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close composer"
-              className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg hover:bg-bg-muted transition-colors"
-            >
-              <X className="w-5 h-5 text-text-muted" />
-            </button>
-          </div>
-
-          <div ref={postTypeBarRef} className="flex gap-2 pb-3 overflow-x-auto scroll-fade-right" role="radiogroup" aria-label="Post type">
-            {POST_TYPES.map((type) => (
-              <button
-                key={type.value}
-                type="button"
-                onClick={() => onPostTypeChange(type.value)}
-                role="radio"
-                aria-checked={postType === type.value}
-                aria-label={`Create ${type.label.toLowerCase()} post`}
-                className={`px-4 py-2.5 min-h-[44px] rounded-lg transition-colors flex items-center gap-1 shrink-0 ${
-                  postType === type.value
-                    ? "bg-primary text-white"
-                    : "bg-bg-elevated hover:bg-bg-muted"
-                }`}
-              >
-                {type.icon}
-                <Text size="sm">{type.label}</Text>
-              </button>
-            ))}
-          </div>
-
-          <div className="space-y-3">
+          <div className="flex items-start justify-start gap-2  w-full flex-row">
+          <ComposerAvatar user={user} />
+          <div className="space-y-3 w-full ">
             {postType === "text" && (
               <div className="relative">
                 <label htmlFor="post-text" className="sr-only">Post content</label>
@@ -545,151 +389,6 @@ export function PostComposer({
               </div>
             )}
 
-            {postType === "gif" && (
-              <div className="space-y-3">
-                <div className="relative">
-                  <TextArea
-                    value={content}
-                    onChange={(e) => onContentChange(e.target.value)}
-                    placeholder="Add a caption (optional)"
-                    maxLength={5000}
-                  />
-                  {content.length > 0 && (
-                    <span className="absolute bottom-2 right-2 text-xs text-text-muted">
-                      {content.length}/5000
-                    </span>
-                  )}
-                </div>
-
-                <div>
-                  <label htmlFor="gif-url" className="block text-sm font-medium mb-1">GIF URL</label>
-                  <Input
-                    id="gif-url"
-                    value={gifUrl}
-                    onChange={(e) => onGifUrlChange(e.target.value)}
-                    placeholder="Paste a GIF URL from Giphy, Tenor, or Imgur"
-                    className={gifUrl && !isValidGifUrl(gifUrl) ? "border-destructive" : ""}
-                  />
-                  {showGifError && (
-                    <p id="gif-url-error" className="mt-1 text-[14px] leading-[14px] text-error" role="alert">Invalid GIF URL. Must end in .gif or be from a known GIF host</p>
-                  )}
-                  {gifUrl && isValidGifUrl(gifUrl) && (
-                    <div className="mt-3 rounded-lg overflow-hidden bg-bg-muted">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={gifUrl}
-                        alt="GIF preview"
-                        className="max-h-48 w-auto mx-auto object-contain"
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {postType === "poll" && (
-              <div className="space-y-3">
-                <div className="relative">
-                  <label htmlFor="poll-question" className="block text-sm font-medium mb-1">Question</label>
-                  <TextArea
-                    id="poll-question"
-                    value={pollQuestion}
-                    onChange={(e) => onPollQuestionChange(e.target.value)}
-                    placeholder="Ask a question..."
-                    className="min-h-[60px]"
-                    maxLength={500}
-                  />
-                  {pollQuestion.length > 0 && (
-                    <span className="absolute bottom-2 right-2 text-xs text-text-muted">
-                      {pollQuestion.length}/500
-                    </span>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Text size="sm" fontWeight="medium">Options</Text>
-                  {pollOptions.map((option, i) => (
-                    <div key={i} className="flex gap-2 items-center">
-                      <Text size="sm" theme="muted" className="w-5 text-center shrink-0 tabular-nums">
-                        {i + 1}.
-                      </Text>
-                      <label htmlFor={`poll-option-${i}`} className="sr-only">Option {i + 1}</label>
-                      <Input
-                        id={`poll-option-${i}`}
-                        value={option}
-                        onChange={(e) => updatePollOption(i, e.target.value)}
-                        placeholder={`Option ${i + 1}`}
-                        className="flex-1"
-                        maxLength={200}
-                      />
-                      {pollOptions.length > 2 && (
-                        <button
-                          type="button"
-                          onClick={() => removePollOption(i)}
-                          aria-label="Remove option"
-                          className="min-h-[44px] min-w-[44px] flex items-center justify-center text-destructive hover:bg-destructive/10 rounded shrink-0"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  {pollOptions.length < 4 && (
-                    <button
-                      type="button"
-                      onClick={addPollOption}
-                      className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm text-text-secondary hover:bg-bg-muted transition-colors"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <Text size="sm">Add option</Text>
-                    </button>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Text size="sm" fontWeight="medium">End date (optional)</Text>
-                  <div className="flex gap-2 flex-wrap">
-                    {[
-                      { label: "1h", hours: 1 },
-                      { label: "6h", hours: 6 },
-                      { label: "1d", hours: 24 },
-                      { label: "3d", hours: 72 },
-                      { label: "1w", hours: 168 },
-                    ].map((preset) => {
-                      const presetTime = new Date(Date.now() + preset.hours * 60 * 60 * 1000);
-                      const pad = (n: number) => String(n).padStart(2, '0');
-                      const value = `${presetTime.getFullYear()}-${pad(presetTime.getMonth() + 1)}-${pad(presetTime.getDate())}T${pad(presetTime.getHours())}:${pad(presetTime.getMinutes())}`;
-                      const isActive = pollEndDate === value;
-                      return (
-                        <button
-                          key={preset.label}
-                          type="button"
-                          onClick={() => onPollEndDateChange(isActive ? "" : value)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors min-h-[36px] ${
-                            isActive
-                              ? "bg-primary text-white"
-                              : "bg-bg-elevated hover:bg-bg-muted text-text-secondary"
-                          }`}
-                        >
-                          {preset.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="datetime-local"
-                      value={pollEndDate}
-                      onChange={(e) => onPollEndDateChange(e.target.value)}
-                      min={getPollMinDate()}
-                      className="max-w-xs"
-                      aria-label="Custom end date"
-                    />
-                    <Text size="2" theme="muted">Custom</Text>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {categories.length > 0 && (
               <div className="space-y-2">
                 <Text size="sm" fontWeight="medium">Category (optional)</Text>
@@ -715,12 +414,40 @@ export function PostComposer({
               </div>
             )}
           </div>
+          </div>
+          
+
+          
+
+          
+        
 
           {error && (
             <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md" role="alert">
               <Text size="sm" theme="error">{error}</Text>
             </div>
           )}
+
+          <div ref={postTypeBarRef} className="flex gap-2 pb-3 overflow-x-auto scroll-fade-right" role="radiogroup" aria-label="Post type">
+            {POST_TYPES.map((type) => (
+              <button
+                key={type.value}
+                type="button"
+                onClick={() => onPostTypeChange(type.value)}
+                role="radio"
+                aria-checked={postType === type.value}
+                aria-label={`Create ${type.label.toLowerCase()} post`}
+                className={`px-4 py-2.5 min-h-[44px] rounded-lg transition-colors flex items-center gap-1 shrink-0 ${
+                  postType === type.value
+                    ? "bg-primary text-white"
+                    : "bg-bg-elevated hover:bg-bg-muted"
+                }`}
+              >
+                {type.icon}
+                <Text size="sm">{type.label}</Text>
+              </button>
+            ))}
+          </div>
 
           <div className="flex justify-between pt-2">
             <Button

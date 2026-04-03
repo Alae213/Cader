@@ -6,6 +6,7 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { TopBar } from "./TopBar";
 import { TabNav, getInitialTab } from "./TabNav";
+import { FREE_MEMBER_LIMIT } from "@/lib/constants";
 
 // Tab content components
 import { AboutTab } from "@/components/community/AboutTab";
@@ -25,6 +26,7 @@ interface Community {
   thumbnailUrl?: string;
   memberCount: number;
   isVerified: boolean;
+  platformTier?: "free" | "subscribed";
 }
 
 interface CommunityShellProps {
@@ -78,6 +80,7 @@ export function CommunityShell({
   const [showProfilePanel, setShowProfilePanel] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showExploreModal, setShowExploreModal] = useState(false);
+  const [settingsInitialSection, setSettingsInitialSection] = useState<"account" | "billing">("account");
   
   // Client-side tab state
   const [activeTab, setActiveTab] = useState<string>(() => 
@@ -101,6 +104,13 @@ export function CommunityShell({
     setShowSettingsModal(true);
   };
 
+  // Handle upgrade click - open settings modal directly to billing section
+  const handleUpgradeClick = () => {
+    setSettingsInitialSection("billing");
+    setShowProfilePanel(false);
+    setShowSettingsModal(true);
+  };
+
   // Prepare community for TopBar (current community)
   const currentCommunity = {
     id: community.id,
@@ -116,6 +126,14 @@ export function CommunityShell({
     slug: c.slug,
     thumbnailUrl: c.imageUrl || c.thumbnailUrl
   }));
+
+  // Compute subscription data for the current community
+  const isSubscribed = community.platformTier === "subscribed";
+  const subscription = {
+    plan: isSubscribed ? "subscribed" as const : "free" as const,
+    usedLimit: community.memberCount,
+    totalLimit: isSubscribed ? undefined : FREE_MEMBER_LIMIT,
+  };
 
   // Render tab content based on active tab
   const renderTabContent = () => {
@@ -166,6 +184,9 @@ export function CommunityShell({
           onLogout={() => {
             window.location.href = "/";
           }}
+          onUpgradeClick={handleUpgradeClick}
+          subscription={subscription}
+          isOwner={isOwner}
         />
 
         {/* Tab Navigation - desktop only (inside glass container) */}
@@ -232,6 +253,7 @@ export function CommunityShell({
         open={showSettingsModal}
         onOpenChange={setShowSettingsModal}
         communitySlug={community.slug}
+        initialSection={settingsInitialSection}
       />
 
       {/* Explore Modal */}

@@ -37,6 +37,13 @@ interface TopBarProps {
   onProfileClick?: () => void;
   onSettingsClick?: () => void;
   onLogout?: () => void;
+  onUpgradeClick?: () => void;
+  subscription?: {
+    plan: "free" | "subscribed";
+    usedLimit?: number;
+    totalLimit?: number;
+  };
+  isOwner?: boolean;
 }
 
 export function TopBar({ 
@@ -47,7 +54,10 @@ export function TopBar({
   onExploreCommunities,
   onProfileClick,
   onSettingsClick,
-  onLogout
+  onLogout,
+  onUpgradeClick,
+  subscription,
+  isOwner = false
 }: TopBarProps) {
   const router = useRouter();
   const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
@@ -131,7 +141,8 @@ export function TopBar({
               xmlns="http://www.w3.org/2000/svg"
               className="flex-shrink-0"
             >
-              <path d="M15.9502 2.68053C15.95 1.97316 15.669 1.29482 15.1688 0.794634C14.6686 0.294447 13.9902 0.0133573 13.2829 0.0131584C11.9891 3.34419e-05 10.9204 0.924408 10.6552 2.13903H10.5892C10.4662 1.53766 10.1397 0.997068 9.66463 0.60835C9.18957 0.219633 8.59504 0.00655129 7.98121 0.0050099C7.36739 0.00346851 6.77179 0.213562 6.29479 0.599888C5.81778 0.986215 5.48852 1.52516 5.36249 2.12591H5.29649C5.19833 1.65187 4.97337 1.21336 4.64561 0.857102C4.31785 0.500846 3.89957 0.2402 3.43534 0.102946C2.97111 -0.034308 2.47834 -0.0430266 2.00955 0.0777195C1.54076 0.198466 1.11351 0.444151 0.773352 0.78859C0.433193 1.13303 0.192869 1.56331 0.0779936 2.03358C-0.0368817 2.50384 -0.0220025 2.99647 0.121045 3.45894C0.264093 3.92142 0.529948 4.33641 0.890275 4.65969C1.2506 4.98297 1.69189 5.20243 2.16712 5.29466V5.34753C1.55751 5.46642 1.00821 5.79356 0.613293 6.27293C0.218378 6.7523 0.00242551 7.35407 0.00242551 7.97516C0.00242551 8.59625 0.218378 9.19802 0.613293 9.67739C1.00821 10.1568 1.55751 10.4839 2.16712 10.6028V10.6553C1.69141 10.7457 1.24922 10.9637 0.887841 11.286C0.526461 11.6083 0.259487 12.0227 0.115472 12.485C-0.0285422 12.9473 -0.0441795 13.4401 0.0702328 13.9106C0.184645 14.3811 0.424803 14.8117 0.765021 15.1562C1.10524 15.5008 1.53272 15.7464 2.00174 15.8667C2.47076 15.9871 2.96368 15.9777 3.42777 15.8396C3.89187 15.7014 4.30968 15.4397 4.63653 15.0825C4.96338 14.7252 5.18696 14.2858 5.28337 13.8113H5.34937C5.60024 15.0259 6.68287 15.9488 7.96387 15.9488C8.58005 15.9516 9.178 15.7398 9.65503 15.3498C10.1321 14.9597 10.4584 14.4158 10.578 13.8113H10.644C10.8949 15.0259 11.9775 15.9488 13.2585 15.9488C13.9224 15.9472 14.5619 15.6985 15.0525 15.2512C15.5431 14.8039 15.8495 14.1899 15.9122 13.529C15.9748 12.868 15.7891 12.2074 15.3913 11.6759C14.9935 11.1444 14.412 10.78 13.7602 10.6538V10.6013C14.3699 10.4824 14.9192 10.1553 15.3141 9.67589C15.709 9.19652 15.9249 8.59475 15.9249 7.97366C15.9249 7.35257 15.709 6.7508 15.3141 6.27143C14.9192 5.79206 14.3699 5.13148 13.7602 4.6013V4.5488C14.3699 4.42991 14.9192 4.10277 15.3141 3.6234C15.709 3.14403 15.9249 2.54226 15.9249 1.92117C15.9249 1.30008 15.709 0.698307 15.3141 0.218938C14.9192 -0.260431 14.3699 -0.587569 13.7602 -0.70646C13.1506 -0.825351 12.5179 -0.70646 11.9903 -0.345905C11.4627 0.0146506 11.1192 0.594021 11.0359 1.23513C10.9526 1.87624 11.1365 2.51735 11.5435 3.01672C11.9505 3.51609 12.5441 3.83665 13.1959 3.91996V3.97243C12.5863 4.09132 12.037 4.41846 11.6421 4.89783C11.2472 5.3772 11.0312 5.97897 11.0312 6.60006C11.0312 7.22115 11.2472 7.82292 11.6421 8.30229C12.037 8.78166 12.5863 9.1088 13.1959 9.22769V9.28016C12.5863 9.39905 12.037 9.72619 11.6421 10.2056C11.2472 10.6849 11.0312 11.2867 11.0312 11.9078C11.0312 12.5289 11.2472 13.1306 11.6421 13.61C12.037 14.0894 12.5863 14.4165 13.1959 14.5354C13.8055 14.6543 14.4382 14.5354 14.9658 14.1748C15.4934 13.8143 15.8369 13.2349 15.9202 12.5938C16.0035 11.9527 15.8196 11.3116 15.4126 10.8122C15.0056 10.3128 14.412 9.99227 13.7602 9.90896V9.85649C14.3699 9.7376 14.9192 9.41046 15.3141 8.93109C15.709 8.45172 15.9249 7.85 15.9249 7.22891C15.9249 6.60782 15.709 6.00605 15.3141 5.52668C14.9192 5.04731 14.3699 4.72017 13.7602 4.6013V4.5488C14.3699 4.42991 14.9192 4.10277 15.3141 3.6234C15.709 3.14403 15.9249 2.54226 15.9249 1.92117C15.9249 1.30008 15.709 0.698307 15.3141 0.218938C14.9192 -0.260431 14.3699 -0.587569 13.7602 -0.70646C13.1506 -0.825351 12.5179 -0.70646 11.9903 -0.345905C11.4627 0.0146506 11.1192 0.594021 11.0359 1.23513C10.9526 1.87624 11.1365 2.51735 11.5435 3.01672C11.9505 3.51609 12.5441 3.83665 13.1959 3.91996" fill="currentColor"/>
+                            <path d="M15.9502 2.68053C15.95 1.97316 15.669 1.29482 15.1688 0.794634C14.6686 0.294447 13.9902 0.0133573 13.2829 0.0131584C11.9891 3.34419e-05 10.9204 0.924408 10.6552 2.13903H10.5892C10.4662 1.53766 10.1397 0.997068 9.66463 0.60835C9.18957 0.219633 8.59504 0.00655129 7.98121 0.0050099C7.36739 0.00346851 6.77179 0.213562 6.29479 0.599888C5.81778 0.986215 5.48852 1.52516 5.36249 2.12591H5.29649C5.19833 1.65187 4.97337 1.21336 4.64561 0.857102C4.31785 0.500846 3.89957 0.2402 3.43534 0.102946C2.97111 -0.034308 2.47834 -0.0430266 2.00955 0.0777195C1.54076 0.198466 1.11351 0.444151 0.773352 0.78859C0.433193 1.13303 0.192869 1.56331 0.0779936 2.03358C-0.0368817 2.50384 -0.0220025 2.99647 0.121045 3.45894C0.264093 3.92142 0.529948 4.33641 0.890275 4.65969C1.2506 4.98297 1.69189 5.20243 2.16712 5.29466V5.34753C1.55751 5.46642 1.00821 5.79356 0.613293 6.27293C0.218378 6.7523 0.00242551 7.35407 0.00242551 7.97516C0.00242551 8.59625 0.218378 9.19802 0.613293 9.67739C1.00821 10.1568 1.55751 10.4839 2.16712 10.6028V10.6553C1.69141 10.7457 1.24922 10.9637 0.887841 11.286C0.526461 11.6083 0.259487 12.0227 0.115472 12.485C-0.0285422 12.9473 -0.0441795 13.4401 0.0702328 13.9106C0.184645 14.3811 0.424803 14.8117 0.765021 15.1562C1.10524 15.5008 1.53272 15.7464 2.00174 15.8667C2.47076 15.9871 2.96368 15.9777 3.42777 15.8396C3.89187 15.7014 4.30968 15.4397 4.63653 15.0825C4.96338 14.7252 5.18696 14.2858 5.28337 13.8113H5.34937C5.60024 15.0259 6.68287 15.9488 7.96387 15.9488C8.58005 15.9516 9.178 15.7398 9.65503 15.3498C10.1321 14.9597 10.4584 14.4158 10.578 13.8113H10.644C10.8949 15.0259 11.9775 15.9488 13.2585 15.9488C13.9224 15.9472 14.5619 15.6985 15.0525 15.2512C15.5431 14.8039 15.8495 14.1899 15.9122 13.529C15.9748 12.868 15.7891 12.2074 15.3913 11.6759C14.9935 11.1444 14.412 10.78 13.7602 10.6538V10.6013C14.3699 10.4824 14.9192 10.1553 15.3141 9.67589C15.709 9.19652 15.9249 8.59475 15.9249 7.97366C15.9249 7.35257 15.709 6.7508 15.3141 6.27143C14.9192 5.79206 14.3699 5.46492 13.7602 5.34603V5.29316C14.3743 5.1849 14.9305 4.86358 15.3311 4.38572C15.7317 3.90786 15.9509 3.30407 15.9502 2.68053ZM12.2662 11.6457C12.2664 11.7272 12.2504 11.808 12.2193 11.8833C12.1882 11.9587 12.1425 12.0272 12.0848 12.0848C12.0271 12.1425 11.9587 12.1882 11.8833 12.2193C11.8079 12.2505 11.7272 12.2664 11.6456 12.2663H4.31774C4.2362 12.2664 4.15543 12.2505 4.08007 12.2193C4.0047 12.1882 3.93623 12.1425 3.87857 12.0848C3.82091 12.0272 3.7752 11.9587 3.74406 11.8833C3.71292 11.808 3.69697 11.7272 3.69712 11.6457V4.31778C3.69697 4.23624 3.71292 4.15547 3.74406 4.0801C3.7752 4.00474 3.82091 3.93626 3.87857 3.8786C3.93623 3.82094 4.0047 3.77524 4.08007 3.7441C4.15543 3.71296 4.2362 3.69701 11.6456 3.69716H11.6456C11.7272 3.69701 11.8079 3.71296 11.8833 3.7441C11.9587 3.77524 12.0271 3.82094 12.0848 3.8786C12.1425 3.93626 12.1882 4.00474 12.2193 4.0801C12.2504 4.15547 12.2664 4.23624 12.2662 4.31778V11.6457Z" fill="currentColor"/>
+
             </svg>
           </Link>
           
@@ -174,19 +185,65 @@ export function TopBar({
 
         {/* Right section */}
         <div className="flex items-center gap-2">
-          {/* Avatar with dropdown menu */}
+          {/* Member count - only for free plan owners (not subscribed) */}
+          {subscription && isOwner && subscription.plan === "free" && subscription.usedLimit !== undefined && subscription.totalLimit !== undefined && (
+            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${
+              subscription.usedLimit >= subscription.totalLimit
+                ? "bg-red-500/10 text-red-500"
+                : "bg-white/5 text-text-primary"
+            }`}>
+              {subscription.usedLimit}/{subscription.totalLimit}
+            </span>
+          )}
+          {/* Upgrade button - only for locked free plan owners */}
+          {subscription && isOwner && subscription.plan === "free" && subscription.usedLimit !== undefined && subscription.totalLimit !== undefined && subscription.usedLimit >= subscription.totalLimit && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onUpgradeClick?.();
+              }}
+              className="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-medium bg-blue-500 hover:bg-blue-600 text-white transition-colors"
+            >
+              Upgrade
+            </button>
+          )}
+          {/* Avatar with subscription ring */}
           {user ? (
             <div className="relative">
               <button
                 ref={triggerRef}
                 aria-label={`User menu for ${user.name || 'account'}`}
-                className="cursor-pointer flex items-center gap-2 rounded-full p-1 hover:bg-bg-elevated transition-colors"
+                className="cursor-pointer flex items-center gap-2 rounded-full transition-colors"
                 onClick={(e) => {
                   e.stopPropagation();
                   handleToggle();
                 }}
               >
-                <Avatar src={user.image} alt={user.name || "User"} size="md" />
+                <div className="relative">
+                  <Avatar src={user.image} alt={user.name || "User"} size="md" />
+                  {/* Subscription ring around avatar - only for owners */}
+                  {subscription && isOwner && (
+                    <div className={`absolute inset-0 rounded-full ring-2 ring-offset-1 ring-offset-transparent ${
+                      subscription.plan === "subscribed"
+                        ? "ring-blue-500"
+                        : subscription.usedLimit !== undefined && subscription.totalLimit !== undefined && subscription.usedLimit >= subscription.totalLimit
+                          ? "ring-red-500"
+                          : "ring-bg-elevated"
+                    }`} />
+                  )}
+                  {/* Bottom-right label - only for owners */}
+                  {subscription && isOwner && (
+                    <div className={`absolute -bottom-2.5 -right-1 px-2 py-0 rounded-[6px] text-[12px] font-display ${
+                      subscription.plan === "subscribed"
+                        ? "bg-blue-500 text-white"
+                        : subscription.usedLimit !== undefined && subscription.totalLimit !== undefined && subscription.usedLimit >= subscription.totalLimit
+                          ? "bg-red-500/10 text-red-500"
+                          : "bg-bg-elevated text-white/90"
+                    }`}>
+                      {subscription.plan === "subscribed" ? "∞" : subscription.usedLimit !== undefined && subscription.totalLimit !== undefined && subscription.usedLimit >= subscription.totalLimit ? "🔒" : "Free"}
+                    </div>
+                  )}
+                </div>
               </button>
               
               {/* Logout Dialog */}
@@ -252,10 +309,11 @@ export function TopBar({
           onSelect={() => {
             setIsUserMenuOpen(false);
             onProfileClick?.();
-          }}
+           }}
         />
+        
         <MenuItem
-          index={1}
+          index={2}
           icon={Settings}
           label="Settings"
           onSelect={() => {
@@ -263,9 +321,14 @@ export function TopBar({
             onSettingsClick?.();
           }}
         />
-       
+         <hr className="h-px w-full border-0 rounded-full "
+                      style={{
+                        background: "rgba(242, 242, 242, 0.15)",
+                        boxShadow: "0 1px 0 0 rgba(0, 0, 0, 0.70)",
+                      }}/>
+        
         <MenuItem
-          index={2}
+          index={3}
           icon={HelpCircle}
           label="Help"
           onSelect={() => {
@@ -273,9 +336,14 @@ export function TopBar({
             router.push("/help");
           }}
         />
-       
+         <hr className="h-px w-full border-0 rounded-full "
+                      style={{
+                        background: "rgba(242, 242, 242, 0.15)",
+                        boxShadow: "0 1px 0 0 rgba(0, 0, 0, 0.70)",
+                      }}/>
+        
         <MenuItem
-          index={3}
+          index={4}
           icon={LogOut}
           label="Logout"
           destructive
