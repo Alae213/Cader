@@ -90,7 +90,7 @@ export function LinkInputs({ links = [], isOwner, onSave }: LinkInputsProps) {
             className="flex items-center gap-2 text-sm text-accent hover:underline"
           >
             <LinkIcon className="w-3 h-3" />
-            <Text size="2">Link {index + 1}</Text>
+            <Text size="2">{link}</Text>
           </a>
         ))}
       </div>
@@ -123,7 +123,7 @@ export function LinkInputs({ links = [], isOwner, onSave }: LinkInputsProps) {
               <span className="truncate">{link.trim() || `Link ${index + 1}`}</span>
             </button>
           )}
-          {inputValues.length > 1 && (
+          {inputValues.length > 0 && (
             <Button
               variant="ghost"
               size="sm"

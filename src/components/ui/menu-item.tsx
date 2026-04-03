@@ -57,14 +57,14 @@ const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
           }
         }}
         className={cn(
-          `relative z-10 flex items-center gap-2 ${shape.item} px-3 py-2.5 cursor-pointer outline-none transition-all duration-200`,
+          `relative z-10 flex items-center gap-2  rounded-[10px] py-1.5 pl-2 pr-8 cursor-pointer outline-none transition-all duration-200`,
           destructive
-            ? "text-red-11"
-            : "text-text-secondary",
-          isActive && !destructive && "bg-bg-elevated text-text-primary",
-          checked && !destructive && "bg-accent-subtle text-text-primary",
-          isActive && destructive && "bg-red-3/50",
-          checked && destructive && "bg-red-3/50",
+            ? "text-error"
+            : "text-text-primary",
+          isActive && !destructive && "bg-white/10 text-text-primary",
+          checked && !destructive && "bg-white/10 text-text-primary",
+          isActive && destructive && "bg-error/10",
+          checked && destructive && "bg-error/10",
           className
         )}
         {...props}
@@ -80,15 +80,15 @@ const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
               "col-start-1 row-start-1 transition-[color,stroke-width] duration-200",
               destructive
                 ? isActive || checked
-                  ? "text-red-12"
-                  : "text-red-10"
+                  ? "text-error"
+                  : "text-error"
                 : isActive || checked
                   ? "text-text-primary"
                   : "text-text-muted"
             )}
           />
         </span>
-        <span className="inline-grid flex-1 text-[13px]">
+        <span className="inline-grid flex-1 text-base">
           <span
             className="col-start-1 row-start-1 invisible"
             style={{ fontVariationSettings: fontWeights.semibold }}
@@ -98,11 +98,11 @@ const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
           </span>
           <span
             className={cn(
-              "col-start-1 row-start-1 transition-[color,font-variation-settings] duration-200 text-sm",
+              "col-start-1 row-start-1 transition-[color,font-variation-settings] duration-200 text-base",
               destructive
                 ? isActive || checked
-                  ? "text-red-12"
-                  : "text-red-11"
+                  ? "text-error"
+                  : "text-error"
                 : isActive || checked
                   ? "text-text-primary"
                   : "text-text-secondary"

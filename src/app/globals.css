@@ -307,3 +307,50 @@ body {
   outline-offset: 2px;
 }
 
+/* ============================================
+   COMPOSER ANIMATIONS
+   ============================================ */
+@keyframes composerExpand {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============================================
+   POST TYPE SCROLL AFFORDANCE
+   ============================================ */
+.scroll-fade-right {
+  position: relative;
+}
+.scroll-fade-right::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 24px;
+  background: linear-gradient(to right, transparent, var(--bg-elevated));
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+.scroll-fade-right.has-overflow::after {
+  opacity: 1;
+}
+

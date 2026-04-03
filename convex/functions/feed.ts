@@ -92,6 +92,7 @@ export const listPosts = query({
             _id: author._id,
             clerkId: author.clerkId,
             displayName: author.displayName,
+            username: author.username,
             avatarUrl: author.avatarUrl,
           } : null,
           category: category ? {
@@ -383,6 +384,7 @@ export const listComments = query({
           author: author ? {
             _id: author._id,
             displayName: author.displayName,
+            username: author.username,
             avatarUrl: author.avatarUrl,
           } : null,
           hasUpvoted,
@@ -439,6 +441,7 @@ export const listComments = query({
               author: author ? {
                 _id: author._id,
                 displayName: author.displayName,
+                username: author.username,
                 avatarUrl: author.avatarUrl,
               } : null,
               hasUpvoted,

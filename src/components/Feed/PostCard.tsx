@@ -28,6 +28,7 @@ interface PostCardProps {
       _id: string;
       clerkId?: string;
       displayName: string;
+      username?: string | null;
       avatarUrl?: string | null;
     } | null;
     category?: {
@@ -339,7 +340,7 @@ export function PostCard({ post, communityId, currentUserId, isAdmin = false, is
               size="lg"
             />
           </button>
-          <div className="flex flex-col">
+            <div className="flex flex-col">
             <div className="flex items-center gap-2">
               <button
                 onClick={() => post.author?.clerkId && onAuthorClick?.(post.author.clerkId)}
@@ -348,6 +349,9 @@ export function PostCard({ post, communityId, currentUserId, isAdmin = false, is
               >
                 <Text fontWeight="semibold">{post.author?.displayName || "User"}</Text>
               </button>
+              {post.author?.username && (
+                <Text size="sm" theme="muted">@{post.author.username}</Text>
+              )}
               {authorLevel && authorLevel > 1 && (
                 <LevelBadge level={authorLevel} />
               )}

@@ -327,7 +327,7 @@ function TabsContent({
       inert={!isActive}
       style={{ overflow: 'hidden', ...style }}
       initial={{ filter: 'blur(0px)' }}
-      animate={{ filter: isActive ? 'blur(0px)' : 'blur(4px)' }}
+      animate={{ filter: isActive ? 'blur(0px)' : 'blur(12px)' }}
       exit={{ filter: 'blur(0px)' }}
       transition={{ type: 'spring', stiffness: 100, damping: 25 }}
       {...props}

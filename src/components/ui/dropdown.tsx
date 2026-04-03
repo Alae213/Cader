@@ -113,7 +113,7 @@ const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
           }}
           role="menu"
           className={cn(
-            `relative flex flex-col gap-0.5 w-72 max-w-full ${shape.container} bg-bg-base p-1 select-none`,
+            `relative flex flex-col gap-0.5 w-72 max-w-full rounded-[14px] shadow-[0_0px_0.5px_0.8px_rgba(255,255,255,0.12)] bg-bg-surface/80 backdrop-blur-[50px] p-1 select-none`,
             className
           )}
           {...props}
@@ -122,7 +122,7 @@ const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
           <AnimatePresence>
             {checkedRect && (
               <motion.div
-                className={`absolute ${shape.bg} bg-selected/50 dark:bg-accent/40 pointer-events-none`}
+                className={`absolute ${shape.bg} pointer-events-none`}
                 initial={false}
                 animate={{
                   top: checkedRect.top,
@@ -175,7 +175,7 @@ const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
           <AnimatePresence>
             {focusRect && (
               <motion.div
-                className={`absolute ${shape.focusRing} pointer-events-none z-20 bg-accent/20`}
+                className={`absolute ${shape.focusRing} pointer-events-none z-20`}
                 initial={false}
                 animate={{
                   left: focusRect.left,
@@ -210,7 +210,7 @@ const DropdownLabel = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>
     <div
       ref={ref}
       className={cn(
-        "px-3 py-2 text-[11px] font-medium text-text-muted uppercase tracking-wider",
+        "px-4 py-2 text-base text-text-primary",
         className
       )}
       {...props}
@@ -231,7 +231,7 @@ const DropdownSeparator = forwardRef<
   <div
     ref={ref}
     role="separator"
-    className={cn("my-2 -mx-2 h-px bg-bg-elevated", className)}
+    className={cn("my-2 -mx-2 h-px bg-white/10", className)}
     {...props}
   />
 ));

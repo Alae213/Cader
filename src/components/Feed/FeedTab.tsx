@@ -9,7 +9,7 @@ import { Id } from "../../../convex/_generated/dataModel";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useFeedData, Post } from "@/hooks/useFeedData";
 import { useImageUpload } from "@/hooks/useImageUpload";
-import { useDraftPersistence } from "@/hooks/useDraftPersistence";
+import { useComposerState } from "@/hooks/useComposerState";
 import { usePresenceHeartbeat } from "@/hooks/usePresenceHeartbeat";
 import { PostComposer } from "./PostComposer";
 import { FeedFilters } from "./FeedFilters";
@@ -137,20 +137,13 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
     setSelectedSort,
   } = useFeedData(communityId);
 
-  // --- Composer state ---
-  const [, setComposerOpen] = useState(false);
-  const [composerExpanded, setComposerExpanded] = useState(false);
-  const [postType, setPostType] = useState<"text" | "image" | "video" | "gif" | "poll">("text");
-  const [content, setContent] = useState("");
-  const [composerCategoryId, setComposerCategoryId] = useState("");
-  const [videoUrl, setVideoUrl] = useState("");
-  const [gifUrl, setGifUrl] = useState("");
-  const [pollQuestion, setPollQuestion] = useState("");
-  const [pollOptions, setPollOptions] = useState(["", ""]);
-  const [pollEndDate, setPollEndDate] = useState("");
-  const [composerError, setComposerError] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const composerRef = useRef<HTMLDivElement>(null);
+  // --- Composer state (consolidated) ---
+  const composer = useComposerState({
+    communityId,
+    onResetImages: () => {
+      // Image URLs are managed by useImageUpload hook — reset handled separately
+    },
+  });
 
   // --- Image upload ---
   const {
@@ -158,43 +151,15 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
     isUploadingImages,
     uploadProgress,
     fadingImages,
+    isDragOver,
     imageInputRef,
     handleImageSelect,
+    handleDragOver,
+    handleDragLeave,
+    handleDrop,
+    handlePaste,
     removeImage,
   } = useImageUpload();
-
-  // --- Draft persistence ---
-  const { restoreDraft, saveDraft } = useDraftPersistence(communityId, composerExpanded);
-
-  // Restore draft on mount
-  useEffect(() => {
-    restoreDraft({
-      setPostType,
-      setContent,
-      setComposerCategoryId,
-      setImageUrls: () => {},
-      setVideoUrl,
-      setGifUrl,
-      setPollQuestion,
-      setPollOptions,
-      setPollEndDate,
-    });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Save draft on state change
-  useEffect(() => {
-    saveDraft({
-      postType,
-      content,
-      composerCategoryId,
-      imageUrls,
-      videoUrl,
-      gifUrl,
-      pollQuestion,
-      pollOptions,
-      pollEndDate,
-    });
-  }, [postType, content, composerCategoryId, imageUrls, videoUrl, gifUrl, pollQuestion, pollOptions, pollEndDate, saveDraft]);
 
   // --- Modal state ---
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -214,46 +179,30 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
   const createPost = useMutation(api.functions.feed.createPost);
   const updateCommunity = useMutation(api.functions.communities.updateCommunity);
 
-  // --- Composer actions ---
-  const resetComposer = useCallback(() => {
-    setContent("");
-    setComposerCategoryId("");
-    setVideoUrl("");
-    setGifUrl("");
-    setPollQuestion("");
-    setPollOptions(["", ""]);
-    setPollEndDate("");
-    setPostType("text");
-    setComposerError("");
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem(`feed-draft-${communityId}`);
-    }
-  }, [communityId]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const composerRef = useRef<HTMLDivElement>(null);
 
+  // --- Composer actions ---
   const handleCloseComposer = useCallback(() => {
-    setComposerExpanded(false);
-    setComposerOpen(false);
-    resetComposer();
-  }, [resetComposer]);
+    composer.close();
+  }, [composer]);
 
   const handleExpandComposer = useCallback(() => {
-    setComposerOpen(true);
-    setComposerExpanded(true);
-  }, []);
+    composer.expand();
+  }, [composer]);
 
   // Click-outside handler for composer
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (composerRef.current && !composerRef.current.contains(event.target as Node)) {
-        if (composerExpanded) {
-          setComposerExpanded(false);
-          setComposerOpen(false);
+        if (composer.expanded) {
+          composer.close();
         }
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [composerExpanded]);
+  }, [composer]);
 
   // Submit handler
   const handleComposerSubmit = useCallback(async (data: {
@@ -270,7 +219,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
     if (!userId || !isMember) return;
 
     setIsSubmitting(true);
-    setComposerError("");
+    composer.setError("");
 
     try {
       const postData: Parameters<typeof createPost>[0] = {
@@ -304,23 +253,23 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
       if (err instanceof Error) {
         const msg = err.message.toLowerCase();
         if (msg.includes("network") || msg.includes("fetch") || msg.includes("connection")) {
-          setComposerError("Network error. Check your connection and try again.");
+          composer.setError("Network error. Check your connection and try again.");
         } else if (msg.includes("must be signed in") || msg.includes("unauthorized")) {
-          setComposerError("Please sign in to post.");
+          composer.setError("Please sign in to post.");
         } else if (msg.includes("member")) {
-          setComposerError("You must be a member of this community to post.");
+          composer.setError("You must be a member of this community to post.");
         } else if (msg.includes("onboarding")) {
-          setComposerError("Please complete your profile setup first.");
+          composer.setError("Please complete your profile setup first.");
         } else {
-          setComposerError(err.message);
+          composer.setError(err.message);
         }
       } else {
-        setComposerError("Something went wrong. Please try again.");
+        composer.setError("Something went wrong. Please try again.");
       }
     } finally {
       setIsSubmitting(false);
     }
-  }, [userId, isMember, communityIdTyped, createPost, handleCloseComposer]);
+  }, [userId, isMember, communityIdTyped, createPost, handleCloseComposer, composer]);
 
   // --- Loading skeleton ---
   if (status === "LoadingFirstPage") {
@@ -342,20 +291,26 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
   return (
     <div className="flex flex-col lg:flex-row gap-4">
       {/* Left Column - Full Width */}
-      <div className="flex-1">
+      <div className="flex-1 flex flex-col gap-4">
         {/* Post Composer */}
         <div ref={composerRef}>
           <PostComposer
-            user={user}
+            user={user ? {
+              imageUrl: user.imageUrl,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              username: user.username,
+              fullName: user.fullName,
+            } : undefined}
             isMember={isMember}
             categories={categories}
-            composerExpanded={composerExpanded}
+            composerExpanded={composer.expanded}
             onExpand={handleExpandComposer}
             onClose={handleCloseComposer}
             onSubmit={handleComposerSubmit}
             isLoading={isSubmitting}
-            error={composerError}
-            onErrorChange={setComposerError}
+            error={composer.error}
+            onErrorChange={composer.setError}
             imageUrls={imageUrls}
             isUploadingImages={isUploadingImages}
             uploadProgress={uploadProgress}
@@ -363,22 +318,27 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
             imageInputRef={imageInputRef}
             onImageSelect={handleImageSelect}
             onRemoveImage={removeImage}
-            postType={postType}
-            onPostTypeChange={setPostType}
-            content={content}
-            onContentChange={setContent}
-            composerCategoryId={composerCategoryId}
-            onCategoryIdChange={setComposerCategoryId}
-            videoUrl={videoUrl}
-            onVideoUrlChange={setVideoUrl}
-            gifUrl={gifUrl}
-            onGifUrlChange={setGifUrl}
-            pollQuestion={pollQuestion}
-            onPollQuestionChange={setPollQuestion}
-            pollOptions={pollOptions}
-            onPollOptionsChange={setPollOptions}
-            pollEndDate={pollEndDate}
-            onPollEndDateChange={setPollEndDate}
+            isDragOver={isDragOver}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            onPaste={handlePaste}
+            postType={composer.postType}
+            onPostTypeChange={composer.setPostType}
+            content={composer.content}
+            onContentChange={composer.setContent}
+            composerCategoryId={composer.categoryId}
+            onCategoryIdChange={composer.setCategoryId}
+            videoUrl={composer.videoUrl}
+            onVideoUrlChange={composer.setVideoUrl}
+            gifUrl={composer.gifUrl}
+            onGifUrlChange={composer.setGifUrl}
+            pollQuestion={composer.pollQuestion}
+            onPollQuestionChange={composer.setPollQuestion}
+            pollOptions={composer.pollOptions}
+            onPollOptionsChange={composer.setPollOptions}
+            pollEndDate={composer.pollEndDate}
+            onPollEndDateChange={composer.setPollEndDate}
             prefersReducedMotion={prefersReducedMotion}
           />
         </div>

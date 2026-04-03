@@ -8,8 +8,6 @@ import { useTabs } from "@/components/animate-ui/primitives/animate/tabs";
 import { cn } from "@/lib/utils";
 import { Text } from "@/components/ui/Text";
 
-const STORAGE_KEY_PREFIX = "cader_tab_";
-
 interface Tab {
   value: string;
   label: string;
@@ -21,6 +19,7 @@ interface TabNavProps {
   isOwner?: boolean;
   isMember?: boolean;
   isAuthenticated?: boolean;
+  isNewCommunity?: boolean; // When true, default to "About" tab for owner
   activeTab: string;
   onTabChange: (tab: string) => void;
   variant?: "desktop" | "mobile" | "both";
@@ -31,25 +30,15 @@ const publicTabs: Tab[] = [
 ];
 
 const memberTabs: Tab[] = [
+  { value: "about", label: "About", icon: Home },
   { value: "community", label: "Community", icon: Home },
   { value: "classrooms", label: "Classrooms", icon: FileText },
   { value: "leaderboard", label: "Leaderboard", icon: Trophy },
-  { value: "about", label: "About", icon: Home },
 ];
 
 const ownerTabs: Tab[] = [
   ...memberTabs,
 ];
-
-// Save tab preference to localStorage
-function saveTabPreference(communitySlug: string, tab: string) {
-  try {
-    const key = `${STORAGE_KEY_PREFIX}${communitySlug}`;
-    localStorage.setItem(key, tab);
-  } catch {
-    // localStorage not available
-  }
-}
 
 // Custom TabsList that contains the underline
 function TabListWithUnderline({ 
@@ -111,19 +100,26 @@ function TabListWithUnderline({
 }
 
 // Custom tab trigger with our styling
+// Allows re-clicking the current tab to trigger refresh
 function TabTrigger({ 
   value, 
   children, 
   className,
-  icon: Icon 
+  icon: Icon,
+  onClick,
 }: { 
   value: string; 
   children: React.ReactNode; 
   className?: string;
   icon: React.ElementType;
+  onClick?: (value: string) => void;
 }) {
   const { activeValue } = useTabs();
   const isActive = activeValue === value;
+  
+  const handleClick = () => {
+    onClick?.(value);
+  };
   
   return (
     <TabsTriggerPrimitive
@@ -132,14 +128,15 @@ function TabTrigger({
         "flex flex-col gap-1 pr-2 py-1 mb-2",
         "text-sm font-medium whitespace-nowrap",
         "transition-colors duration-200 ease-out",
-        "text-text-secondary hover:text-white hover:bg-white/5",
-        "data-[state=active]:text-white data-[state=active]:bg-transparent data-[state=active]:cursor-default",
+        "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-white/6",
+        "data-[state=active]:text-[var(--text-primary)] data-[state=active]:bg-transparent data-[state=active]:cursor-pointer",
         "data-[state=inactive]:cursor-pointer",
         "focus-visible:outline-none focus-visible:ring-0",
-        "rounded-lg",
+        "rounded-lg hover:text-[var(--text-primary)]",
         "sm:flex-row sm:gap-2",
         className
       )}
+      onClick={handleClick}
     >
       {/* Mobile: Icon + Text (vertical), Desktop: Text only */}
       <Icon className="size-4 sm:size-0" />
@@ -152,11 +149,16 @@ export function TabNav({
   communitySlug, 
   isOwner = false,
   isMember = false,
+  isAuthenticated = false,
+  isNewCommunity = false,
   activeTab, 
   onTabChange,
   variant = "both"
 }: TabNavProps) {
-  // Use different tabs based on ownership, membership, and auth status
+  // Hide entirely for users who are not members (regardless of auth status)
+  const shouldHide = !isMember;
+  
+  // Use different tabs based on ownership and membership
   let tabs: Tab[];
   
   if (isOwner) {
@@ -164,14 +166,18 @@ export function TabNav({
   } else if (isMember) {
     tabs = memberTabs;
   } else {
-    // Non-members (authenticated or not) only see About tab
+    // Non-members only see About tab (but TabNav is hidden for them)
     tabs = publicTabs;
   }
 
-  // Handle tab change - save to localStorage and notify parent
+  // Hide entirely for users who are not members
+  if (shouldHide) {
+    return null;
+  }
+
+  // Handle tab change - notify parent (no localStorage saving)
   const handleTabChange = (newTab: string) => {
     onTabChange(newTab);
-    saveTabPreference(communitySlug, newTab);
   };
 
   return (
@@ -192,6 +198,7 @@ export function TabNav({
                     key={tab.value}
                     value={tab.value}
                     icon={tab.icon}
+                    onClick={handleTabChange}
                   >
                     {tab.label}
                   </TabTrigger>
@@ -223,6 +230,7 @@ export function TabNav({
                   <TabsTriggerPrimitive
                     key={tab.value}
                     value={tab.value}
+                    onClick={() => handleTabChange(tab.value)}
                     className={cn(
                       "flex flex-col items-center justify-center gap-1 pr-2 py-2",
                       "text-xs font-medium whitespace-nowrap",
@@ -245,32 +253,23 @@ export function TabNav({
   );
 }
 
-// Helper function to get initial tab from localStorage
-export function getInitialTab(communitySlug: string, isOwner: boolean, isMember: boolean = false): string {
-  const publicTabsList = ["about"];
-  const memberTabsList = ["community", "classrooms", "leaderboard", "about"];
-  const ownerTabsList = [...memberTabsList];
-  
-  let validTabs: string[];
-  
-  if (isOwner) {
-    validTabs = ownerTabsList;
-  } else if (isMember) {
-    validTabs = memberTabsList;
-  } else {
-    // Non-members only see About tab
-    validTabs = publicTabsList;
+// Helper function to get initial tab - supports new community flag
+export function getInitialTab(
+  _communitySlug: string, 
+  isOwner: boolean, 
+  isMember: boolean = false,
+  isNewCommunity: boolean = false
+): string {
+  // If this is a newly created community (owned by user), default to About
+  if (isOwner && isNewCommunity) {
+    return "about";
   }
   
-  try {
-    const key = `${STORAGE_KEY_PREFIX}${communitySlug}`;
-    const stored = localStorage.getItem(key);
-    if (stored && validTabs.includes(stored)) {
-      return stored;
-    }
-  } catch {
-    // localStorage not available
+  // Otherwise, default to community for members/owners
+  if (isOwner || isMember) {
+    return "community";
   }
   
+  // Non-members only see About tab
   return "about";
 }

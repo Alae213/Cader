@@ -527,8 +527,8 @@ export function AboutTab({
             )}
           </CardContent>
         ) : community.description ? (
-          <CardContent className="pt-2">
-            <Text size="2" className="whitespace-pre-wrap">{community.description}</Text>
+          <CardContent className="w-full p-2">
+            <Text size="3" className="text-text-primary" >{community.description}</Text>
           </CardContent>
         ) : null}
 

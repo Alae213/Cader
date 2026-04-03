@@ -6,6 +6,7 @@ export default defineSchema({
   users: defineTable({
     clerkId: v.string(),
     displayName: v.string(),
+    username: v.optional(v.string()),
     email: v.string(),
     avatarUrl: v.optional(v.string()),
     phone: v.optional(v.string()),
@@ -16,7 +17,8 @@ export default defineSchema({
     updatedAt: v.number(),
     deletedAt: v.optional(v.number()),
   }).index("by_clerk_id", ["clerkId"])
-    .index("by_email", ["email"]),
+    .index("by_email", ["email"])
+    .index("by_username", ["username"]),
 
   // Communities - created by users
   communities: defineTable({

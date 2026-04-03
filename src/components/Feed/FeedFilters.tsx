@@ -1,7 +1,15 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { ArrowUpDown, Clock, Heart, MessageCircle, ChevronDown } from "lucide-react";
+import { useRef } from "react";
+import { ArrowUpDown, Clock, Heart, MessageCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/ToggleGroup";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from "@/components/ui/select";
 
 export const SORT_OPTIONS: { value: "newest" | "most_liked" | "most_commented"; label: string; icon: typeof Clock }[] = [
   { value: "newest", label: "Newest first", icon: Clock },
@@ -24,99 +32,61 @@ export function FeedFilters({
   selectedSort,
   setSelectedSort,
 }: FeedFiltersProps) {
-  const [showSortDropdown, setShowSortDropdown] = useState(false);
-  const sortDropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (sortDropdownRef.current && !sortDropdownRef.current.contains(event.target as Node)) {
-        setShowSortDropdown(false);
-      }
-    }
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  const sortTriggerRef = useRef<HTMLButtonElement>(null);
 
   return (
-    <nav className="flex gap-2 mb-4 items-center flex-wrap" aria-label="Feed filters">
-      {/* Category Pills */}
-      <div className="flex gap-2 overflow-x-auto pb-2 flex-1 items-center [mask-image:linear-gradient(to_right,black_calc(100%-1rem),transparent)] [-webkit-mask-image:linear-gradient(to_right,black_calc(100%-1rem),transparent)]" role="group" aria-label="Filter by category">
-        <button
-          onClick={() => setSelectedCategoryId(null)}
-          aria-label="Show all categories"
-          className={`px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors shrink-0 ${
-            selectedCategoryId === null
-              ? "bg-primary text-white"
-              : "bg-bg-elevated text-text-secondary hover:bg-bg-muted"
-          }`}
+    <nav className="w-full flex justify-between items-center flex-wrap" aria-label="Feed filters">
+      {/* Category Pills using ToggleGroup */}
+      <ToggleGroup
+        value={selectedCategoryId ?? ""}
+        onValueChange={(value) => setSelectedCategoryId(value || null)}
+        className="w-fit rounded-[16px]"
+      >
+        <ToggleGroupItem
+          value=""
+          className="whitespace-nowrap rounded-[12px] px-4"
         >
           All
-        </button>
+        </ToggleGroupItem>
         {categories.map((cat) => (
-          <button
+          <ToggleGroupItem
             key={cat._id}
-            onClick={() => setSelectedCategoryId(cat._id)}
-            aria-label={`Filter by ${cat.name}`}
-            className={`px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors flex items-center gap-2 shrink-0 ${
-              selectedCategoryId === cat._id
-                ? "bg-primary text-white"
-                : "bg-bg-elevated text-text-secondary hover:bg-bg-muted"
-            }`}
+            value={cat._id}
+            className="whitespace-nowrap rounded-[12px] flex items-center gap-2 px-4"
           >
-            <span 
-              className="w-2 h-2 rounded-full" 
-              style={{ backgroundColor: cat.color }}
-            />
             {cat.name}
-          </button>
+          </ToggleGroupItem>
         ))}
-      </div>
+      </ToggleGroup>
       
-      {/* Sort Dropdown */}
-      <div className="relative shrink-0" ref={sortDropdownRef}>
-        <button
-          onClick={() => setShowSortDropdown(!showSortDropdown)}
-          aria-expanded={showSortDropdown}
-          aria-haspopup="listbox"
-          className={`px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors flex items-center gap-2 ${
+      {/* Sort Dropdown using Radix Select */}
+      <Select
+        value={selectedSort}
+        onValueChange={(value) => setSelectedSort(value as typeof selectedSort)}
+      >
+        <SelectTrigger
+          ref={sortTriggerRef}
+          className={cn(
+            "w-fit p-3 rounded-[16px] text-sm whitespace-nowrap transition-colors data-[placeholder]:text-inherit [&>span]:hidden [&>svg:last-child]:hidden !bg-transparent",
             selectedSort !== "newest"
-              ? "bg-primary text-white"
-              : "bg-bg-elevated text-text-secondary hover:bg-bg-muted"
-          }`}
+              ? "!bg-bg-accent/5 text-accent"
+              : "hover:!bg-white/5 text-text-secondary"
+          )}
         >
           <ArrowUpDown className="w-4 h-4" />
-          {SORT_OPTIONS.find(o => o.value === selectedSort)?.label}
-          <ChevronDown className="w-3 h-3" />
-        </button>
-        
-        {showSortDropdown && (
-          <div className="absolute right-0 top-full mt-1 z-[100] rounded-lg bg-bg-elevated p-1 max-w-[calc(100vw-2rem)]" role="listbox" aria-label="Sort options">
-            {SORT_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                onClick={() => {
-                  setSelectedSort(option.value);
-                  setShowSortDropdown(false);
-                }}
-                role="option"
-                aria-selected={selectedSort === option.value}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors ${
-                  selectedSort === option.value
-                    ? "bg-primary/10 text-primary"
-                    : "hover:bg-bg-elevated text-text-secondary"
-                }`}
-              >
-                <option.icon className="w-4 h-4" />
-                {option.label}
-                {selectedSort === option.value && (
-                  <span className="ml-auto text-primary">✓</span>
-                )}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+        </SelectTrigger>
+        <SelectContent>
+          {SORT_OPTIONS.map((option) => (
+            <SelectItem
+              key={option.value}
+              value={option.value}
+              className="flex items-center gap-2"
+            >
+              <span>{option.label}</span>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </nav>
   );
 }
