@@ -14,10 +14,10 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-bg-canvas flex flex-col">
       {/* Header */}
-      <header className="border-b border-bg-elevated">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-transparent">
         <div className="mx-auto max-w-6xl p-4 flex items-center justify-between">
           
-          <Link href="/" className="text-2xl font-display text-text-primary flex items-center gap-2">
+          <Link href="/" className="text-2xl font-display text-white flex items-center gap-2">
             <svg 
               width="24" 
               height="24" 
@@ -37,13 +37,25 @@ export default function HomePage() {
       </header>
 
       {/* Hero */}
-      <div className="flex-1 w-full items-center justify-center px-4 py-20">
-        <div className="w-full flex flex-col mx-auto max-w-3xl text-center gap-2">
-          <Heading size="9">
+      <div className="mt-[50px] w-full flex items-center justify-center overflow-hidden">
+        {/* Background Image */}
+        <div className="absolute inset-0 z-0">
+          <img
+            src="/HerosectionBG.png"
+            alt="Hero background"
+            className="w-full h-full object-cover hero-bg-image"
+          />
+          {/* Gradient overlay for better text readability */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/10 to-black/40" />
+        </div>
+
+        {/* Hero Content */}
+        <div className="relative z-10 w-full flex flex-col mx-auto max-w-3xl text-center gap-2 px-4 py-20">
+          <Heading size="9" className="text-white">
             Meet Education Business Again
           </Heading>
           
-          <Text size="4" theme="secondary">
+          <Text size="4" className="text-white/80">
             Build paid courses, and monetize in Algerian Dinars (DZD). 
           </Text>
           
@@ -53,6 +65,8 @@ export default function HomePage() {
                 variant="primary" 
                 size="md"
                 onClick={() => setModalOpen(true)}
+
+                className="w-full sm:w-auto bg-[#111] hover:bg-bg-elevated shadow-none"
               >
                 Create my Community
               </Button>
@@ -66,18 +80,6 @@ export default function HomePage() {
           </div>
         </div>
       </div>
-
-      {/* Footer */}
-      <footer className="border-t border-bg-elevated">
-        <div className="mx-auto max-w-6xl p-4 flex items-center justify-between">
-          <Text size="2" theme="secondary">
-            © 2026 Cader. All rights reserved.
-          </Text>
-          <Link href="/help" className="text-text-secondary hover:text-text-primary transition-colors text-sm">
-            Help
-          </Link>
-        </div>
-      </footer>
 
       {/* Community Creation Modal */}
       <CreateCommunityModal 

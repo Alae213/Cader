@@ -26,6 +26,15 @@ import { CommentsSection } from "./CommentsSection";
 import { CommentInput } from "./CommentInput";
 import { LevelBadge } from "./LevelBadge";
 import { parseContentWithMentions } from "@/lib/mentions";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/Dialog";
+import { Button } from "@/components/ui/Button";
 
 interface PostCardProps {
   post: {
@@ -41,7 +50,6 @@ interface PostCardProps {
     category?: {
       _id: string;
       name: string;
-      color: string;
     } | null;
     content: string;
     contentType: "text" | "image" | "video";
@@ -73,6 +81,7 @@ export function PostCard({ post, communityId, currentUserId, isAdmin = false, is
   const [isUpvoting, setIsUpvoting] = useState(false);
   const [isPinning, setIsPinning] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [localUpvoteCount, setLocalUpvoteCount] = useState(post.upvoteCount ?? 0);
   const [localCommentCount, setLocalCommentCount] = useState(post.commentCount ?? 0);
 
@@ -259,28 +268,27 @@ export function PostCard({ post, communityId, currentUserId, isAdmin = false, is
     }
   };
 
-  // Handle delete with optimistic UI
-  const handleDelete = async () => {
+  // Open delete confirmation dialog
+  const handleDelete = () => {
+    setShowMenu(false);
+    setShowDeleteDialog(true);
+  };
+
+  // Confirm and perform deletion
+  const confirmDelete = async () => {
     if (!userId) {
       toast.error("You must be signed in");
       return;
     }
 
-    if (!confirm("Are you sure you want to delete this post? This cannot be undone.")) {
-      return;
-    }
-
-    // Optimistic update: immediately mark as deleting
-    setShowMenu(false);
+    setShowDeleteDialog(false);
     setIsDeleting(true);
     
-    // Show loading toast
     const loadingToast = toast.loading("Deleting post...");
     
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await deletePost({ postId: post._id as any });
-      // Server confirmed
       toast.success("Post deleted", { id: loadingToast });
       onDeleted?.();
     } catch (error) {
@@ -308,7 +316,7 @@ export function PostCard({ post, communityId, currentUserId, isAdmin = false, is
     <Card 
       className={`
         group rounded-[24px] p-4 transition-colors duration-200 overflow-visible
-        ${post.isPinned ? "bg-primary/5" : "bg-bg-base hover:bg-bg-muted/50"}
+        ${post.isPinned ? "bg-accent-muted" : "bg-bg-base hover:bg-bg-muted/50"}
       `}
     >
       {/* Header */}
@@ -360,14 +368,21 @@ export function PostCard({ post, communityId, currentUserId, isAdmin = false, is
         </div>
 
         {canModify && (
-          <Select open={showMenu} onOpenChange={setShowMenu}>
+          <Select
+            open={showMenu}
+            onOpenChange={setShowMenu}
+            onValueChange={(value) => {
+              setShowMenu(false);
+              if (value === "delete") handleDelete();
+              else if (value === "pin") handleTogglePin();
+            }}
+          >
             <SelectTrigger className="w-fit p-2 rounded-[16px] transition-colors [&>span]:hidden [&>svg:last-child]:hidden bg-transparent hover:bg-white/10 cursor-pointer">
               <MoreHorizontal className="w-5 h-5" />
             </SelectTrigger>
             <SelectContent className="w-[160px]">
-              <SelectItem 
-                value="delete" 
-                onSelect={() => { handleDelete(); setShowMenu(false); }}
+              <SelectItem
+                value="delete"
                 className="text-red-500 focus:text-red-500"
                 hideCheck
                 disabled={isDeleting}
@@ -377,9 +392,8 @@ export function PostCard({ post, communityId, currentUserId, isAdmin = false, is
                   <Text size="sm">Delete</Text>
                 </div>
               </SelectItem>
-              <SelectItem 
+              <SelectItem
                 value="pin"
-                onSelect={() => { handleTogglePin(); setShowMenu(false); }}
                 hideCheck
                 disabled={isPinning}
               >
@@ -530,13 +544,9 @@ export function PostCard({ post, communityId, currentUserId, isAdmin = false, is
 
         {/* Category Tag */}
       {post.category && (
-        <div className="mb-2">
-          <span 
-            className="inline-block px-3 py-1 rounded-[8px] text-xs font-medium text-white bg-white/5"
-          >
-            {post.category.name}
-          </span>
-        </div>
+        <span className="inline-block px-2 py-0.5 rounded-full text-xs bg-white/5 text-text-muted">
+          {post.category.name}
+        </span>
       )}
       </div>
 
@@ -570,6 +580,26 @@ export function PostCard({ post, communityId, currentUserId, isAdmin = false, is
           />
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Post</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this post? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowDeleteDialog(false)}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={confirmDelete} disabled={isDeleting}>
+              {isDeleting ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       
     </Card>

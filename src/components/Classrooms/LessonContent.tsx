@@ -249,12 +249,12 @@ export function LessonContent({
         </Text>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 md:p-6">
+      <div className="flex-1 overflow-y-auto p-0 md:p-0">
         <div className="max-w-4xl mx-auto">
           <Card>
-            <CardContent className="p-4 md:p-6 space-y-6">
+            <CardContent className="space-y-4">
               {/* ── Header: chapter name, lesson title, checkbox ── */}
-              <div className="flex items-start gap-3">
+              <div className="flex items-center gap-3 px-2 pt-2">
                 <div className="flex-1 min-w-0">
                   {chapterName && (
                     <Text size="1" theme="muted" className="mb-1">
@@ -302,9 +302,9 @@ export function LessonContent({
                 {/* ── Checkbox toggle (optimistic) ── */}
                 <button
                   onClick={handleToggle}
-                  className={`flex-shrink-0 w-6 h-6 rounded border-2 flex items-center justify-center transition-colors ${
+                  className={`flex-shrink-0 w-8 h-8 cursor-pointer hover:bg-green-500/20  rounded-full shadow-input-shadow bg-black/80  flex items-center justify-center transition-colors ${
                     optimisticViewed
-                      ? "bg-accent border-accent"
+                      ? "bg-green-600"
                       : "border-border hover:border-accent"
                   }`}
                   aria-label={
@@ -328,7 +328,7 @@ export function LessonContent({
 
               {/* ── Lesson Description ── */}
               <div>
-                <Text size="2" fontWeight="semibold" className="mb-2">
+                <Text size="2" fontWeight="semibold" className="mb-2 px-2">
                   Description
                 </Text>
                 <LessonDescription

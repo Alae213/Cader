@@ -12,7 +12,7 @@ export interface Post {
   authorId: string;
   author?: { _id: string; displayName: string; avatarUrl?: string | null } | null;
   categoryId?: string;
-  category?: { _id: string; name: string; color: string } | null;
+  category?: { _id: string; name: string } | null;
   content: string;
   contentType: "text" | "image" | "video" | "gif";
   mediaUrls?: string[];

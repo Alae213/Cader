@@ -50,7 +50,7 @@
   --text-inverse: #18181B;   /* Text on very dark/bright surfaces */
 
   /* ============================================
-     ACCENT (Chargily teal)
+     ACCENT 
      ============================================ */
   --accent: #1754d8;                    /* Primary buttons, links, active states */
   --accent-hover: #406CC8;              /* Button/image hover */
@@ -359,5 +359,22 @@ textarea.no-border:focus {
 }
 .scroll-fade-right.has-overflow::after {
   opacity: 1;
+}
+
+/* ============================================
+   HERO BACKGROUND IMAGE - MAXIMUM QUALITY
+   ============================================ */
+.hero-bg-image {
+  /* Force GPU compositing to avoid browser resampling */
+  transform: translateZ(0);
+  will-change: transform;
+  /* Maximum quality rendering */
+  image-rendering: -webkit-optimize-contrast;
+  /* Remove any default smoothing */
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  /* Prevent any browser-applied filters */
+  filter: none;
+  -webkit-filter: none;
 }
 

@@ -60,7 +60,7 @@ export function VideoEmbed({
     return (
       <>
         <div 
-          className="aspect-video rounded-[16px] bg-bg-elevated border-2 border-dashed border-border flex items-center justify-center cursor-pointer hover:border-accent"
+          className="aspect-video hover:bg-accent-subtle rounded-[16px] bg-black/50 shadow-input-shadow border-2 border-dashed border-white/20 flex items-center justify-center cursor-pointer hover:border-accent transition-colors"
           onClick={() => onModalOpenChange?.(true)}
         >
           <div className="text-center">

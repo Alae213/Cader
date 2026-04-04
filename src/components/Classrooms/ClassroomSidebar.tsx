@@ -17,7 +17,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ChevronLeft, ChevronDown, X, Trash2, Edit3, Play } from "lucide-react";
+import { ChevronLeft, ChevronDown, X, Trash2, Edit3, Play, Plus } from "lucide-react";
 import { ProgressRing } from "@/components/ui/ProgressRing";
 import { getVideoThumbnail } from "@/lib/utils";
 import { Dropdown, /* DropdownLabel, DropdownSeparator */ } from "@/components/ui/dropdown";
@@ -614,57 +614,58 @@ export function ClassroomSidebar({
           ${isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
         `}
       >
-        <Card className="h-full flex flex-col">
+        <div className="h-full flex flex-col">
           {/* Header */}
-          <div className="p-3 border-b border-mauve-4/30 space-y-3">
-            <div className="flex items-center justify-between">
+          <div className="pb-3 space-y-3">
+            <Card className="flex flex-row w-full items-center justify-between">
+              
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={onBack}
-                className="text-text-secondary hover:text-text-primary text-xs"
+                className="text-text-secondary hover:bg-white/10 hover:text-text-primary text-xs"
               >
-                <ChevronLeft className="w-3.5 h-3.5 mr-1" />
-                Back
+                <ChevronLeft className="w-3.5 h-3.5 my-2" />
               </Button>
-              <button
-                className="lg:hidden p-1.5 hover:bg-bg-elevated rounded-lg"
-                onClick={onCloseSidebar}
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Progress bar */}
-            <div className="flex items-center gap-2">
-              <div className="flex-1 h-1 bg-bg-elevated rounded-full overflow-hidden">
-                <div className="h-full bg-accent rounded-full" style={{ width: `${progress}%` }} />
+              
+              {/* Progress bar */}
+            <div className="relative p-1 justify-center items-center h-fit w-full">
+              <div 
+              className="h-[8px] bg-black rounded-full overflow-hidden"
+              style={{ boxShadow: 'var(--input-shadow)' }}
+                >
+                <div 
+                className="h-full bg-green-500 rounded-full transition-all shadow-(0 0px 4px rgba(5, 222, 106, 0.2))"
+                style={{ width: `${progress}%` }} />
               </div>
-              <Text size="0" theme="muted">{progress}%</Text>
+              
             </div>
+            <span className="items-end justify-end flex p-1 text-[10px] text-text-secondary">{progress}%</span>
+           </Card>
+
+            
           </div>
 
           {/* Chapters list */}
-          <div className="flex-1 overflow-y-auto p-2">
+          <div className="flex-1 overflow-y-auto p-0">
             {renderChapters()}
           </div>
 
           {/* Add Chapter button - owner only */}
           {isOwner && modules.length > 0 && (
-            <div className="p-2 border-t border-mauve-4/30">
-              <button
-                type="button"
+            <div className="p-6 ">
+              <Button
+                variant="ghost"
+                size="md" 
                 onClick={onAddChapter}
-                className="flex h-10 w-full items-center gap-2 rounded-lg border border-dashed border-mauve-4 px-3 hover:border-mauve-6 hover:bg-bg-elevated transition-colors"
+                className="w-full gap-2 text-text-secondary  border-2 border-dashed border-mauve-6 hover:border-mauve-4 hover:bg-bg-elevated transition-colors"
               >
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="text-text-muted">
-                  <path d="M8 1.75V8M8 14.25V8M8 8H1.75M8 8H14.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                <span className="text-sm font-medium text-text-muted">Add Chapter</span>
-              </button>
+                <Plus width="14" height="14" className="text-text-primary" />
+                Add New Chapter
+              </Button>
             </div>
           )}
-        </Card>
+        </div>
       </div>
     </>
   );

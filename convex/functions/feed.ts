@@ -95,7 +95,6 @@ export const listPosts = query({
           category: category ? {
             _id: category._id,
             name: category.name,
-            color: category.color,
           } : null,
         };
       })

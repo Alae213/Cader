@@ -246,12 +246,9 @@ export function ClassroomsTab({ communityId, isOwner, currentUser: providedUser 
                   setShowCreateModal(true);
                 }
               }}
-              className="border-2 border-dashed border-border rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer hover:border-accent hover:bg-bg-elevated/30 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-bg-canvas transition-colors min-h-[180px]"
+              className="hover:bg-accent-subtle rounded-[16px] bg-black/20 shadow-input-shadow border-2 border-dashed border-white/20 flex items-center justify-center cursor-pointer hover:border-accent transition-colors min-h-[180px]"
             >
-              <div className="w-12 h-12 rounded-full bg-bg-elevated flex items-center justify-center mb-3">
-                <span className="text-2xl text-text-secondary">+</span>
-              </div>
-              <Text size="2" theme="secondary">Add Classroom</Text>
+              <Text size="2" theme="secondary" >+ Add Classroom</Text>
             </div>
           )}
         </div>
@@ -281,7 +278,7 @@ export function ClassroomsTab({ communityId, isOwner, currentUser: providedUser 
               <Input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g., Getting Started with Python"
+                placeholder="Type Title..."
               />
             </div>
 
@@ -293,7 +290,7 @@ export function ClassroomsTab({ communityId, isOwner, currentUser: providedUser 
                 onChange={(e) => setDescription(e.target.value.slice(0, 80))}
                 placeholder="Brief description..."
                 maxLength={80}
-                className="w-full min-h-[60px] px-3 py-2 bg-bg-elevated border border-border rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent"
+                className="w-full min-h-[60px] px-3 py-2 rounded-[14px] border-0 bg-black/60 shadow-input-shadow text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent"
               />
               <Text size="1" theme="muted">{description.length}/80</Text>
             </div>

@@ -18,7 +18,7 @@ export const SORT_OPTIONS: { value: "newest" | "most_liked" | "most_commented"; 
 ];
 
 interface FeedFiltersProps {
-  categories: Array<{ _id: string; name: string; color: string }>;
+  categories: Array<{ _id: string; name: string }>;
   selectedCategoryId: string | null;
   setSelectedCategoryId: (id: string | null) => void;
   selectedSort: "newest" | "most_liked" | "most_commented";
@@ -37,27 +37,32 @@ export function FeedFilters({
   return (
     <nav className="w-full flex justify-between items-center flex-wrap " aria-label="Feed filters">
       {/* Category Pills using ToggleGroup */}
-      <ToggleGroup
-        value={selectedCategoryId ?? ""}
-        onValueChange={(value) => setSelectedCategoryId(value || null)} 
-        className="w-fit rounded-[16px] "
+      <div 
+        className="max-w-[calc(100%-120px)] overflow-x-auto [&::-webkit-scrollbar]:hidden"
+        style={{ msOverflowStyle: 'none', scrollbarWidth: 'none' }}
       >
-        <ToggleGroupItem
-          value=""
-          className="whitespace-nowrap rounded-[12px] px-4 py-1"
+        <ToggleGroup
+          value={selectedCategoryId ?? ""}
+          onValueChange={(value) => setSelectedCategoryId(value || null)} 
+          className="w-fit rounded-[16px] "
         >
-          All
-        </ToggleGroupItem>
-        {categories.map((cat) => (
           <ToggleGroupItem
-            key={cat._id}
-            value={cat._id}
-            className="whitespace-nowrap rounded-[12px] flex items-center gap-2 px-4 py-1"
+            value=""
+            className="whitespace-nowrap rounded-[12px] px-4 py-1"
           >
-            {cat.name}
+            All
           </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
+          {categories.map((cat) => (
+            <ToggleGroupItem
+              key={cat._id}
+              value={cat._id}
+              className="whitespace-nowrap rounded-[12px] flex items-center gap-2 px-4 py-1"
+            >
+              {cat.name}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+      </div>
       
       {/* Sort Dropdown using Radix Select */}
       <Select

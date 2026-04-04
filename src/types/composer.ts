@@ -17,7 +17,6 @@ export type PostType = "text" | "image" | "video";
 export interface ComposerCategory {
   _id: string;
   name: string;
-  color: string;
 }
 
 export interface ComposerSubmitData {

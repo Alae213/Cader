@@ -20,7 +20,6 @@ export interface Post {
   category?: {
     _id: string;
     name: string;
-    color: string;
   } | null;
   content: string;
   contentType: "text" | "image" | "video";

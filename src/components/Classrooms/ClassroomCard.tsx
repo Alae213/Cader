@@ -5,6 +5,13 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Text } from "@/components/ui/Text";
 import { ThumbnailUpload } from "../community/ThumbnailUpload";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from "@/components/ui/select";
+import { MoreHorizontal } from "lucide-react";
 
 export type AccessType = "open" | "level" | "price" | "level_and_price";
 
@@ -102,50 +109,38 @@ export const ClassroomCard = memo(function ClassroomCard({
           <div
             className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-150"
           >
-            <div className="relative">
-              <button
-                className="w-8 h-8 rounded-full bg-bg-base/80 cursor-pointer flex items-center justify-center hover:bg-bg-base transition-colors"
+            <Select
+              onValueChange={(value) => {
+                if (value === "edit") {
+                  onEdit();
+                } else if (value === "delete") {
+                  onDelete();
+                }
+              }}
+            >
+              <SelectTrigger
+                className="w-8 h-8 rounded-full bg-bg-base/80 flex items-center justify-center p-0 border-0 hover:bg-bg-base/90 [&>span]:hidden [&>svg:last-child]:hidden"
                 aria-label="Classroom options menu"
-                aria-haspopup="true"
-                aria-expanded={menuOpen}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMenuOpen(!menuOpen);
-                }}
               >
-                <span className="text-lg" aria-hidden="true">⋮</span>
-              </button>
-
-              {/* Dropdown menu - opens on click */}
-              {menuOpen && (
-                <div
-                  className="absolute right-0 top-full mt-1 w-32 bg-bg-surface rounded-xl p-1 z-10"
-                  role="menu"
-                  onClick={(e) => e.stopPropagation()}
+                <MoreHorizontal className="w-4 h-4 text-text-primary" />
+              </SelectTrigger>
+              <SelectContent className="w-32">
+                <SelectItem
+                  value="edit"
+                  hideCheck
+                  className="text-text-primary hover:bg-bg-elevated"
                 >
-                  <button
-                    role="menuitem"
-                    onClick={() => {
-                      onEdit();
-                      setMenuOpen(false);
-                    }}
-                    className="w-full rounded-lg cursor-pointer px-3 py-2 text-left text-sm text-text-primary hover:bg-bg-elevated transition-colors"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    role="menuitem"
-                    onClick={() => {
-                      onDelete();
-                      setMenuOpen(false);
-                    }}
-                    className="w-full rounded-lg cursor-pointer px-3 py-2 text-left text-sm text-error hover:bg-bg-elevated transition-colors"
-                  >
-                    Delete
-                  </button>
-                </div>
-              )}
-            </div>
+                  Edit
+                </SelectItem>
+                <SelectItem
+                  value="delete"
+                  hideCheck
+                  className="text-error hover:bg-bg-elevated"
+                >
+                  Delete
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         )}
       </div>

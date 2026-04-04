@@ -5,14 +5,24 @@ import { Button } from "@/components/ui/Button";
 import { TextArea } from "@/components/ui/TextArea";
 import { Input } from "@/components/ui/Input";
 import { Text } from "@/components/ui/Text";
-import { Image as ImageIcon, Video, X, Plus, ImagePlus } from "lucide-react";
+import { Image as ImageIcon, Video, X, ImagePlus, Type } from "lucide-react";
 import type { ComposerUser, ComposerCategory, PostType, ComposerSubmitData } from "@/types/composer";
 import {  Card } from "../ui/Card";
+import { ToggleGroup, ToggleGroupItem } from "../ui/ToggleGroup";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
 
-const POST_TYPES: { value: PostType; label: string; icon: React.ReactNode }[] = [
-  { value: "text", label: "Text", icon: null },
-  { value: "image", label: "Image", icon: <ImageIcon className="w-4 h-4" /> },
-  { value: "video", label: "Video", icon: <Video className="w-4 h-4" /> },
+const POST_TYPES: { value: PostType; icon: React.ReactNode; color: string }[] = [
+  { value: "text", icon: <Type className="w-4 h-4" />, color: "text-blue-400" },
+  { value: "image", icon: <ImageIcon className="w-4 h-4" />, color: "text-green-400" },
+  { value: "video", icon: <Video className="w-4 h-4" />, color: "text-purple-400" },
 ];
 
 function ComposerAvatar({ user }: { user?: ComposerUser }) {
@@ -64,6 +74,7 @@ interface PostComposerProps {
   imageInputRef: React.RefObject<HTMLInputElement | null>;
   onImageSelect: (e: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
   onRemoveImage: (index: number) => void;
+  uploadError?: string | null;
   onDragOver: (e: React.DragEvent) => void;
   onDragLeave: (e: React.DragEvent) => void;
   onDrop: (e: React.DragEvent) => void;
@@ -77,6 +88,7 @@ interface PostComposerProps {
   videoUrl: string;
   onVideoUrlChange: (url: string) => void;
   prefersReducedMotion: boolean;
+  onAddNewCategory?: () => void;
 }
 
 export function PostComposer({
@@ -102,6 +114,7 @@ export function PostComposer({
   onDragLeave,
   onDrop,
   onPaste,
+  uploadError,
   postType,
   onPostTypeChange,
   content,
@@ -111,32 +124,19 @@ export function PostComposer({
   videoUrl,
   onVideoUrlChange,
   prefersReducedMotion,
+  onAddNewCategory,
 }: PostComposerProps) {
   // Debounced URL validation — only show errors after user stops typing (300ms)
   const [showVideoError, setShowVideoError] = useState(false);
   const prevPostTypeRef = useRef(postType);
-  const postTypeBarRef = useRef<HTMLDivElement>(null);
+  // Local Select value state to handle the "__add_new__" special value
+  const [selectValue, setSelectValue] = useState(composerCategoryId || "none");
+  // Ref to track pending action when Select closes (Radix closes before onClick fires)
+  const pendingActionRef = useRef<string | null>(null);
 
-  // Scroll affordance detection for post type bar
   useEffect(() => {
-    const el = postTypeBarRef.current;
-    if (!el) return;
-
-    const checkOverflow = () => {
-      const hasOverflow = el.scrollWidth > el.clientWidth;
-      el.classList.toggle('has-overflow', hasOverflow);
-    };
-
-    checkOverflow();
-    const observer = new ResizeObserver(checkOverflow);
-    observer.observe(el);
-    el.addEventListener('scroll', checkOverflow, { passive: true });
-
-    return () => {
-      observer.disconnect();
-      el.removeEventListener('scroll', checkOverflow);
-    };
-  }, []);
+    setSelectValue(composerCategoryId || "none");
+  }, [composerCategoryId]);
 
   useEffect(() => {
     if (prevPostTypeRef.current !== postType) {
@@ -217,11 +217,11 @@ export function PostComposer({
         </button>
       ) : (
         <div
-          className="space-y-4  p-2  rounded-xl"
+          className="space-y-3 p-2 rounded-xl"
         >
-          <div className="flex items-start justify-start gap-2  w-full flex-row">
+          <div className="flex items-start justify-start gap-2 w-full flex-row">
           <ComposerAvatar user={user} />
-          <div className="space-y-3 w-full ">
+          <div className="space-y-2 w-full ">
             {postType === "text" && (
               <div className="relative">
                 <label htmlFor="post-text" className="sr-only">Post content</label>
@@ -241,7 +241,7 @@ export function PostComposer({
             )}
 
             {postType === "image" && (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <div className="relative">
                   <TextArea
                     value={content}
@@ -263,8 +263,7 @@ export function PostComposer({
                   accept="image/jpeg,image/png,image/webp,image/gif"
                   onChange={onImageSelect}
                   className="hidden"
-                  multiple
-                  aria-label="Choose images to upload"
+                  aria-label="Choose image to upload"
                 />
 
                 {isUploadingImages ? (
@@ -276,59 +275,57 @@ export function PostComposer({
                         : "Compressing image..."}
                     </Text>
                   </div>
-                ) : (
+                ) : imageUrls.length === 0 ? (
                   <div
                     onDragOver={onDragOver}
                     onDragLeave={onDragLeave}
                     onDrop={onDrop}
-                    className={`rounded-lg p-6 text-center transition-all cursor-pointer ${
+                    className={`rounded-lg p-0 text-center transition-all cursor-pointer ${
                       isDragOver
                         ? "bg-primary/10 ring-2 ring-primary ring-offset-2"
-                        : "bg-bg-muted/50 hover:bg-bg-muted"
+                        : uploadError
+                          ? "bg-destructive/10 ring-2 ring-destructive"
+                          : "bg-bg-muted/50 hover:bg-bg-muted"
                     }`}
                   >
                     <button
                       type="button"
                       onClick={() => imageInputRef.current?.click()}
-                      aria-label="Upload images"
-                      className="w-full"
+                      aria-label="Upload image"
+                      className="w-full h-full p-6 hover:bg-accent-subtle rounded-[16px] bg-black/20 shadow-input-shadow border-2 border-dashed border-white/20   cursor-pointer hover:border-accent transition-colors "
                     >
-                      <ImagePlus className="w-8 h-8 mx-auto text-text-muted mb-2" />
-                      <Text size="sm" theme="muted">
-                        {isDragOver ? "Drop images here" : "Click to upload or drag & drop"}
+                      <ImagePlus className={`w-8 h-8 mx-auto mb-2 ${uploadError ? "text-destructive" : "text-text-muted"}`} />
+                      <Text size="sm" theme={uploadError ? "error" : "muted"}>
+                        {uploadError || (isDragOver ? "Drop image here" : "Click to upload or drag & drop")}
                       </Text>
-                      <Text size="2" theme="muted">Max 10MB per image (will be compressed)</Text>
+                      <Text size="2" theme="muted">Max 10MB</Text>
                     </button>
                   </div>
-                )}
+                ) : null}
 
                 {imageUrls.length > 0 && (
-                  <div className="flex gap-2 flex-wrap">
-                    {imageUrls.map((url, i) => (
-                      <div key={url} className={`relative group transition-all duration-200 ${fadingImages.has(i) ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={url}
-                          alt={`Image preview ${i + 1}`}
-                          className="w-20 h-20 object-cover rounded-lg"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => onRemoveImage(i)}
-                          aria-label="Remove image"
-                          className="absolute -top-2 -right-2 bg-destructive text-white rounded-full w-6 h-6 flex items-center justify-center opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity shadow-sm"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ))}
+                  <div className="relative group transition-all duration-200">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={imageUrls[0]}
+                      alt="Image preview"
+                      className="w-full max-h-80 object-contain rounded-lg"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => onRemoveImage(0)}
+                      aria-label="Remove image"
+                      className="absolute top-2 right-2 bg-destructive text-white rounded-full w-8 h-8 flex items-center justify-center opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity shadow-sm hover:bg-destructive/90 cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
                   </div>
                 )}
               </div>
             )}
 
             {postType === "video" && (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <div className="relative">
                   <TextArea
                     value={content}
@@ -389,79 +386,107 @@ export function PostComposer({
               </div>
             )}
 
-            {categories.length > 0 && (
-              <div className="space-y-2">
-                <Text size="sm" fontWeight="medium">Category (optional)</Text>
-                <div className="flex gap-2 flex-wrap">
-                  {categories.map((cat) => (
-                    <button
-                      key={cat._id}
-                      type="button"
-                      onClick={() => onCategoryIdChange(
-                        composerCategoryId === cat._id ? "" : cat._id
-                      )}
-                      className="px-3 py-1 rounded-full text-sm transition-colors"
-                      style={
-                        composerCategoryId === cat._id
-                          ? { backgroundColor: cat.color, color: "#fff" }
-                          : undefined
-                      }
-                    >
-                      {cat.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+            
           </div>
+          
           </div>
           
 
-          
-
-          
-        
 
           {error && (
             <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md" role="alert">
               <Text size="sm" theme="error">{error}</Text>
             </div>
           )}
+          <div className="px-2 my-1">
+         <hr className="h-px w-full border-0 rounded-full "
+                      style={{
+                        background: "rgba(242, 242, 242, 0.1)",
+                        boxShadow: "0 1px 0 0 rgba(0, 0, 0, 0.5)",
+                      }}/></div>
 
-          <div ref={postTypeBarRef} className="flex gap-2 pb-3 overflow-x-auto scroll-fade-right" role="radiogroup" aria-label="Post type">
+          
+
+          <div className="flex justify-between py-1">
+            <div className="flex flex-row gap-2">
+          <ToggleGroup 
+            value={postType}
+            onValueChange={(v) => onPostTypeChange(v as PostType)}
+            className="gap-1 shadow-none w-fit"
+          >
             {POST_TYPES.map((type) => (
-              <button
-                key={type.value}
-                type="button"
-                onClick={() => onPostTypeChange(type.value)}
-                role="radio"
-                aria-checked={postType === type.value}
-                aria-label={`Create ${type.label.toLowerCase()} post`}
-                className={`px-4 py-2.5 min-h-[44px] rounded-lg transition-colors flex items-center gap-1 shrink-0 ${
-                  postType === type.value
-                    ? "bg-primary text-white"
-                    : "bg-bg-elevated hover:bg-bg-muted"
-                }`}
-              >
+              <ToggleGroupItem key={type.value} value={type.value} className={postType === type.value ? type.color : "text-text-muted"}>
                 {type.icon}
-                <Text size="sm">{type.label}</Text>
-              </button>
+              </ToggleGroupItem>
             ))}
-          </div>
+          </ToggleGroup>
 
-          <div className="flex justify-between pt-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={onClose}
-            >
-              Cancel
-            </Button>
+
+              <Select
+                value={selectValue}
+                onValueChange={(v) => {
+                  if (v === "__add_new__") {
+                    // Store in ref so onOpenChange can read it after Select closes
+                    pendingActionRef.current = "add_new";
+                    setSelectValue(composerCategoryId || "none");
+                  } else if (v === "none") {
+                    onCategoryIdChange("");
+                    setSelectValue("none");
+                  } else {
+                    onCategoryIdChange(v);
+                    setSelectValue(v);
+                  }
+                }}
+                onOpenChange={(open) => {
+                  // When dropdown closes, check if we had a pending action
+                  if (!open && pendingActionRef.current === "add_new") {
+                    pendingActionRef.current = null;
+                    onAddNewCategory?.();
+                  }
+                }}
+              >
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="No category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value="none">No category</SelectItem>
+                  </SelectGroup>
+                  <div className="px-2 my-1">
+         <hr className="h-px w-full border-0 rounded-full "
+                      style={{
+                        background: "rgba(242, 242, 242, 0.1)",
+                        boxShadow: "0 1px 0 0 rgba(0, 0, 0, 0.5)",
+                      }}/></div>
+
+                  {categories.length > 0 && (
+                    <SelectGroup>
+                      {categories.map((cat) => (
+                        <SelectItem key={cat._id} value={cat._id}>
+                          {cat.name}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  )}
+
+                  <div className="px-2 my-1">
+         <hr className="h-px w-full border-0 rounded-full "
+                      style={{
+                        background: "rgba(242, 242, 242, 0.1)",
+                        boxShadow: "0 1px 0 0 rgba(0, 0, 0, 0.5)",
+                      }}/></div>
+
+                  <SelectItem value="__add_new__" className="hover:bg-accent-subtle hover:text-accent">
+                    + Add new
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <Button
               onClick={handleValidateAndSubmit}
               disabled={isLoading || !isFormValid}
               aria-busy={isLoading}
-              size="sm"
+              size="md"
             >
               {isLoading ? "Posting..." : "Post"}
             </Button>

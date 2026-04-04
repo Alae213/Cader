@@ -51,6 +51,7 @@ interface CommunityShellProps {
   onCreateCommunity?: () => void;
   onExploreCommunities?: () => void;
   onLogout?: () => void;
+  onOpenSettingsToCategories?: () => void;
 }
 
 export function CommunityShell({ 
@@ -65,6 +66,7 @@ export function CommunityShell({
   userCommunities = [],
   onCreateCommunity,
   onExploreCommunities,
+  onOpenSettingsToCategories,
 }: CommunityShellProps) {
   const { user: clerkUser } = useUser();
   
@@ -80,7 +82,7 @@ export function CommunityShell({
   const [showProfilePanel, setShowProfilePanel] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showExploreModal, setShowExploreModal] = useState(false);
-  const [settingsInitialSection, setSettingsInitialSection] = useState<"account" | "billing">("account");
+  const [settingsInitialSection, setSettingsInitialSection] = useState<"account" | "billing" | "categories">("account");
   
   // Client-side tab state
   const [activeTab, setActiveTab] = useState<string>(() => 
@@ -107,6 +109,13 @@ export function CommunityShell({
   // Handle upgrade click - open settings modal directly to billing section
   const handleUpgradeClick = () => {
     setSettingsInitialSection("billing");
+    setShowProfilePanel(false);
+    setShowSettingsModal(true);
+  };
+
+  // Handle open settings to categories section (called from FeedTab)
+  const handleOpenSettingsToCategories = () => {
+    setSettingsInitialSection("categories");
     setShowProfilePanel(false);
     setShowSettingsModal(true);
   };
@@ -150,7 +159,7 @@ export function CommunityShell({
           children
         );
       case "community":
-        return <FeedTab communityId={community.id} communitySlug={community.slug} />;
+        return <FeedTab communityId={community.id} communitySlug={community.slug} onOpenSettingsToCategories={handleOpenSettingsToCategories} />;
       case "classrooms":
         return <ClassroomsTab communityId={community.id} isOwner={isOwner} currentUser={currentUser ?? undefined} />;
       case "leaderboard":

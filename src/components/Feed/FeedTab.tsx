@@ -107,9 +107,10 @@ function InviteFriendModal({
 interface FeedTabProps {
   communityId: string;
   communitySlug?: string;
+  onOpenSettingsToCategories?: () => void;
 }
 
-export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
+export function FeedTab({ communityId, communitySlug = "", onOpenSettingsToCategories }: FeedTabProps) {
   const { userId } = useAuth();
   const { user } = useUser();
   const prefersReducedMotion = useReducedMotion();
@@ -140,9 +141,6 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
   // --- Composer state (consolidated) ---
   const composer = useComposerState({
     communityId,
-    onResetImages: () => {
-      // Image URLs are managed by useImageUpload hook — reset handled separately
-    },
   });
 
   // --- Image upload ---
@@ -152,6 +150,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
     uploadProgress,
     fadingImages,
     isDragOver,
+    uploadError,
     imageInputRef,
     handleImageSelect,
     handleDragOver,
@@ -159,6 +158,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
     handleDrop,
     handlePaste,
     removeImage,
+    resetImages,
   } = useImageUpload();
 
   // --- Modal state ---
@@ -194,7 +194,12 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
   // Click-outside handler for composer
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (composerRef.current && !composerRef.current.contains(event.target as Node)) {
+      // Ignore clicks inside Radix Select portal (dropdown content)
+      const target = event.target as Node;
+      if (target instanceof Element && target.closest('[data-radix-select-viewport], [data-radix-select-content]')) {
+        return;
+      }
+      if (composerRef.current && !composerRef.current.contains(target)) {
         if (composer.expanded) {
           composer.close();
         }
@@ -235,6 +240,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
       await createPost(postData);
       toast.success("Post created!");
       handleCloseComposer();
+      resetImages();
     } catch (err) {
       if (err instanceof Error) {
         const msg = err.message.toLowerCase();
@@ -255,7 +261,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
     } finally {
       setIsSubmitting(false);
     }
-  }, [userId, isMember, communityIdTyped, createPost, handleCloseComposer, composer]);
+  }, [userId, isMember, communityIdTyped, createPost, handleCloseComposer, composer, resetImages]);
 
   // --- Loading skeleton ---
   if (status === "LoadingFirstPage") {
@@ -309,6 +315,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             onPaste={handlePaste}
+            uploadError={uploadError}
             postType={composer.postType}
             onPostTypeChange={composer.setPostType}
             content={composer.content}
@@ -318,6 +325,7 @@ export function FeedTab({ communityId, communitySlug = "" }: FeedTabProps) {
             videoUrl={composer.videoUrl}
             onVideoUrlChange={composer.setVideoUrl}
             prefersReducedMotion={prefersReducedMotion}
+            onAddNewCategory={onOpenSettingsToCategories}
           />
         </div>
 

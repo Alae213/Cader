@@ -321,11 +321,12 @@ export function TopBar({
             onSettingsClick?.();
           }}
         />
+        <div className="px-2 my-1">
          <hr className="h-px w-full border-0 rounded-full "
                       style={{
-                        background: "rgba(242, 242, 242, 0.15)",
-                        boxShadow: "0 1px 0 0 rgba(0, 0, 0, 0.70)",
-                      }}/>
+                        background: "rgba(242, 242, 242, 0.1)",
+                        boxShadow: "0 1px 0 0 rgba(0, 0, 0, 0.5)",
+                      }}/></div>
         
         <MenuItem
           index={3}
@@ -336,11 +337,12 @@ export function TopBar({
             router.push("/help");
           }}
         />
+        <div className="px-2 my-1"> 
          <hr className="h-px w-full border-0 rounded-full "
                       style={{
-                        background: "rgba(242, 242, 242, 0.15)",
-                        boxShadow: "0 1px 0 0 rgba(0, 0, 0, 0.70)",
-                      }}/>
+                        background: "rgba(242, 242, 242, 0.1)",
+                        boxShadow: "0 1px 0 0 rgba(0, 0, 0, 0.5)",
+                      }}/></div>
         
         <MenuItem
           index={4}

@@ -1,11 +1,12 @@
 import { useState, useRef, useCallback } from "react";
 
-export function useImageUpload() {
+export function useImageUpload(maxImages: number = 1) {
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [isUploadingImages, setIsUploadingImages] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
   const [fadingImages, setFadingImages] = useState<Set<number>>(new Set());
   const [isDragOver, setIsDragOver] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
   const VALID_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -13,6 +14,16 @@ export function useImageUpload() {
 
   const isValidImageFile = (file: File): boolean => {
     return VALID_IMAGE_TYPES.includes(file.type) && file.size <= MAX_FILE_SIZE;
+  };
+
+  const getErrorMessage = (file: File): string | null => {
+    if (!VALID_IMAGE_TYPES.includes(file.type)) {
+      return "Invalid file type. Only JPG, PNG, WebP, and GIF are allowed.";
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      return `File too large. Maximum size is 10MB.`;
+    }
+    return null;
   };
 
   const compressImage = (file: File, maxWidth: number = 1200, quality: number = 0.7): Promise<string> => {
@@ -54,7 +65,34 @@ export function useImageUpload() {
 
   // Shared file processing — used by file picker, drag-and-drop, and paste
   const processFiles = useCallback(async (files: File[]) => {
-    const validFiles = files.filter(isValidImageFile);
+    // Check if already at max capacity
+    if (imageUrls.length >= maxImages) {
+      setUploadError(`Maximum ${maxImages} image${maxImages > 1 ? 's' : ''} allowed`);
+      return;
+    }
+
+    // Validate and categorize files
+    const validFiles: File[] = [];
+    const invalidFiles: { file: File; error: string }[] = [];
+
+    for (const file of files) {
+      if (imageUrls.length + validFiles.length >= maxImages) {
+        break; // Stop adding more files
+      }
+      const error = getErrorMessage(file);
+      if (error) {
+        invalidFiles.push({ file, error });
+      } else {
+        validFiles.push(file);
+      }
+    }
+
+    // Show error for first invalid file
+    if (invalidFiles.length > 0) {
+      setUploadError(invalidFiles[0].error);
+      setTimeout(() => setUploadError(null), 4000);
+    }
+
     if (validFiles.length === 0) return;
 
     setIsUploadingImages(true);
@@ -83,7 +121,7 @@ export function useImageUpload() {
       setIsUploadingImages(false);
       setUploadProgress({ current: 0, total: 0 });
     }
-  }, []);
+  }, [maxImages, imageUrls.length]);
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -144,12 +182,19 @@ export function useImageUpload() {
     }, 200);
   };
 
+  // Reset all images (used after successful post)
+  const resetImages = useCallback(() => {
+    setImageUrls([]);
+    setUploadError(null);
+  }, []);
+
   return {
     imageUrls,
     isUploadingImages,
     uploadProgress,
     fadingImages,
     isDragOver,
+    uploadError,
     imageInputRef,
     handleImageSelect,
     handleDragOver,
@@ -157,5 +202,6 @@ export function useImageUpload() {
     handleDrop,
     handlePaste,
     removeImage,
+    resetImages,
   };
 }

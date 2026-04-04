@@ -78,16 +78,16 @@ export default defineSchema({
     .index("by_status", ["status"]),
 
   // Categories - for organizing posts within a community
+  // NOTE: color and order fields are deprecated - kept for migration compatibility
   categories: defineTable({
     communityId: v.id("communities"),
     name: v.string(),
-    color: v.string(), // hex color #RRGGBB
-    order: v.number(), // drag‑and‑drop order
+    color: v.optional(v.string()), // deprecated - no longer used
+    order: v.optional(v.number()), // deprecated - no longer used
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_community_id", ["communityId"])
-    .index("by_community_and_name", ["communityId", "name"])
-    .index("by_community_and_order", ["communityId", "order"]),
+    .index("by_community_and_name", ["communityId", "name"]),
 
   // Posts in community feed
   posts: defineTable({

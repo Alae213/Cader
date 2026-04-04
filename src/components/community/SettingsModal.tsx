@@ -15,11 +15,6 @@ import {
   Loader2, Tags, Plus, X, Pencil, Bell, Mail, MessageSquare, AtSign, Users
 } from "lucide-react";
 
-const CATEGORY_COLORS = [
-  "#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6",
-  "#EC4899", "#06B6D4", "#84CC16", "#F97316", "#6366F1"
-];
-
 interface SettingsModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -106,6 +101,13 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
   // eslint-disable-next-line react-hooks/set-state-in-effect
   }, [communitySlug, isOwner, initialSection]);
 
+  useEffect(() => {
+    if (open && initialSection === "categories") {
+      setActiveSection("categories");
+      setTimeout(() => categoriesSectionRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+    }
+  }, [open, initialSection]);
+
   const addAdmin = useMutation(api.functions.memberships.addAdmin);
   const removeAdmin = useMutation(api.functions.memberships.removeAdmin);
   const deleteCommunity = useMutation(api.functions.communities.deleteCommunity);
@@ -133,12 +135,11 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
   const [holdProgress, setHoldProgress] = useState(0);
   const [isHolding, setIsHolding] = useState(false);
   const holdTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const categoriesSectionRef = useRef<HTMLDivElement>(null);
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
-  const [newCategoryColor, setNewCategoryColor] = useState("#3B82F6");
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [editCategoryName, setEditCategoryName] = useState("");
-  const [editCategoryColor, setEditCategoryColor] = useState("");
   const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null);
 
   const handleAddAdmin = async (membershipId: string) => {
@@ -259,10 +260,8 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
       await createCategory({
         communityId: community._id,
         name: newCategoryName.trim(),
-        color: newCategoryColor,
       });
       setNewCategoryName("");
-      setNewCategoryColor("#3B82F6");
       setIsAddingCategory(false);
       toast.success("Category added");
     } catch {
@@ -275,11 +274,9 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
       await updateCategory({
         categoryId: categoryId as never,
         name: editCategoryName.trim() || undefined,
-        color: editCategoryColor || undefined,
       });
       setEditingCategoryId(null);
       setEditCategoryName("");
-      setEditCategoryColor("");
       toast.success("Category updated");
     } catch {
       toast.error("Failed to update category");
@@ -632,8 +629,8 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
         return (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <Text size="sm" theme="secondary">{categories?.length || 0} / 10 categories</Text>
-              {(categories?.length || 0) < 10 && (
+              <Text size="sm" theme="secondary">{categories?.length || 0} / 5 categories</Text>
+              {(categories?.length || 0) < 5 && (
                 <Button variant="secondary" size="sm" onClick={() => setIsAddingCategory(true)}>
                   <Plus className="h-4 w-4 mr-1" />
                   Add
@@ -650,17 +647,6 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
                   placeholder="Category name"
                   maxLength={30}
                 />
-                <div className="flex gap-2 flex-wrap">
-                  {CATEGORY_COLORS.map((color) => (
-                    <button
-                      key={color}
-                      onClick={() => setNewCategoryColor(color)}
-                      className={`w-6 h-6 rounded-full border-2 ${newCategoryColor === color ? "border-white" : "border-transparent"}`}
-                      style={{ backgroundColor: color }}
-                      aria-label={`Select color ${color}`}
-                    />
-                  ))}
-                </div>
                 <div className="flex gap-2">
                   <Button size="sm" onClick={handleAddCategory}>Add</Button>
                   <Button variant="ghost" size="sm" onClick={() => { setIsAddingCategory(false); setNewCategoryName(""); }}>Cancel</Button>
@@ -668,7 +654,7 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
               </div>
             )}
 
-            <div className="space-y-2">
+            <div ref={categoriesSectionRef} className="space-y-2">
               {(categories || []).map((cat) => cat && (
                 <div key={cat._id} className="flex items-center justify-between p-3 rounded-lg bg-bg-elevated">
                   {editingCategoryId === cat._id ? (
@@ -679,28 +665,16 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
                         className="flex-1"
                         maxLength={30}
                       />
-                      <div className="flex gap-1">
-                        {CATEGORY_COLORS.map((color) => (
-                          <button
-                            key={color}
-                            onClick={() => setEditCategoryColor(color)}
-                            className={`w-5 h-5 rounded-full border-2 ${editCategoryColor === color ? "border-white" : "border-transparent"}`}
-                            style={{ backgroundColor: color }}
-                            aria-label={`Select color ${color}`}
-                          />
-                        ))}
-                      </div>
                       <Button size="sm" onClick={() => handleUpdateCategory(cat._id)}>Save</Button>
                       <Button variant="ghost" size="sm" onClick={() => setEditingCategoryId(null)}>Cancel</Button>
                     </div>
                   ) : (
                     <>
                       <div className="flex items-center gap-3">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cat.color }} />
                         <Text size="sm">{cat.name}</Text>
                       </div>
                       <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="sm" onClick={() => { setEditingCategoryId(cat._id); setEditCategoryName(cat.name); setEditCategoryColor(cat.color); }}>
+                        <Button variant="ghost" size="sm" onClick={() => { setEditingCategoryId(cat._id); setEditCategoryName(cat.name); }}>
                           <Pencil className="h-4 w-4" />
                         </Button>
                         <Button variant="ghost" size="sm" onClick={() => setCategoryToDelete(cat._id)}>
@@ -723,8 +697,8 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
               </div>
             )}
 
-            {(categories?.length || 0) >= 10 && (
-              <Text size="sm" theme="muted" className="text-center">Maximum 10 categories reached</Text>
+            {(categories?.length || 0) >= 5 && (
+              <Text size="sm" theme="muted" className="text-center">Maximum 5 categories reached</Text>
             )}
           </div>
         );

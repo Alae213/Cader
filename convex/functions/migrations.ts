@@ -1,6 +1,12 @@
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
 
+const DEFAULT_CATEGORIES = [
+  "📢 Announcements",
+  "🙋 Ask For Advice",
+  "🤣 Fun",
+];
+
 /**
  * Backfill usernames for existing users from email prefixes.
  * Run this ONCE to populate username field for users created before it was added.
@@ -91,6 +97,65 @@ export const backfillMemberCounts = mutation({
       totalCommunities: communities.length,
       updated: results.length,
       details: results,
+    };
+  },
+});
+
+/**
+ * Migration: Clear all existing categories and seed 3 default categories per community.
+ * Run once via: npx convex run functions/migrations:seedDefaultCategories
+ */
+export const seedDefaultCategories = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const communities = await ctx.db.query("communities").collect();
+
+    let communitiesProcessed = 0;
+    let categoriesDeleted = 0;
+    let categoriesCreated = 0;
+
+    for (const community of communities) {
+      // Delete all existing categories for this community
+      const existingCategories = await ctx.db
+        .query("categories")
+        .withIndex("by_community_id", (q) => q.eq("communityId", community._id))
+        .collect();
+
+      for (const cat of existingCategories) {
+        // Remove category from all posts
+        const posts = await ctx.db
+          .query("posts")
+          .withIndex("by_category_id", (q) => q.eq("categoryId", cat._id))
+          .collect();
+
+        for (const post of posts) {
+          await ctx.db.patch(post._id, { categoryId: undefined, updatedAt: Date.now() });
+        }
+
+        await ctx.db.delete(cat._id);
+        categoriesDeleted++;
+      }
+
+      // Create 3 default categories
+      const now = Date.now();
+      for (const name of DEFAULT_CATEGORIES) {
+        await ctx.db.insert("categories", {
+          communityId: community._id,
+          name,
+          createdAt: now,
+          updatedAt: now,
+        });
+        categoriesCreated++;
+      }
+
+      communitiesProcessed++;
+    }
+
+    return {
+      communitiesProcessed,
+      categoriesDeleted,
+      categoriesCreated,
+      message: `Processed ${communitiesProcessed} communities. Deleted ${categoriesDeleted} old categories. Created ${categoriesCreated} default categories.`,
     };
   },
 });
