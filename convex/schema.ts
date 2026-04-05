@@ -225,10 +225,14 @@ export default defineSchema({
     minLevel: v.optional(v.number()),
     priceDzd: v.optional(v.number()),
     
+    // Ordering for drag-and-drop reordering
+    order: v.number(),
+    
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_community_id", ["communityId"])
-    .index("by_community_and_access", ["communityId", "accessType", "minLevel"]),
+    .index("by_community_and_access", ["communityId", "accessType", "minLevel"])
+    .index("by_community_and_order", ["communityId", "order"]),
 
   // Chapters - folders within a classroom (formerly modules)
   // Note: Keeping 'modules' table name for backward compatibility with existing data

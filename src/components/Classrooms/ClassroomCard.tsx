@@ -11,7 +11,9 @@ import {
   SelectItem,
   SelectTrigger,
 } from "@/components/ui/select";
-import { MoreHorizontal } from "lucide-react";
+import { MoreHorizontal, GripVertical } from "lucide-react";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 export type AccessType = "open" | "level" | "price" | "level_and_price";
 
@@ -34,6 +36,7 @@ interface ClassroomCardProps {
   onEdit: () => void;
   onUpdateThumbnail: (thumbnailData: string) => void;
   isOwner: boolean;
+  isDragging?: boolean;
 }
 
 export const ClassroomCard = memo(function ClassroomCard({
@@ -43,8 +46,26 @@ export const ClassroomCard = memo(function ClassroomCard({
   onEdit,
   onUpdateThumbnail,
   isOwner,
+  isDragging,
 }: ClassroomCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  
+  // Sortable hooks (only active for owner)
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging: isSortableDragging,
+  } = useSortable({ id: classroom._id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isSortableDragging ? 0.5 : 1,
+    zIndex: isSortableDragging ? 50 : "auto",
+  };
 
   // Show lock badge only if classroom is locked by level or price (for all users)
   const isLocked = classroom.accessType !== "open" && !classroom.hasAccess;
@@ -68,9 +89,25 @@ export const ClassroomCard = memo(function ClassroomCard({
 
   return (
     <Card
-      className="cursor-pointer hover:ring-2 hover:ring-accent transition-all group  flex flex-col"
+      ref={setNodeRef}
+      style={style}
+      className={`cursor-pointer hover:ring-2 hover:ring-accent transition-all group flex flex-col ${isSortableDragging ? 'ring-2 ring-accent' : ''}`}
       onClick={onClick}
     >
+      {/* Drag handle (owner only) - top-left corner */}
+      {isOwner && (
+        <div
+          {...attributes}
+          {...listeners}
+          className="absolute top-3 left-3 z-10 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="w-8 h-8 rounded-full bg-bg-base/80 flex items-center justify-center hover:bg-bg-base/90">
+            <GripVertical className="w-4 h-4 text-text-secondary" />
+          </div>
+        </div>
+      )}
+      
       {/* Thumbnail with upload */}
       <div
         className="relative aspect-video bg-bg-elevated rounded-[16px] overflow-hidden"
@@ -167,7 +204,7 @@ export const ClassroomCard = memo(function ClassroomCard({
               style={{ boxShadow: 'var(--input-shadow)' }}
             >
               <div
-                className="h-full bg-green-500 rounded-full transition-all shadow-(0 0px 4px rgba(5, 222, 106, 0.2))"
+                className="h-full bg-green-500 rounded-full transition-all shadow-[0_0px_4px_2px_rgba(5,222,106,0.2)]"
                 style={{ width: `${classroom.progress}%` }}
               />
             </div>

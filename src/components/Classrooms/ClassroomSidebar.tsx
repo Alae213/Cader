@@ -17,11 +17,12 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ChevronLeft, ChevronDown, X, Trash2, Edit3, Play, Plus } from "lucide-react";
+import { ChevronLeft, ChevronDown, X, Trash2, Edit3, Play, Plus, GripVertical, MoreVertical } from "lucide-react";
 import { ProgressRing } from "@/components/ui/ProgressRing";
 import { getVideoThumbnail } from "@/lib/utils";
 import { Dropdown, /* DropdownLabel, DropdownSeparator */ } from "@/components/ui/dropdown";
 import { MenuItem } from "@/components/ui/menu-item";
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import type { SensorDescriptor } from "@dnd-kit/core";
 
 interface ModuleData {
@@ -180,15 +181,13 @@ function ChapterHeader({
   const isEditing = editingChapterId === module._id;
 
   return (
-    <div className="relative flex h-11 items-center gap-2 px-3 group/chapter">
+    <div className="relative flex h-11 items-center gap-2 px-3 group/chapter ">
       {/* Drag handle - absolutely positioned, visible on hover for owner */}
       {isOwner && (
         <div
-          className="absolute left-0.5 top-1/2 -translate-y-1/2 flex h-6 w-6 items-center justify-center rounded cursor-grab active:cursor-grabbing text-text-muted opacity-0 group-hover/chapter:opacity-100 transition-opacity z-10"
+          className="absolute -left-1 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded cursor-grab active:cursor-grabbing text-text-muted opacity-0 group-hover/chapter:opacity-100 transition-opacity hover:bg-bg-elevated/20 hover:text-text-primary"
         >
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M5.5 11.75C6.19036 11.75 6.75 12.3096 6.75 13C6.75 13.6904 6.19036 14.25 5.5 14.25C4.80964 14.25 4.25 13.6904 4.25 13C4.25 12.3096 4.80964 11.75 5.5 11.75ZM10.5 11.75C11.1904 11.75 11.75 12.3096 11.75 13C11.75 13.6904 11.1904 14.25 10.5 14.25C9.80964 14.25 9.25 13.6904 9.25 13C9.25 12.3096 9.80964 11.75 10.5 11.75ZM5.5 6.75C6.19036 6.75 6.75 7.30964 6.75 8C6.75 8.69036 6.19036 9.25 5.5 9.25C4.80964 9.25 4.25 8.69036 4.25 8C4.25 7.30964 4.80964 6.75 5.5 6.75ZM10.5 6.75C11.1904 6.75 11.75 7.30964 11.75 8C11.75 8.69036 11.1904 9.25 10.5 9.25C9.80964 9.25 9.25 8.69036 9.25 8C9.25 7.30964 9.80964 6.75 10.5 6.75ZM5.5 1.75C6.19036 1.75 6.75 2.30964 6.75 3C6.75 3.69036 6.19036 4.25 5.5 4.25C4.80964 4.25 4.25 3.69036 4.25 3C4.25 2.30964 4.80964 1.75 5.5 1.75ZM10.5 1.75C11.1904 1.75 11.75 2.30964 11.75 3C11.75 3.69036 11.1904 4.25 10.5 4.25C9.80964 4.25 9.25 3.69036 9.25 3C9.25 2.30964 9.80964 1.75 10.5 1.75Z" fill="currentColor"/>
-          </svg>
+          <GripVertical className="w-3 h-3" />
         </div>
       )}
 
@@ -197,13 +196,20 @@ function ChapterHeader({
         <button 
           type="button"
           onClick={onToggleCollapse}
-          className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-bg-elevated text-text-muted"
+          className="flex h-8 w-6 items-center cursor-pointer justify-center rounded-full hover:bg-white/10 text-text-muted"
           style={{ transform: isCollapsed ? 'rotate(0deg)' : 'rotate(180deg)' }}
           aria-label={isCollapsed ? "Expand" : "Collapse"}
+        > 
+          <svg
+          width="10"
+          height="10"
+          viewBox="0 0 12 20"
+          fill="currentColor"
+          xmlns="http://www.w3.org/2000/svg"
         >
-          <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-            <path d="M3.40002 4.75L5.82325 7.17323C5.92088 7.27086 6.07917 7.27086 6.1768 7.17323L8.60003 4.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
+          <path d="M0.702509 13.2926C1.09284 12.8995 1.72829 12.8984 2.12 13.2901L4.58579 15.7559C5.36684 16.5369 6.63316 16.5369 7.41421 15.7559L9.88 13.2901C10.2717 12.8984 10.9072 12.8995 11.2975 13.2926C11.6859 13.6837 11.6848 14.3153 11.295 14.7051L7.41421 18.5859C6.63317 19.3669 5.36684 19.3669 4.58579 18.5859L0.705005 14.7051C0.315239 14.3153 0.314123 13.6837 0.702509 13.2926Z" fill="currentColor" />
+          <path d="M11.2975 7.28749C10.9072 7.68059 10.2717 7.68171 9.88 7.28999L7.41421 4.82421C6.63316 4.04316 5.36684 4.04316 4.58579 4.82421L2.12 7.28999C1.72829 7.68171 1.09284 7.68059 0.702509 7.28749C0.314123 6.89635 0.315239 6.26476 0.705005 5.87499L4.58579 1.99421C5.36683 1.21316 6.63316 1.21316 7.41421 1.99421L11.295 5.87499C11.6848 6.26476 11.6859 6.89635 11.2975 7.28749Z" fill="currentColor" />
+        </svg>
         </button>
       ) : (
         <div className="w-6" />
@@ -217,7 +223,7 @@ function ChapterHeader({
           onChange={(e) => setEditingChapterTitle(e.target.value)}
           onBlur={handleTitleBlur}
           onKeyDown={handleTitleKeyDown}
-          className="flex-1 bg-bg-elevated border border-accent rounded px-2 py-1 text-sm font-medium focus:outline-none"
+          className="flex-1 bg-white/10  rounded px-2 py-1 text-sm font-medium focus:outline-none w-fit"
           autoFocus
         />
       ) : (
@@ -230,64 +236,53 @@ function ChapterHeader({
       {totalLessons > 0 && (
         <div className="flex items-center gap-1">
           <ProgressRing progress={chapterProgress} size={18} strokeWidth={2} />
-          <Text size="0" theme="muted">{completedLessons}/{totalLessons}</Text>
+          {!isOwner && <Text size="0" theme="muted">{completedLessons}/{totalLessons}</Text>}
         </div>
       )}
 
       {/* Add lesson button - owner only */}
       {isOwner && (
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={onAddLesson}
-          className="flex h-6 w-6 items-center justify-center rounded-full bg-bg-elevated text-text-muted hover:text-accent"
+          className="h-6 w-8 p-0 rounded-full hover:bg-white/60"
           aria-label="Add lesson"
         >
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-            <path d="M8 1.75V8M8 14.25V8M8 8H1.75M8 8H14.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </button>
+          <Plus className="w-4 h-4 stroke-3" />
+        </Button>
       )}
 
-      {/* 3-dot menu - owner only, using Dropdown */}
+      {/* 3-dot menu - owner only, using Select */}
       {isOwner && (
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setOpenMenu(!openMenu)}
-            className="flex h-6 w-6 items-center justify-center rounded-full text-text-muted hover:bg-bg-elevated"
-            aria-label="Chapter options"
-          >
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-              <path d="M4.75 10.25C4.75 9.55964 5.30964 9 6 9C6.69036 9 7.25 9.55964 7.25 10.25C7.25 10.9404 6.69036 11.5 6 11.5C5.30964 11.5 4.75 10.9404 4.75 10.25ZM4.75 6C4.75 5.30964 5.30964 4.75 6 4.75C6.69036 4.75 7.25 5.30964 7.25 6C7.25 6.69036 6.69036 7.25 6 7.25C5.30964 7.25 4.75 6.69036 4.75 6ZM4.75 1.75C4.75 1.05964 5.30964 0.5 6 0.5C6.69036 0.5 7.25 1.05964 7.25 1.75C7.25 2.44036 6.69036 3 6 3C5.30964 3 4.75 2.44036 4.75 1.75Z" fill="currentColor"/>
-            </svg>
-          </button>
-          {openMenu && (
-            <div className="absolute right-0 top-7 z-20">
-              <Dropdown>
-                <MenuItem
-                  icon={Edit3}
-                  label="Rename"
-                  index={0}
-                  onSelect={() => {
-                    setEditingChapterId(module._id);
-                    setEditingChapterTitle(module.title);
-                    setOpenMenu(false);
-                  }}
-                />
-                <MenuItem
-                  icon={Trash2}
-                  label="Delete"
-                  index={1}
-                  destructive
-                  onSelect={() => {
-                    setDeleteConfirm();
-                    setOpenMenu(false);
-                  }}
-                />
-              </Dropdown>
-            </div>
-          )}
-        </div>
+        <Select onValueChange={(value) => {
+          if (value === "rename") {
+            setEditingChapterId(module._id);
+            setEditingChapterTitle(module.title);
+          } else if (value === "delete") {
+            setDeleteConfirm();
+          }
+        }}>
+          <SelectTrigger 
+          className="w-8 h-8 rounded-full bg-white/0 hover:bg-white/40 flex items-center justify-center p-0 border-0 hover:bg-bg-base/90 [&>span]:hidden [&>svg:last-child]:hidden"
+          aria-label="Chapter options menu">
+            <MoreVertical className="w-4 h-4" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="rename">
+              <div className="flex items-center gap-2">
+                <Edit3 className="w-3 h-3" />
+                Rename
+              </div>
+            </SelectItem>
+            <SelectItem value="delete" className="text-red-500 hover:text-red-500">
+              <div className="flex items-center gap-2">
+                <Trash2 className="w-3 h-3" />
+                Delete
+              </div>
+            </SelectItem>
+          </SelectContent>
+        </Select>
       )}
     </div>
   );
@@ -332,8 +327,8 @@ function LessonItem({
         tabIndex={0}
         onClick={onSelect}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(); } }}
-        className={`flex items-center gap-2 px-3 py-1.5 w-full text-left transition-colors cursor-pointer ${
-          isSelected ? "bg-accent-subtle" : "hover:bg-bg-elevated"
+        className={`flex items-center gap-2 px-3 py-1.5 w-full hover:bg-accent-muted text-left transition-colors cursor-pointer ${
+          isSelected ? "bg-accent-subtle" : ""
         }`}
       >
         {/* Thumbnail */}
@@ -357,7 +352,7 @@ function LessonItem({
         )}
 
         {/* Title and completion */}
-        <div className="flex flex-1 items-center gap-1 min-w-0">
+        <div className="flex flex-1 items-center gap-1 min-w-0 justify-between">
           <span className="truncate text-xs text-text-primary">{page.title}</span>
           {isCompleted && (
             <svg width="12" height="12" viewBox="0 0 16 16" fill="none" className="text-success shrink-0">
@@ -368,34 +363,26 @@ function LessonItem({
 
         {/* 3-dot menu - owner only */}
         {isOwner && (
-          <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
-            <button
-              type="button"
-              onClick={() => setOpenMenu(!openMenu)}
-              className="flex h-5 w-5 items-center justify-center rounded-full text-text-muted hover:bg-bg-elevated opacity-0 group-hover/lesson:opacity-100 transition-opacity"
-              aria-label="Lesson options"
+          <Select onValueChange={(value) => {
+            if (value === "delete") {
+              onDelete();
+            }
+          }}>
+            <SelectTrigger 
+          className="w-8 h-8 rounded-full bg-white/0 hover:bg-white/40 flex items-center justify-center p-0 border-0 hover:bg-bg-base/90 [&>span]:hidden [&>svg:last-child]:hidden"
+              aria-label="Lesson options menu"
             >
-              <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-                <path d="M4.75 10.25C4.75 9.55964 5.30964 9 6 9C6.69036 9 7.25 9.55964 7.25 10.25C7.25 10.9404 6.69036 11.5 6 11.5C5.30964 11.5 4.75 10.9404 4.75 10.25ZM4.75 6C4.75 5.30964 5.30964 4.75 6 4.75C6.69036 4.75 7.25 5.30964 7.25 6C7.25 6.69036 6.69036 7.25 6 7.25C5.30964 7.25 4.75 6.69036 4.75 6ZM4.75 1.75C4.75 1.05964 5.30964 0.5 6 0.5C6.69036 0.5 7.25 1.05964 7.25 1.75C7.25 2.44036 6.69036 3 6 3C5.30964 3 4.75 2.44036 4.75 1.75Z" fill="currentColor"/>
-              </svg>
-            </button>
-            {openMenu && (
-              <div className="absolute right-0 top-5 z-20">
-                <Dropdown>
-                  <MenuItem
-                    icon={Trash2}
-                    label="Delete"
-                    index={0}
-                    destructive
-                    onSelect={() => {
-                      onDelete();
-                      setOpenMenu(false);
-                    }}
-                  />
-                </Dropdown>
-              </div>
-            )}
-          </div>
+              <MoreVertical className="w-3 h-3" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="delete" className="text-red-500">
+                <div className="flex items-center gap-2">
+                  <Trash2 className="w-3 h-3" />
+                  Delete
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
         )}
       </div>
     </div>
@@ -490,7 +477,7 @@ export function ClassroomSidebar({
           <ChevronDown className="w-8 h-8 text-text-muted" />
           <Text size="2" theme="muted">No chapters yet</Text>
           {isOwner && (
-            <Button size="sm" onClick={onAddChapter}>
+            <Button size="md" onClick={onAddChapter}>
               Create First Chapter
             </Button>
           )}
@@ -508,7 +495,7 @@ export function ClassroomSidebar({
           items={modules.map(m => m._id)}
           strategy={verticalListSortingStrategy}
         >
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 overflow-hidden">
             {modules.map((module) => {
               const { total, completed, progress: chapterProgress } = getChapterProgress(module);
               const isCollapsed = collapsedModules.has(module._id);
@@ -519,7 +506,7 @@ export function ClassroomSidebar({
 
               return (
                 <SortableChapter key={module._id} module={module} isOwner={isOwner}>
-                  <div className="bg-bg-surface rounded-lg">
+                  <div className="border border-mauve-4/30 bg-black/80 rounded-xl overflow-hidden ">
                     <ChapterHeader
                       module={module}
                       isCollapsed={isCollapsed}
@@ -631,11 +618,11 @@ export function ClassroomSidebar({
               {/* Progress bar */}
             <div className="relative p-1 justify-center items-center h-fit w-full">
               <div 
-              className="h-[8px] bg-black rounded-full overflow-hidden"
+              className="h-[8px] bg-black rounded-full "
               style={{ boxShadow: 'var(--input-shadow)' }}
                 >
                 <div 
-                className="h-full bg-green-500 rounded-full transition-all shadow-(0 0px 4px rgba(5, 222, 106, 0.2))"
+                className="h-full bg-green-500 rounded-full transition-all shadow-[0_0px_4px_2px_rgba(5,222,106,0.2)]"
                 style={{ width: `${progress}%` }} />
               </div>
               
@@ -658,9 +645,9 @@ export function ClassroomSidebar({
                 variant="ghost"
                 size="md" 
                 onClick={onAddChapter}
-                className="w-full gap-2 text-text-secondary  border-2 border-dashed border-mauve-6 hover:border-mauve-4 hover:bg-bg-elevated transition-colors"
+                className="w-full gap-2 text-text-secondary hover:text-accent  border-2 border-dashed border-mauve-6 hover:border-accent hover:bg-accent-subtle transition-colors"
               >
-                <Plus width="14" height="14" className="text-text-primary" />
+                <Plus width="14" height="14" />
                 Add New Chapter
               </Button>
             </div>

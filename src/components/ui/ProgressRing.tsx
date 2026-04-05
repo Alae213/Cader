@@ -10,7 +10,7 @@ interface ProgressRingProps {
 export function ProgressRing({
   progress,
   size = 24,
-  strokeWidth = 2.5,
+  strokeWidth = 3.5,
   className = "",
 }: ProgressRingProps) {
   const radius = (size - strokeWidth) / 2;
@@ -24,7 +24,7 @@ export function ProgressRing({
         width={size}
         height={size}
         viewBox={`0 0 ${size} ${size}`}
-        className="transform -rotate-90"
+        className="transform -rotate-90 "
         style={{ overflow: 'visible' }}
       >
         {/* Track - darker background using mauve scale */}
@@ -35,7 +35,7 @@ export function ProgressRing({
           fill="none"
           stroke="currentColor"
           strokeWidth={strokeWidth}
-          className="text-mauve-4"
+          className="text-white/20 "
         />
         {/* Progress - accent color */}
         <circle
@@ -48,7 +48,7 @@ export function ProgressRing({
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={strokeDashoffset}
-          className="text-accent"
+          className="text-green-500 "
           style={{
             transition: 'stroke-dashoffset 0.3s ease',
           }}
@@ -57,4 +57,4 @@ export function ProgressRing({
       
     </div>
   );
-}
+} 

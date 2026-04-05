@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
@@ -13,6 +13,21 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { ClassroomViewer } from "./ClassroomViewer";
 import { ClassroomCard } from "./ClassroomCard";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  horizontalListSortingStrategy,
+} from "@dnd-kit/sortable";
 
 // Access type options for select
 const accessTypeOptions = [
@@ -48,6 +63,7 @@ interface ClassroomData {
   accessType: "open" | "level" | "price" | "level_and_price";
   minLevel?: number;
   priceDzd?: number;
+  order: number;
   hasAccess: boolean;
   progress: number;
 }
@@ -93,6 +109,78 @@ export function ClassroomsTab({ communityId, isOwner, currentUser: providedUser 
   const createClassroom = useMutation(api.functions.classrooms.createClassroom);
   const updateClassroom = useMutation(api.functions.classrooms.updateClassroom);
   const deleteClassroom = useMutation(api.functions.classrooms.deleteClassroom);
+  const reorderClassrooms = useMutation(api.functions.classrooms.reorderClassrooms);
+
+  // Optimistic reordering state
+  const [orderedClassrooms, setOrderedClassrooms] = useState<ClassroomData[]>([]);
+  const [isReordering, setIsReordering] = useState(false);
+  const [reorderError, setReorderError] = useState<string | null>(null);
+
+  // Sync orderedClassrooms when classrooms query returns
+  useEffect(() => {
+    if (classrooms && classrooms.length > 0) {
+      const sorted = [...classrooms].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      // Only update if not currently reordering
+      if (!isReordering) {
+        setOrderedClassrooms(sorted);
+      }
+    }
+  }, [classrooms, isReordering]);
+
+  // DnD sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    const oldIndex = orderedClassrooms.findIndex((c) => c._id === active.id);
+    const newIndex = orderedClassrooms.findIndex((c) => c._id === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) {
+      return;
+    }
+
+    // Optimistic update
+    const newOrder = arrayMove(orderedClassrooms, oldIndex, newIndex);
+    setOrderedClassrooms(newOrder);
+    setIsReordering(true);
+    setReorderError(null);
+
+    try {
+      // Update order values
+      const classroomOrders = newOrder.map((classroom, index) => ({
+        classroomId: classroom._id,
+        order: index,
+      }));
+
+      await reorderClassrooms({
+        communityId: communityId as Id<"communities">,
+        classroomOrders,
+      });
+    } catch (error) {
+      // Rollback on error
+      setReorderError(error instanceof Error ? error.message : "Failed to reorder");
+      const sortedClassrooms = classrooms 
+        ? [...classrooms].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+        : [];
+      setOrderedClassrooms(sortedClassrooms);
+    } finally {
+      setIsReordering(false);
+    }
+  }, [orderedClassrooms, reorderClassrooms, communityId, classrooms]);
 
   const handleCreateClassroom = useCallback(async () => {
     if (!title.trim()) {
@@ -212,46 +300,58 @@ export function ClassroomsTab({ communityId, isOwner, currentUser: providedUser 
           </Text>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {classrooms.map((classroom: ClassroomData) => (
-            <ClassroomCard
-              key={classroom._id}
-              classroom={classroom}
-              onClick={() => setSelectedClassroomId(classroom._id)}
-              onDelete={() => triggerDelete(classroom._id)}
-              onEdit={() => {
-                setEditingClassroomId(classroom._id);
-                setTitle(classroom.title);
-                setDescription(classroom.description || "");
-                setAccessType(classroom.accessType);
-                setMinLevel(classroom.minLevel);
-                setPriceDzd(classroom.priceDzd?.toString() || "");
-                setShowCreateModal(true);
-              }}
-              onUpdateThumbnail={(thumbnailData) => updateClassroom({ classroomId: classroom._id, thumbnailUrl: thumbnailData })}
-              isOwner={isOwner}
-            />
-          ))}
-          
-          {/* Add Classroom Card (owner only) */}
-          {isOwner && (
-            <div
-              role="button"
-              tabIndex={0}
-              aria-label="Add new classroom"
-              onClick={() => setShowCreateModal(true)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  setShowCreateModal(true);
-                }
-              }}
-              className="hover:bg-accent-subtle rounded-[16px] bg-black/20 shadow-input-shadow border-2 border-dashed border-white/20 flex items-center justify-center cursor-pointer hover:border-accent transition-colors min-h-[180px]"
-            >
-              <Text size="2" theme="secondary" >+ Add Classroom</Text>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={orderedClassrooms.map((c) => c._id)}
+            strategy={horizontalListSortingStrategy}
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {orderedClassrooms.map((classroom: ClassroomData) => (
+                <ClassroomCard
+                  key={classroom._id}
+                  classroom={classroom}
+                  onClick={() => setSelectedClassroomId(classroom._id)}
+                  onDelete={() => triggerDelete(classroom._id)}
+                  onEdit={() => {
+                    setEditingClassroomId(classroom._id);
+                    setTitle(classroom.title);
+                    setDescription(classroom.description || "");
+                    setAccessType(classroom.accessType);
+                    setMinLevel(classroom.minLevel);
+                    setPriceDzd(classroom.priceDzd?.toString() || "");
+                    setShowCreateModal(true);
+                  }}
+                  onUpdateThumbnail={(thumbnailData) => updateClassroom({ classroomId: classroom._id, thumbnailUrl: thumbnailData })}
+                  isOwner={isOwner}
+                  isDragging={isReordering}
+                />
+              ))}
+              
+              {/* Add Classroom Card (owner only) */}
+              {isOwner && (
+                <div
+                  role="button"
+                  tabIndex={0}
+                  aria-label="Add new classroom"
+                  onClick={() => setShowCreateModal(true)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setShowCreateModal(true);
+                    }
+                  }}
+                  className="hover:bg-accent-subtle rounded-[16px] bg-black/20 shadow-input-shadow border-2 border-dashed border-white/20 flex items-center justify-center cursor-pointer hover:border-accent transition-colors min-h-[180px]"
+                >
+                  <Text size="2" theme="secondary" >+ Add Classroom</Text>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </SortableContext>
+        </DndContext>
       )}
 
       {/* Create/Edit Classroom Modal */}

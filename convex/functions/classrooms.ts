@@ -36,7 +36,7 @@ export const listClassrooms = query({
   handler: async (ctx, args) => {
     const classrooms = await ctx.db
       .query("classrooms")
-      .withIndex("by_community_id", (q) => q.eq("communityId", args.communityId))
+      .withIndex("by_community_and_order", (q) => q.eq("communityId", args.communityId))
       .collect();
 
     // If no user provided, return classrooms without access info
@@ -476,6 +476,15 @@ export const createClassroom = mutation({
       throw new Error("Minimum level is required for level-gated classrooms");
     }
 
+    // Calculate next order value (append to end)
+    const existingClassrooms = await ctx.db
+      .query("classrooms")
+      .withIndex("by_community_and_order", (q) => q.eq("communityId", args.communityId))
+      .collect();
+    
+    const maxOrder = existingClassrooms.reduce((max, c) => Math.max(max, c.order ?? 0), -1);
+    const newOrder = maxOrder + 1;
+
     const now = Date.now();
     const classroomId = await ctx.db.insert("classrooms", {
       communityId: args.communityId,
@@ -485,6 +494,7 @@ export const createClassroom = mutation({
       accessType: args.accessType,
       minLevel: args.minLevel,
       priceDzd: args.priceDzd,
+      order: newOrder,
       createdAt: now,
       updatedAt: now,
     });
@@ -1134,6 +1144,54 @@ export const reorderLessons = mutation({
     // Update order for each lesson
     for (const { lessonId, order } of args.lessonOrders) {
       await ctx.db.patch(lessonId, { order });
+    }
+
+    return { success: true };
+  },
+});
+
+// Reorder classrooms (owner only) - for drag and drop
+export const reorderClassrooms = mutation({
+  args: {
+    communityId: v.id("communities"),
+    classroomOrders: v.array(v.object({ classroomId: v.id("classrooms"), order: v.number() })),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("You must be signed in");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const community = await ctx.db.get(args.communityId);
+    if (!community) {
+      throw new Error("Community not found");
+    }
+
+    // Check ownership
+    if (community.ownerId !== user._id) {
+      throw new Error("Only the community owner can reorder classrooms");
+    }
+
+    // Verify all classrooms belong to this community
+    for (const { classroomId } of args.classroomOrders) {
+      const classroom = await ctx.db.get(classroomId);
+      if (!classroom || classroom.communityId !== args.communityId) {
+        throw new Error("Classroom does not belong to this community");
+      }
+    }
+
+    // Update order for each classroom
+    for (const { classroomId, order } of args.classroomOrders) {
+      await ctx.db.patch(classroomId, { order, updatedAt: Date.now() });
     }
 
     return { success: true };

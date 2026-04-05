@@ -26,13 +26,19 @@ Tasks currently being worked on or up next.
 
 <!-- Claude: keep this section short — max 5-7 tasks at a time -->
 
-All planned tasks complete. Remaining items are minor polish:
-- S-11: Clean up unused `currentUser` in SettingsModal
-- S-15: Billing tier display for future "locked" state
-- S-17: Member search "show more" option
-- S-18: Mobile tab bar scroll indicator
-- D-02: Cross-panel data sync
-- D-03: ProfilePanel close on community navigation
+**Phase 26 — Classroom Cards Enhancements**
+
+New features for ClassroomsTab.tsx classroom cards:
+
+- T-CL-CARD-001: Add `order` field to classrooms schema
+- T-CL-CARD-002: Create reorderClassrooms mutation  
+- T-CL-CARD-004: Add drag handle (6-dot grip) on ClassroomCard
+- T-CL-CARD-005: Integrate @dnd-kit sortable into grid
+- T-CL-CARD-010: Create LockedClassroomModal component
+- T-CL-CARD-011: Implement level gating UI
+- T-CL-CARD-012: Implement paid gating UI + checkout
+- T-CL-CARD-020: Refactor ThumbnailUpload to modal-based cropping
+- T-CL-CARD-030: Implement server-side pagination (9 per page)
 
 ---
 
@@ -382,6 +388,58 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 | T-CL-REF-028 | `[x]`  | Run build to verify no errors                                           | [context/features/classrooms.md](../features/classrooms.md) | npm run build                                     |
 | T-CL-REF-029 | `[x]`  | Run ESLint to verify no errors                                          | [context/features/classrooms.md](../features/classrooms.md) | npm run lint                                      |
 | T-CL-REF-030 | `[x]`  | Final verification — all classroom features work in browser             | [context/features/classrooms.md](../features/classrooms.md) | UAT                                               |
+
+---
+
+### Phase 26 — Classroom Cards Enhancements (T-CL-CARD-001 to T-CL-CARD-050)
+
+New features requested by user for ClassroomsTab.tsx
+
+#### Phase 26A — Card Reordering
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CL-CARD-001 | `[ ]` | Add `order` field to `classrooms` table in schema | [context/features/classrooms.md](../features/classrooms.md) | Integer field for sorting |
+| T-CL-CARD-002 | `[ ]` | Create `reorderClassrooms` Convex mutation | [context/features/classrooms.md](../features/classrooms.md) | Update order field for multiple classrooms |
+| T-CL-CARD-003 | `[ ]` | Update `listClassrooms` query to return ordered results | [context/features/classrooms.md](../features/classrooms.md) | Order by `order` field ASC |
+| T-CL-CARD-004 | `[ ]` | Implement drag handle (6-dot grip icon) on ClassroomCard | [context/features/classrooms.md](../features/classrooms.md) | Visible to owner only |
+| T-CL-CARD-005 | `[ ]` | Integrate @dnd-kit sortable into classroom grid | [context/features/classrooms.md](../features/classrooms.md) | Use SortableContext for grid items |
+| T-CL-CARD-006 | `[ ]` | Implement optimistic UI for reordering — update local state immediately | [context/features/classrooms.md](../features/classrooms.md) | UI updates before server confirmation |
+| T-CL-CARD-007 | `[ ]` | Handle reorder errors — rollback on server failure | [context/features/classrooms.md](../features/classrooms.md) | Show error toast, revert position |
+| T-CL-CARD-008 | `[ ]` | Set default order for new classrooms — append to end | [context/features/classrooms.md](../features/classrooms.md) | Use max(order) + 1 |
+
+#### Phase 26B — Access Gating Modal
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CL-CARD-010 | `[ ]` | Create `LockedClassroomModal` component | [context/features/classrooms.md](../features/classrooms.md) | Shows when non-owner clicks locked card |
+| T-CL-CARD-011 | `[ ]` | Implement level gating UI — show current level + points needed | [context/features/classrooms.md](../features/classrooms.md) | Query pointEvents to derive level |
+| T-CL-CARD-012 | `[ ]` | Implement paid gating UI — show price + "Buy now" button | [context/features/classrooms.md](../features/classrooms.md) | Create Chargily checkout on button click |
+| T-CL-CARD-013 | `[ ]` | Implement level+price gating UI — show both requirements | [context/features/classrooms.md](../features/classrooms.md) | Combined state in modal |
+| T-CL-CARD-014 | `[ ]` | Create classroom checkout flow using owner's Chargily keys | [context/features/classrooms.md](../features/classrooms.md) | Reuse pattern from OnboardingModal |
+| T-CL-CARD-015 | `[ ]` | Handle classroom checkout edge cases | [context/features/classrooms.md](../features/classrooms.md) | Expired, canceled, already purchased |
+| T-CL-CARD-016 | `[ ]` | Add classroom purchase webhook handler | [context/features/classrooms.md](../features/classrooms.md) | grantClassroomAccess on payment |
+| T-CL-CARD-017 | `[ ]` | Verify payment amount against stored price (prevent manipulation) | [context/features/classrooms.md](../features/classrooms.md) | EC-18 pattern |
+
+#### Phase 26C — Thumbnail Upload Cropping Modal
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CL-CARD-020 | `[ ]` | Refactor ThumbnailUpload to open cropping in modal | [context/features/classrooms.md](../features/classrooms.md) | Move crop UI outside card |
+| T-CL-CARD-021 | `[ ]` | Create ImageCropModal component | [context/features/classrooms.md](../features/classrooms.md) | Modal with crop controls |
+| T-CL-CARD-022 | `[ ]` | Implement crop preview and aspect ratio lock | [context/features/classrooms.md](../features/classrooms.md) | 16:9 aspect for video thumbnails |
+| T-CL-CARD-023 | `[ ]` | Connect crop modal to ThumbnailUpload save flow | [context/features/classrooms.md](../features/classrooms.md) | Pass cropped image to onSave |
+
+#### Phase 26D — Pagination
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-CL-CARD-030 | `[ ]` | Update `listClassrooms` query to support pagination | [context/features/classrooms.md](../features/classrooms.md) | Add limit + cursor parameters |
+| T-CL-CARD-031 | `[ ]` | Implement server-side pagination with 9 items per page | [context/features/classrooms.md](../features/classrooms.md) | Return cursor for next page |
+| T-CL-CARD-032 | `[ ]` | Add infinite scroll trigger on scroll | [context/features/classrooms.md](../features/classrooms.md) | Intersection Observer for scroll |
+| T-CL-CARD-033 | `[ ]` | Handle pagination for owner vs member | [context/features/classrooms.md](../features/classrooms.md) | Owner: load all, Member: paginate |
+| T-CL-CARD-034 | `[ ]` | Keep "Add Classroom" card always visible for owner | [context/features/classrooms.md](../features/classrooms.md) | Separate from pagination |
+| T-CL-CARD-035 | `[ ]` | Add loading skeleton during pagination load | [context/features/classrooms.md](../features/classrooms.md) | Show skeleton for next page |
 
 ---
 
