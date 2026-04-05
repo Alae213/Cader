@@ -161,3 +161,34 @@
 - Deep linking to specific tabs requires adding optional route params (e.g., `?tab=classrooms`) — deferred to v1.1.
 - If tab content grows significantly, may need to revisit lazy loading strategy.
 - The pattern is consistent across the app — easy to extend to other multi-tab interfaces.
+
+---
+
+## ADR-011 — SofizPay over Chargily Pay
+
+**Decision:** Replace Chargily Pay with SofizPay as the payment provider.
+**Date:** April 2026
+**Context:** Complete migration from Chargily to SofizPay for all payment processing.
+
+| Aspect | Decision |
+|--------|----------|
+| Migration Type | Complete replacement (all at once) |
+| Payment Method | CIB hosted (user redirected to SofizPay page via `makeCIBTransaction`) |
+| Currency | DZD only (no XLM/crypto exposure) |
+| Minimum Amount | 1000 DZD (block below) |
+| Refunds | No refunds (T&C policy) |
+| Chargebacks | Owner bears risk (platform not liable) |
+| Existing Members | Keep access (no re-payment required) |
+
+**Options Considered:** Keep Chargily + add SofizPay (dual system)
+**Rationale:**
+- SofizPay provides similar CIB card payment flow
+- Complete replacement is simpler than maintaining dual systems
+- No users yet (MVP), so migration has no disruption
+- DZD-only avoids crypto complexity for users
+
+**Consequences:**
+- All checkout flows rebuilt around SofizPay SDK
+- Schema changes: remove `chargilyApiKey`, `chargilyWebhookSecret`, add `sofizpayPublicKey`
+- Webhook endpoint changes from `/api/webhooks/chargily` to `/api/webhooks/sofizpay`
+- Cleanup of deprecated Chargily files after testing

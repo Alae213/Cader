@@ -3,13 +3,13 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import { useAuth } from "@clerk/nextjs";
+import { useAuth, useUser } from "@clerk/nextjs";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/Dialog";
 import { Heading, Text } from "@/components/ui/Text";
 import { Button } from "@/components/ui/Button";
-import { Loader2, AlertCircle, CreditCard, XCircle, ExternalLink } from "lucide-react";
+import { Loader2, AlertCircle, CreditCard, XCircle, ExternalLink, CheckCircle } from "lucide-react";
 
 interface Community {
   _id: string;
@@ -26,7 +26,7 @@ interface OnboardingModalProps {
   onComplete?: () => void;
 }
 
-type PaymentStatus = "idle" | "pending" | "cancelled" | "expired";
+type PaymentStatus = "idle" | "pending" | "verifying" | "verified" | "cancelled" | "failed";
 
 // ============================================================================
 // FUTURE: Custom Questions Feature
@@ -40,6 +40,7 @@ type PaymentStatus = "idle" | "pending" | "cancelled" | "expired";
 
 export function OnboardingModal({ community, open, onOpenChange, onComplete }: OnboardingModalProps) {
   const { userId } = useAuth();
+  const { user: clerkUser } = useUser();
   const searchParams = useSearchParams();
   
   // UI states
@@ -67,10 +68,46 @@ export function OnboardingModal({ community, open, onOpenChange, onComplete }: O
     userId ? { clerkId: userId } : "skip"
   );
 
+  // Get expected price for verification
+  const expectedPrice = useQuery(
+    api.functions.payments.getExpectedPrice,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    community._id ? { communityId: community._id as any, type: "community" } : "skip"
+  );
+
   // ============================================================================
   // CHECKOUT STATUS CHECK
   // Check URL params for payment status when modal opens
+  // SofizPay uses return URL pattern (no webhooks)
   // ============================================================================
+  
+  // Sync user if they exist in Clerk but not in Convex (handles race condition with webhooks)
+  useEffect(() => {
+    if (open && userId && !convexUser) {
+      // Try to sync user - this handles case where Clerk webhook hasn't fired yet
+      const doSync = async () => {
+        try {
+          // Get user info from Clerk via the frontend
+          const userResponse = await fetch(`/api/auth/user`).catch(() => null);
+          if (userResponse?.ok) {
+            const userData = await userResponse.json();
+            if (userData?.user) {
+              await syncUser({
+                clerkId: userId,
+                email: userData.user.email || "",
+                displayName: userData.user.displayName || "",
+                avatarUrl: userData.user.imageUrl || undefined,
+              });
+            }
+          }
+        } catch (e) {
+          console.error("User sync error:", e);
+        }
+      };
+      doSync();
+    }
+  }, [open, userId, convexUser]);
+
   useEffect(() => {
     if (open) {
       const status = searchParams.get("status");
@@ -78,25 +115,12 @@ export function OnboardingModal({ community, open, onOpenChange, onComplete }: O
       
       if (status === "cancelled") {
         setPaymentStatus("cancelled");
-      } else if (status === "expired") {
-        setPaymentStatus("expired");
-      } else if (joined === "true") {
-        // Payment successful - close modal and complete
-        toast.success("Welcome to the community!");
-        onOpenChange(false);
-        onComplete?.();
-        return;
-      }
-      
-      // Clear URL params after reading
-      if (status || joined) {
-        const url = new URL(window.location.href);
-        url.searchParams.delete("status");
-        url.searchParams.delete("joined");
-        window.history.replaceState({}, "", url.toString());
+      } else if (status === "success" && joined === "true" && convexUser?._id && community._id) {
+        // User returned from SofizPay - verify payment
+        handleVerifyPayment();
       }
     }
-  }, [open, searchParams, onOpenChange, onComplete]);
+  }, [open, searchParams, convexUser, community._id]);
 
   // Check for existing membership - if found, close modal and complete
   useEffect(() => {
@@ -107,15 +131,74 @@ export function OnboardingModal({ community, open, onOpenChange, onComplete }: O
   }, [membershipQuery, open, onOpenChange, onComplete]);
 
   // ============================================================================
+  // VERIFY PAYMENT (SofizPay polling-based verification)
+  // ============================================================================
+  const handleVerifyPayment = async () => {
+    if (!userId || !convexUser?._id || !community._id || !expectedPrice?.expectedAmount) {
+      return;
+    }
+
+    setPaymentStatus("verifying");
+    setIsLoading(true);
+    setError("");
+
+    try {
+      // Build memo to search for
+      const memo = `Community:${community.slug} - User:${convexUser.email || userId} - Type:community`;
+
+      // Verify with Convex
+      const verifyResult = await verifyPaymentStatus({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        communityId: community._id as any,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        userId: convexUser._id as any,
+        memo,
+        expectedAmount: expectedPrice.expectedAmount,
+        type: "community",
+      });
+
+      if (verifyResult.verified) {
+        setPaymentStatus("verified");
+        toast.success("Payment verified! Welcome to the community.");
+        setTimeout(() => {
+          onOpenChange(false);
+          onComplete?.();
+        }, 1500);
+      } else {
+        setPaymentStatus("failed");
+        setError(verifyResult.error || "Payment verification failed. Please try again.");
+      }
+    } catch (err) {
+      setPaymentStatus("failed");
+      setError(err instanceof Error ? err.message : "Failed to verify payment");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // ============================================================================
   // FREE COMMUNITY JOIN
   // ============================================================================
   const handleFreeJoin = async () => {
-    if (!userId || !convexUser?._id) return;
+    if (!userId || !clerkUser?.emailAddresses?.[0]?.emailAddress) return;
     
     setIsLoading(true);
     setError("");
     
     try {
+      // Try to sync user first if they don't exist in Convex (handles race condition with Clerk webhooks)
+      if (!convexUser) {
+        try {
+          await syncUser({
+            clerkId: userId,
+            email: clerkUser.emailAddresses[0].emailAddress,
+            displayName: clerkUser.fullName || clerkUser.username || "User",
+          });
+        } catch (syncError) {
+          // Continue anyway - the mutation might work if user was created by webhook
+        }
+      }
+      
       await mutateFreeJoin({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         communityId: community._id as any,
@@ -132,39 +215,76 @@ export function OnboardingModal({ community, open, onOpenChange, onComplete }: O
   };
 
   // ============================================================================
-  // PAID COMMUNITY CHECKOUT
+  // PAID COMMUNITY CHECKOUT (SofizPay)
   // ============================================================================
   const handlePaidJoin = async () => {
-    if (!userId || !convexUser?._id) return;
+    if (!userId || !clerkUser?.emailAddresses?.[0]?.emailAddress) return;
     
     setIsLoading(true);
     setError("");
     setPaymentStatus("idle");
     
     try {
-       
-      const result = await createCheckout({
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        communityId: community._id as any,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        userId: convexUser._id as any,
-        type: "community",
-        successUrl: `${window.location.origin}/${community.slug}?joined=true`,
-        cancelUrl: `${window.location.origin}/${community.slug}?status=cancelled`,
-      });
-      
-      if (result.checkoutUrl) {
-        // Show redirecting state before navigating
-        setIsRedirecting(true);
-        setTimeout(() => {
-          window.location.href = result.checkoutUrl;
-        }, 1500);
+      // Try to sync user first if they don't exist in Convex
+      let userConvexId = convexUser?._id;
+      if (!userConvexId) {
+        try {
+          await syncUser({
+            clerkId: userId,
+            email: clerkUser.emailAddresses[0].emailAddress,
+            displayName: clerkUser.fullName || clerkUser.username || "User",
+          });
+          // Give Convex a moment to sync - the convexUser query should update
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } catch (syncError) {
+          // Continue anyway
+        }
       }
-    } catch (err) {
-      if (err instanceof Error && err.message.includes("not configured")) {
-        setError("This community is not yet configured for payments. Please contact the community owner.");
-      } else {
-        setError(err instanceof Error ? err.message : "Failed to create checkout");
+      
+      // Now try to get the convex user
+      userConvexId = convexUser?._id;
+      
+      if (!userConvexId) {
+        // Try one more time by forcing a re-render wait
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        userConvexId = convexUser?._id;
+      }
+      
+      if (!userConvexId) {
+        setError("Unable to find your user profile. Please sign out and sign in again, then try joining.");
+        setIsLoading(false);
+        return;
+      }
+      
+      console.log("Creating checkout for community:", community._id, "user:", userConvexId);
+      
+      try {
+        const result = await createSofizpayCheckout({
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          communityId: community._id as any,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          userId: userConvexId as any,
+          type: "community",
+          successUrl: `${window.location.origin}/${community.slug}?status=success&joined=true`,
+          cancelUrl: `${window.location.origin}/${community.slug}?status=cancelled`,
+        });
+        console.log("Checkout result:", result);
+        
+        if (result.paymentUrl) {
+          // Show redirecting state before navigating
+          setIsRedirecting(true);
+          setPaymentStatus("pending");
+          setTimeout(() => {
+            window.location.href = result.paymentUrl;
+          }, 1500);
+        }
+      } catch (err) {
+        console.error("Checkout error:", err);
+        if (err instanceof Error && err.message.includes("not configured")) {
+          setError("This community is not yet configured for payments. Please contact the community owner.");
+        } else {
+          setError(err instanceof Error ? err.message : "Failed to create payment");
+        }
       }
     } finally {
       setIsLoading(false);
@@ -173,11 +293,35 @@ export function OnboardingModal({ community, open, onOpenChange, onComplete }: O
 
   // Mutations
   const mutateFreeJoin = useMutation(api.functions.memberships.joinFreeCommunity);
-  const createCheckout = useMutation(api.functions.payments.createChargilyCheckout);
+  const createSofizpayCheckout = useMutation(api.functions.payments.createSofizpayCheckout);
+  const verifyPaymentStatus = useMutation(api.functions.payments.verifyPaymentStatus);
+  const syncUser = useMutation(api.functions.users.syncUser);
 
   // Render payment status message
   const renderPaymentStatusMessage = () => {
     switch (paymentStatus) {
+      case "verifying":
+        return (
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+            <div className="flex items-center gap-2">
+              <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
+              <Text size="sm" className="text-blue-800">
+                Verifying your payment...
+              </Text>
+            </div>
+          </div>
+        );
+      case "verified":
+        return (
+          <div className="p-3 bg-green-50 border border-green-200 rounded-md">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-green-600" />
+              <Text size="sm" className="text-green-800">
+                Payment verified! Setting up your access...
+              </Text>
+            </div>
+          </div>
+        );
       case "cancelled":
         return (
           <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
@@ -189,13 +333,13 @@ export function OnboardingModal({ community, open, onOpenChange, onComplete }: O
             </div>
           </div>
         );
-      case "expired":
+      case "failed":
         return (
           <div className="p-3 bg-red-50 border border-red-200 rounded-md">
             <div className="flex items-center gap-2">
               <XCircle className="w-5 h-5 text-red-600" />
               <Text size="sm" className="text-red-800">
-                Checkout expired. Please try again to complete your payment.
+                Payment verification failed. Please try again.
               </Text>
             </div>
           </div>
@@ -213,41 +357,15 @@ export function OnboardingModal({ community, open, onOpenChange, onComplete }: O
   if (memberLimitCheck?.atLimit && !memberLimitCheck.isSubscribed) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-md">
-          <div className="text-center py-6">
-            <AlertCircle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-            <Heading size="h3" className="mb-2">Community at Capacity</Heading>
-            <Text theme="muted">
-              This community has reached its {memberLimitCheck.limit} member limit. 
-              The creator needs to upgrade to a paid plan to accept more members.
+        <DialogContent>
+          <DialogTitle>Community Full</DialogTitle>
+          <div className="py-4">
+            <Text>
+              This community has reached its member limit of {memberLimitCheck.limit} members.
             </Text>
-          </div>
-          <Button variant="secondary" className="w-full" onClick={() => onOpenChange(false)}>
-            Close
-          </Button>
-        </DialogContent>
-      </Dialog>
-    );
-  }
-
-  // ============================================================================
-  // REDIRECTING STATE
-  // Show loading screen while redirecting to payment
-  // ============================================================================
-  if (isRedirecting) {
-    return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-md">
-          <div className="text-center py-6">
-            <Loader2 className="w-12 h-12 text-blue-500 mx-auto mb-4 animate-spin" />
-            <Heading size="h3" className="mb-2">Redirecting to Payment</Heading>
-            <Text theme="muted" className="mb-4">
-              Please wait while we connect you to the secure payment page...
+            <Text size="sm" theme="secondary" className="mt-2">
+              The owner can upgrade to a paid plan to unlock unlimited members.
             </Text>
-            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-              <ExternalLink className="w-4 h-4" />
-              <span>Powered by Chargily</span>
-            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -256,83 +374,89 @@ export function OnboardingModal({ community, open, onOpenChange, onComplete }: O
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        {/* Header */}
-        <div className="text-center mb-6">
-          <DialogTitle className="text-xl font-semibold">
-            Join {community.name}
-          </DialogTitle>
-          <Text theme="muted" size="sm" className="mt-1">
-            {isPaidCommunity ? "Complete payment to join" : "Join this community"}
-          </Text>
-        </div>
-
-        <div className="space-y-4">
-          {/* Payment Status Message (for returning users) */}
-          {renderPaymentStatusMessage()}
-
-          {/* Order Summary (Paid Communities) */}
-          {isPaidCommunity && (
-            <div className="p-4 bg-bg-elevated rounded-lg space-y-3">
-              <div className="flex justify-between">
-                <Text fontWeight="medium">Community Access</Text>
-                <Text>{community.name}</Text>
-              </div>
-              <div className="flex justify-between">
-                <Text fontWeight="medium">Billing Cycle</Text>
-                <Text capitalize>
-                  {community.pricingType === "monthly" && "Monthly"}
-                  {community.pricingType === "annual" && "Annual"}
-                  {community.pricingType === "one_time" && "One-time"}
-                </Text>
-              </div>
-              <div className="border-t border-border pt-3 flex justify-between">
-                <Text fontWeight="semibold">Total</Text>
-                <Text fontWeight="semibold" size="lg">{community.priceDzd} DZD</Text>
-              </div>
+      <DialogContent>
+        <DialogTitle>Join {community.name}</DialogTitle>
+        
+        {renderPaymentStatusMessage()}
+        
+        {error && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-red-600" />
+              <Text size="sm" className="text-red-800">{error}</Text>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Payment Info (Paid Communities) */}
-          {isPaidCommunity && (
-            <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-md">
-              <CreditCard className="w-5 h-5 text-blue-600" />
-              <Text size="sm" theme="primary">Pay with your Algerian CIB or Edahabia card</Text>
-            </div>
-          )}
-
-          {/* Error */}
-          {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-              <Text size="sm" theme="error">{error}</Text>
-            </div>
-          )}
-
-          {/* Actions */}
-          <div className="flex gap-3 pt-2">
+        {!isPaidCommunity ? (
+          // Free Community
+          <div className="py-4 space-y-4">
+            <Text>Join this free community to access all content and connect with members.</Text>
             <Button 
-              variant="secondary" 
-              className="flex-1"
-              onClick={() => onOpenChange(false)}
-              disabled={isLoading}
-            >
-              Cancel
-            </Button>
-            <Button 
-              className="flex-1"
-              onClick={isPaidCommunity ? handlePaidJoin : handleFreeJoin}
-              disabled={isLoading}
+              onClick={handleFreeJoin} 
+              disabled={isLoading || !userId}
+              className="w-full"
             >
               {isLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : isPaidCommunity ? (
-                <>Pay {community.priceDzd} DZD</>
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Joining...
+                </>
               ) : (
-                "Join Free"
+                "Join Community"
               )}
             </Button>
           </div>
-        </div>
+        ) : (
+          // Paid Community
+          <div className="py-4 space-y-4">
+            <div className="flex items-center justify-between p-3 bg-card rounded-lg">
+              <div>
+                <Text theme="secondary" size="sm">Membership Type</Text>
+                <Text className="font-medium">
+                  {community.pricingType === "monthly" && "Monthly Subscription"}
+                  {community.pricingType === "annual" && "Annual Subscription"}
+                  {community.pricingType === "one_time" && "Lifetime Access"}
+                </Text>
+              </div>
+              <div className="text-right">
+                <Text theme="secondary" size="sm">Price</Text>
+                <Text className="font-medium text-lg">
+                  {community.priceDzd?.toLocaleString()} DZD
+                  {community.pricingType === "monthly" && "/month"}
+                  {community.pricingType === "annual" && "/year"}
+                </Text>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-md">
+              <CreditCard className="w-5 h-5 text-blue-600 mt-0.5" />
+              <Text size="sm" className="text-blue-800">
+                Secure payment powered by SofizPay. You'll be redirected to complete your payment.
+              </Text>
+            </div>
+
+            {(paymentStatus === "idle" || paymentStatus === "cancelled") && (
+              <Button 
+                onClick={handlePaidJoin} 
+                disabled={isLoading || !userId || isRedirecting}
+                className="w-full"
+              >
+                {isLoading || isRedirecting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    {isRedirecting ? "Redirecting to payment..." : "Processing..."}
+                  </>
+                ) : (
+                  <>
+                    Pay {community.priceDzd?.toLocaleString()} DZD
+                    <ExternalLink className="w-4 h-4 ml-2" />
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

@@ -80,26 +80,26 @@ const SortableChapter = memo(function SortableChapter({
   children: React.ReactNode;
   isOwner: boolean;
 }) {
-  const {
-    attributes,
-    listeners,
+  const { 
+    attributes: sortableAttributes,
+    listeners: sortableListeners,
     setNodeRef,
-    transform,
-    transition,
-    isDragging,
+    transform: sortableTransform,
+    transition: sortableTransition,
+    isDragging: sortableIsDragging,
   } = useSortable({ id: module._id, disabled: !isOwner });
 
   const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
+    transform: CSS.Transform.toString(sortableTransform),
+    transition: sortableTransition,
+    opacity: sortableIsDragging ? 0.5 : 1,
   };
 
   return (
     <div ref={setNodeRef} style={style}>
       {React.cloneElement(children as React.ReactElement<{ dragAttrs?: Record<string, unknown>; dragListeners?: Record<string, unknown> }>, {
-        dragAttrs: isOwner ? { ...attributes } : undefined,
-        dragListeners: isOwner ? { ...listeners } : undefined,
+        dragAttrs: isOwner ? { ...sortableAttributes } : undefined,
+        dragListeners: isOwner ? { ...sortableListeners } : undefined,
       })}
     </div>
   );
@@ -117,26 +117,26 @@ const SortableLesson = memo(function SortableLesson({
   children: React.ReactNode;
   isOwner: boolean;
 }) {
-  const {
-    attributes,
-    listeners,
+  const { 
+    attributes: lessonAttributes,
+    listeners: lessonListeners,
     setNodeRef,
-    transform,
-    transition,
-    isDragging,
+    transform: lessonTransform,
+    transition: lessonTransition,
+    isDragging: lessonIsDragging,
   } = useSortable({ id: page._id, data: { moduleId }, disabled: !isOwner });
 
   const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
+    transform: CSS.Transform.toString(lessonTransform),
+    transition: lessonTransition,
+    opacity: lessonIsDragging ? 0.5 : 1,
   };
 
   return (
     <div ref={setNodeRef} style={style}>
       {React.cloneElement(children as React.ReactElement<{ dragAttrs?: Record<string, unknown>; dragListeners?: Record<string, unknown> }>, {
-        dragAttrs: isOwner ? { ...attributes } : undefined,
-        dragListeners: isOwner ? { ...listeners } : undefined,
+        dragAttrs: isOwner ? { ...lessonAttributes } : undefined,
+        dragListeners: isOwner ? { ...lessonListeners } : undefined,
       })}
     </div>
   );
@@ -162,8 +162,6 @@ const ChapterHeader = memo(function ChapterHeader({
   setDeleteConfirm,
   onRenameSelect,
   onDeleteSelect,
-  dragAttrs,
-  dragListeners,
 }: {
   module: ModuleData;
   isCollapsed: boolean;
@@ -183,18 +181,13 @@ const ChapterHeader = memo(function ChapterHeader({
   setDeleteConfirm: () => void;
   onRenameSelect: () => void;
   onDeleteSelect: () => void;
-  dragAttrs?: Record<string, unknown>;
-  dragListeners?: Record<string, unknown>;
 }) {
   const isEditing = editingChapterId === module._id;
-
   return (
     <div className="relative flex h-11 items-center gap-2 px-3 group/chapter ">
       {/* Drag handle - absolutely positioned, visible on hover for owner */}
       {isOwner && (
         <div
-          {...dragAttrs}
-          {...dragListeners}
           className="absolute -left-1 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded cursor-grab active:cursor-grabbing text-text-muted opacity-0 group-hover/chapter:opacity-100 transition-opacity hover:bg-bg-elevated/20 hover:text-text-primary"
         >
           <GripVertical className="w-3 h-3" />

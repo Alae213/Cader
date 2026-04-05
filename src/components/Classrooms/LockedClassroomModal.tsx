@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/Dialog";
 import { Heading, Text } from "@/components/ui/Text";
 import { Button } from "@/components/ui/Button";
-import { Loader2, AlertCircle, Lock, CreditCard, XCircle } from "lucide-react";
+import { Loader2, AlertCircle, Lock, CreditCard, XCircle, ExternalLink } from "lucide-react";
 
 // Level thresholds from leaderboard
 const LEVEL_THRESHOLDS = [0, 20, 60, 140, 280];
@@ -37,7 +37,7 @@ interface LockedClassroomModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
-type PaymentStatus = "idle" | "pending" | "cancelled" | "expired" | "success";
+type PaymentStatus = "idle" | "pending" | "verifying" | "verified" | "cancelled" | "failed";
 
 export function LockedClassroomModal({ classroom, community, open, onOpenChange }: LockedClassroomModalProps) {
   const { userId } = useAuth();
@@ -63,26 +63,19 @@ export function LockedClassroomModal({ classroom, community, open, onOpenChange 
     userId ? { clerkId: userId } : "skip"
   );
 
+  // Get expected price for verification
+  const expectedPrice = useQuery(
+    api.functions.payments.getExpectedPrice,
+    community._id && classroom._id 
+      ? { communityId: community._id as Id<"communities">, type: "classroom", classroomId: classroom._id as Id<"classrooms"> }
+      : "skip"
+  );
+
   // Current level (default to 1 if not found)
   const currentLevel = userLevelData ?? 1;
-  
-  // Calculate points needed for next level
-  const getPointsForNextLevel = () => {
-    if (currentLevel >= LEVEL_THRESHOLDS.length) return null;
-    const nextLevelThreshold = LEVEL_THRESHOLDS[currentLevel];
-    
-    // Get user's total points to calculate current progress
-    // For simplicity, we'll show the threshold needed
-    return nextLevelThreshold;
-  };
-  
-  const pointsNeeded = classroom.minLevel 
-    ? Math.max(0, LEVEL_THRESHOLDS[classroom.minLevel - 1] - (LEVEL_THRESHOLDS[currentLevel - 1] || 0))
-    : null;
 
   // ============================================================================
-  // PAYMENT STATUS CHECK
-  // Check URL params for payment status when modal opens
+  // PAYMENT STATUS CHECK (SofizPay return URL pattern)
   // ============================================================================
   useEffect(() => {
     if (open) {
@@ -93,11 +86,9 @@ export function LockedClassroomModal({ classroom, community, open, onOpenChange 
         setPaymentStatus("cancelled");
       } else if (status === "expired") {
         setPaymentStatus("expired");
-      } else if (classroomPaid === "true") {
-        setPaymentStatus("success");
-        toast.success("Classroom unlocked!");
-        onOpenChange(false);
-        return;
+      } else if (status === "success" && classroomPaid === "true" && convexUser?._id && classroom._id) {
+        // User returned from SofizPay - verify payment
+        handleVerifyPayment();
       }
       
       // Clear URL params after reading
@@ -108,10 +99,54 @@ export function LockedClassroomModal({ classroom, community, open, onOpenChange 
         window.history.replaceState({}, "", url.toString());
       }
     }
-  }, [open, searchParams, onOpenChange]);
+  }, [open, searchParams, convexUser, classroom._id]);
 
   // ============================================================================
-  // PURCHASE CLASSROOM CHECKOUT
+  // VERIFY PAYMENT (SofizPay polling-based verification)
+  // ============================================================================
+  const handleVerifyPayment = async () => {
+    if (!userId || !convexUser?._id || !community._id || !classroom._id || !expectedPrice?.expectedAmount) {
+      return;
+    }
+
+    setPaymentStatus("verifying");
+    setIsLoading(true);
+    setError("");
+
+    try {
+      // Build memo to search for
+      const memo = `Community:${community.slug} - User:${convexUser.email || userId} - Type:classroom`;
+
+      // Verify with Convex
+      const verifyResult = await verifyPaymentStatus({
+        communityId: community._id as Id<"communities">,
+        userId: convexUser._id as Id<"users">,
+        memo,
+        expectedAmount: expectedPrice.expectedAmount,
+        type: "classroom",
+        classroomId: classroom._id as Id<"classrooms">,
+      });
+
+      if (verifyResult.verified) {
+        setPaymentStatus("verified");
+        toast.success("Classroom unlocked!");
+        setTimeout(() => {
+          onOpenChange(false);
+        }, 1500);
+      } else {
+        setPaymentStatus("failed");
+        setError(verifyResult.error || "Payment verification failed");
+      }
+    } catch (err) {
+      setPaymentStatus("failed");
+      setError(err instanceof Error ? err.message : "Failed to verify payment");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // ============================================================================
+  // PURCHASE CLASSROOM CHECKOUT (SofizPay)
   // ============================================================================
   const handlePurchase = async () => {
     if (!userId || !convexUser?._id) return;
@@ -121,67 +156,90 @@ export function LockedClassroomModal({ classroom, community, open, onOpenChange 
     setPaymentStatus("idle");
     
     try {
-      const result = await createCheckout({
+      const result = await createSofizpayCheckout({
         communityId: community._id as Id<"communities">,
         userId: convexUser._id as Id<"users">,
         type: "classroom",
         classroomId: classroom._id as Id<"classrooms">,
-        successUrl: `${window.location.origin}/${community.slug}?classroomPaid=true`,
+        successUrl: `${window.location.origin}/${community.slug}?status=success&classroomPaid=true`,
         cancelUrl: `${window.location.origin}/${community.slug}?status=cancelled`,
       });
       
-      if (result.checkoutUrl) {
+      if (result.paymentUrl) {
         setIsRedirecting(true);
+        setPaymentStatus("pending");
         setTimeout(() => {
-          window.location.href = result.checkoutUrl;
+          window.location.href = result.paymentUrl;
         }, 1500);
       }
     } catch (err) {
       if (err instanceof Error && err.message.includes("not configured")) {
         setError("This community is not configured for payments. Please contact the community owner.");
       } else {
-        setError(err instanceof Error ? err.message : "Failed to create checkout");
+        setError(err instanceof Error ? err.message : "Failed to create payment");
       }
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Mutation
-  const createCheckout = useMutation(api.functions.payments.createChargilyCheckout);
+  // Mutations
+  const createSofizpayCheckout = useMutation(api.functions.payments.createSofizpayCheckout);
+  const verifyPaymentStatus = useMutation(api.functions.payments.verifyPaymentStatus);
 
   // ============================================================================
   // RENDER CONTENT BASED ON ACCESS TYPE
   // ============================================================================
   const renderContent = () => {
     // Handle payment status messages
-    if (paymentStatus === "cancelled") {
-      return (
-        <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
-          <div className="flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 text-yellow-500 flex-shrink-0" />
-            <Text size="sm" className="text-yellow-200">
-              Payment was cancelled. You can try again when you are ready.
-            </Text>
+    switch (paymentStatus) {
+      case "verifying":
+        return (
+          <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl">
+            <div className="flex items-center gap-3">
+              <Loader2 className="w-5 h-5 text-blue-500 animate-spin flex-shrink-0" />
+              <Text size="sm" className="text-blue-200">
+                Verifying your payment...
+              </Text>
+            </div>
           </div>
-        </div>
-      );
-    }
-    
-    if (paymentStatus === "expired") {
-      return (
-        <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
-          <div className="flex items-center gap-3">
-            <XCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-            <Text size="sm" className="text-red-200">
-              Checkout expired. Please try again to complete your payment.
-            </Text>
+        );
+      case "verified":
+        return (
+          <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-xl">
+            <div className="flex items-center gap-3">
+              <CreditCard className="w-5 h-5 text-green-500 flex-shrink-0" />
+              <Text size="sm" className="text-green-200">
+                Payment verified! Classroom unlocked.
+              </Text>
+            </div>
           </div>
-        </div>
-      );
+        );
+      case "cancelled":
+        return (
+          <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-yellow-500 flex-shrink-0" />
+              <Text size="sm" className="text-yellow-200">
+                Payment was cancelled. You can try again when you are ready.
+              </Text>
+            </div>
+          </div>
+        );
+      case "failed":
+        return (
+          <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
+            <div className="flex items-center gap-3">
+              <XCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+              <Text size="sm" className="text-red-200">
+                Payment verification failed. Please try again.
+              </Text>
+            </div>
+          </div>
+        );
     }
 
-    // Render content based on access type using switch for type safety
+    // Render content based on access type
     switch (classroom.accessType) {
       case "level": {
         const requiredLevel = classroom.minLevel || 1;
@@ -250,26 +308,29 @@ export function LockedClassroomModal({ classroom, community, open, onOpenChange 
             )}
             
             {/* Purchase button */}
-            <Button 
-              onClick={handlePurchase}
-              disabled={isLoading || isRedirecting}
-              className="w-full"
-            >
-              {isLoading || isRedirecting ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  {isRedirecting ? "Redirecting..." : "Processing..."}
-                </>
-              ) : (
-                <>
-                  <CreditCard className="w-4 h-4 mr-2" />
-                  Buy Now
-                </>
-              )}
-            </Button>
+            {(paymentStatus === "idle" || paymentStatus === "cancelled") && (
+              <Button 
+                onClick={handlePurchase}
+                disabled={isLoading || isRedirecting}
+                className="w-full"
+              >
+                {isLoading || isRedirecting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    {isRedirecting ? "Redirecting..." : "Processing..."}
+                  </>
+                ) : (
+                  <>
+                    <CreditCard className="w-4 h-4 mr-2" />
+                    Buy Now
+                    <ExternalLink className="w-4 h-4 ml-2" />
+                  </>
+                )}
+              </Button>
+            )}
             
             <Text size="1" theme="muted" className="text-center">
-              Secure payment via Chargily
+              Secure payment via SofizPay
             </Text>
           </div>
         );
@@ -323,26 +384,29 @@ export function LockedClassroomModal({ classroom, community, open, onOpenChange 
             )}
             
             {/* Purchase button */}
-            <Button 
-              onClick={handlePurchase}
-              disabled={isLoading || isRedirecting || !isLevelMet}
-              className="w-full"
-            >
-              {isLoading || isRedirecting ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  {isRedirecting ? "Redirecting..." : "Processing..."}
-                </>
-              ) : (
-                <>
-                  <CreditCard className="w-4 h-4 mr-2" />
-                  Buy Now
-                </>
-              )}
-            </Button>
+            {(paymentStatus === "idle" || paymentStatus === "cancelled") && (
+              <Button 
+                onClick={handlePurchase}
+                disabled={isLoading || isRedirecting || !isLevelMet}
+                className="w-full"
+              >
+                {isLoading || isRedirecting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    {isRedirecting ? "Redirecting..." : "Processing..."}
+                  </>
+                ) : (
+                  <>
+                    <CreditCard className="w-4 h-4 mr-2" />
+                    Buy Now
+                    <ExternalLink className="w-4 h-4 ml-2" />
+                  </>
+                )}
+              </Button>
+            )}
             
             <Text size="1" theme="muted" className="text-center">
-              Secure payment via Chargily
+              Secure payment via SofizPay
             </Text>
           </div>
         );
@@ -358,102 +422,6 @@ export function LockedClassroomModal({ classroom, community, open, onOpenChange 
         );
       }
     }
-    
-    // Price gating UI (only price, not level_and_price)
-    if (classroom.accessType === "price") {
-      return (
-        <div className="space-y-4">
-          {/* Price info */}
-          <div className="flex items-center gap-3 p-4 bg-accent/10 rounded-xl border border-accent/20">
-            <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center">
-              <CreditCard className="w-5 h-5 text-accent" />
-            </div>
-            <div>
-              <Text size="sm" theme="secondary">One-time Purchase</Text>
-              <Heading size="sm">{classroom.priceDzd} DZD</Heading>
-            </div>
-          </div>
-          
-          {/* Error message */}
-          {error && (
-            <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-              <Text size="sm" className="text-red-400">{error}</Text>
-            </div>
-          )}
-          
-          {/* Purchase button */}
-          <Button 
-            onClick={handlePurchase}
-            disabled={isLoading || isRedirecting}
-            className="w-full"
-          >
-            {isLoading || isRedirecting ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                {isRedirecting ? "Redirecting..." : "Processing..."}
-              </>
-            ) : (
-              <>
-                <CreditCard className="w-4 h-4 mr-2" />
-                Buy Now
-              </>
-            )}
-          </Button>
-          
-          <Text size="1" theme="muted" className="text-center">
-            Secure payment via Chargily
-          </Text>
-        </div>
-      );
-    }
-
-    // Level + Price gating UI (level_and_price only - price was handled above)
-    // At this point, only "level_and_price" remains
-    if (classroom.accessType === "level_and_price") {
-      return (
-        <div className="space-y-4">
-          {/* Level requirement */}
-          <div className="flex items-center gap-3 p-3 bg-accent/10 rounded-xl border border-accent/20">
-            <Lock className="w-4 h-4 text-accent" />
-            <Text size="sm">Level {classroom.minLevel} required</Text>
-          </div>
-          
-          {/* Price requirement */}
-          <div className="flex items-center gap-3 p-3 bg-accent/10 rounded-xl border border-accent/20">
-            <CreditCard className="w-4 h-4 text-accent" />
-            <Text size="sm">{classroom.priceDzd} DZD</Text>
-          </div>
-          
-          {/* Error message */}
-          {error && (
-            <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-              <Text size="sm" className="text-red-400">{error}</Text>
-            </div>
-          )}
-          
-          {/* Purchase button */}
-          <Button 
-            onClick={handlePurchase}
-            disabled={isLoading || isRedirecting}
-            className="w-full"
-          >
-            {isLoading || isRedirecting ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                {isRedirecting ? "Redirecting..." : "Processing..."}
-              </>
-            ) : (
-              <>
-                <CreditCard className="w-4 h-4 mr-2" />
-                Unlock Now
-              </>
-            )}
-          </Button>
-        </div>
-      );
-    }
-    
-    return null;
   };
 
   return (

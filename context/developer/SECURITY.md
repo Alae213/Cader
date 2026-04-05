@@ -16,16 +16,14 @@ This includes placeholder values, test values, and "temporary" values.
 - If a secret is accidentally committed, treat it as compromised immediately and rotate it
 
 Forbidden in code:
-- Chargily Secret Keys (platform or creator)
+- SofizPay Secret Keys (platform or creator)
 - Clerk secret key or webhook secret
 - Convex deploy key
 - Database connection strings
 - JWT secrets
 - Private keys or certificates
 
-**Creator Chargily keys:** Stored encrypted at rest in Convex `communities` table.
-Retrieved server-side only inside Convex `action` functions. Never returned to the client.
-Never logged.
+**Creator SofizPay keys:** Only the public key is stored (Stellar format G...). No secret key needed for CIB hosted flow. Retrieved server-side only inside Convex `action` functions. Never returned to the client. Never logged.
 
 ---
 
@@ -49,14 +47,15 @@ Rules:
 
 ---
 
-## Payments (Chargily Pay)
+## Payments (SofizPay)
 
-- Chargily Secret Key is **never returned to the client**. Read only inside Convex `action` functions.
-- Membership and classroom access are granted **only** via webhook handler, after signature verification.
-- Frontend never grants access optimistically (EC-3).
-- Webhook handler returns `401` on invalid signature — does not process the event.
-- Checkout metadata (`userId`, `communityId`, `type`) is validated on webhook receipt.
-- Do not log raw Chargily webhook payloads in production — they may contain payment details.
+- SofizPay **does not support webhooks** - payment verification via transaction search (memo-based)
+- Public key stored in plaintext (no secret needed for CIB hosted flow)
+- Membership and classroom access granted **only** after return URL verification
+- Payment verified by searching transactions with matching memo + amount
+- Frontend never grants access optimistically (EC-SF-3).
+- Payment amount is verified against expected amount from database (prevent price manipulation)
+- Do not log raw transaction data in production — may contain payment details
 
 ---
 
@@ -78,7 +77,7 @@ the page, or passing to an external service.
 What counts as sensitive in Cader:
 - Phone numbers collected during onboarding
 - Email addresses (from Clerk)
-- Chargily API keys (creator's)
+- SofizPay API keys (creator's - public key only, no secret)
 - Payment amounts and payment status
 
 Rules:
@@ -102,9 +101,10 @@ Protect operations that can be abused:
 
 ## Project-Specific Rules
 
-- **No optimistic payment access** — access is always webhook-gated (EC-3)
+- **No optimistic payment access** — access is always webhook-gated (EC-SF-3)
 - **Community-scoped permissions** — every permission check uses `(userId, communityId)` — no global role shortcuts
-- **Creator Chargily keys** — encrypted at rest, never logged, never returned to client
+- **Creator SofizPay keys** — public key stored (no secret for CIB flow), never logged, never returned to client
 - **Slug uniqueness** — validated on the server at both input-time and submit-time (EC-5)
 - **Minimum 1 admin** — enforced server-side before any admin removal (EC-8)
 - **Deletion guard** — community deletion blocked server-side if active paying members exist (EC-7)
+- **Minimum payment amount** — block payments below 1000 DZD (EC-SF-2)

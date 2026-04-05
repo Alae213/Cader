@@ -26,8 +26,7 @@ interface Community {
   slug: string;
   pricingType: string;
   priceDzd?: number;
-  // Encrypted keys - we can't display them, so we'll show placeholder
-  hasChargilyKeys?: boolean;
+  sofizpayPublicKey?: string;
 }
 
 interface EditCommunityModalProps {
@@ -42,6 +41,8 @@ const PRICING_TYPES = [
   { value: "annual", label: "Annual" },
   { value: "one_time", label: "One-time" },
 ];
+
+const MIN_PAID_PRICE = 1000; // SofizPay/CIB minimum
 
 type TabType = "basic" | "pricing";
 
@@ -62,9 +63,8 @@ export function EditCommunityModal({ open, onOpenChange, community }: EditCommun
   // Pricing tab fields
   const [pricingType, setPricingType] = useState(community.pricingType);
   const [price, setPrice] = useState(community.priceDzd?.toString() || "");
-  const [chargilyApiKey, setChargilyApiKey] = useState("");
-  const [chargilyWebhookSecret, setChargilyWebhookSecret] = useState("");
-  const [chargilyError, setChargilyError] = useState("");
+  const [sofizpayPublicKey, setSofizpayPublicKey] = useState("");
+  const [sofizpayError, setSofizpayError] = useState("");
   
   // Store original values for dirty check
   const originalValues = useRef({
@@ -72,6 +72,7 @@ export function EditCommunityModal({ open, onOpenChange, community }: EditCommun
     slug: community.slug,
     pricingType: community.pricingType,
     priceDzd: community.priceDzd,
+    sofizpayPublicKey: community.sofizpayPublicKey,
   });
 
   // Reset form when modal opens with new community data
@@ -82,9 +83,8 @@ export function EditCommunityModal({ open, onOpenChange, community }: EditCommun
       setSlugAvailable(null);
       setPricingType(community.pricingType);
       setPrice(community.priceDzd?.toString() || "");
-      setChargilyApiKey("");
-      setChargilyWebhookSecret("");
-      setChargilyError("");
+      setSofizpayPublicKey(community.sofizpayPublicKey || "");
+      setSofizpayError("");
       setError("");
       setIsDirty(false);
       setActiveTab("basic");
@@ -93,6 +93,7 @@ export function EditCommunityModal({ open, onOpenChange, community }: EditCommun
         slug: community.slug,
         pricingType: community.pricingType,
         priceDzd: community.priceDzd,
+        sofizpayPublicKey: community.sofizpayPublicKey,
       };
     }
   }, [open, community]);
@@ -104,14 +105,13 @@ export function EditCommunityModal({ open, onOpenChange, community }: EditCommun
       slug !== originalValues.current.slug ||
       pricingType !== originalValues.current.pricingType ||
       price !== (originalValues.current.priceDzd?.toString() || "") ||
-      chargilyApiKey !== "" ||
-      chargilyWebhookSecret !== "";
+      sofizpayPublicKey !== (originalValues.current.sofizpayPublicKey || "");
     setIsDirty(dirty);
-  }, [name, slug, pricingType, price, chargilyApiKey, chargilyWebhookSecret]);
+  }, [name, slug, pricingType, price, sofizpayPublicKey]);
 
   // Convex mutations
   const updateCommunity = useMutation(api.functions.communities.updateCommunity);
-  const validateChargilyKeys = useMutation(api.functions.payments.validateChargilyKeys);
+  const validateSofizpayKeys = useMutation(api.functions.payments.validateSofizpayKeys);
   
   // Slug availability check
   const slugExists = useQuery(
@@ -147,7 +147,6 @@ export function EditCommunityModal({ open, onOpenChange, community }: EditCommun
   // Handle name change
   const handleNameChange = (value: string) => {
     setName(value);
-    // Auto-generate slug if it matches the old name pattern
     const generatedSlug = generateSlug(value);
     if (!slug || slug === generateSlug(originalValues.current.name)) {
       setSlug(generatedSlug);
@@ -160,43 +159,43 @@ export function EditCommunityModal({ open, onOpenChange, community }: EditCommun
     setSlug(newSlug);
   };
 
-  // Handle Chargily keys validation on blur
-  const handleChargilyBlur = useCallback(async () => {
-    if (pricingType === "free" || !chargilyApiKey || !chargilyWebhookSecret) {
-      setChargilyError("");
+  // Handle SofizPay key validation on blur
+  const handleSofizpayBlur = useCallback(async () => {
+    if (pricingType === "free" || !sofizpayPublicKey) {
+      setSofizpayError("");
       return;
     }
 
     setValidatingKeys(true);
-    setChargilyError("");
+    setSofizpayError("");
     
     try {
-      const validation = await validateChargilyKeys({
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        communityId: community._id as any,
-        apiKey: chargilyApiKey,
-        webhookSecret: chargilyWebhookSecret,
+      const validation = await validateSofizpayKeys({
+        publicKey: sofizpayPublicKey,
       });
       
       if (!validation.valid) {
-        setChargilyError(validation.error || "Invalid Chargily keys");
+        setSofizpayError(validation.error || "Invalid SofizPay public key");
       }
     } catch {
-      setChargilyError("Failed to validate keys");
+      setSofizpayError("Failed to validate key");
     } finally {
       setValidatingKeys(false);
     }
-  }, [pricingType, chargilyApiKey, chargilyWebhookSecret, validateChargilyKeys]);
+  }, [pricingType, sofizpayPublicKey, validateSofizpayKeys]);
 
   // Validate form
   const isFormValid = useCallback(() => {
     if (!name.trim() || !slug.trim()) return false;
     if (slugAvailable === false) return false;
-    if (pricingType !== "free" && (!price || parseFloat(price) <= 0)) return false;
-    if (pricingType !== "free" && chargilyError) return false;
-    if (pricingType !== "free" && (!chargilyApiKey.trim() || !chargilyWebhookSecret.trim())) return false;
+    if (pricingType !== "free") {
+      if (!price || parseFloat(price) <= 0) return false;
+      if (parseFloat(price) < MIN_PAID_PRICE) return false;
+      if (sofizpayError) return false;
+      if (!sofizpayPublicKey.trim()) return false;
+    }
     return true;
-  }, [name, slug, slugAvailable, pricingType, price, chargilyError, chargilyApiKey, chargilyWebhookSecret]);
+  }, [name, slug, slugAvailable, pricingType, price, sofizpayError, sofizpayPublicKey]);
 
   // Handle close
   const handleClose = () => {
@@ -208,7 +207,6 @@ export function EditCommunityModal({ open, onOpenChange, community }: EditCommun
 
   // Handle save
   const handleSave = async () => {
-    // Final slug re-check if changed
     if (slug !== community.slug && slugAvailable === null) {
       const check = await slugExists;
       if (check) {
@@ -227,7 +225,6 @@ export function EditCommunityModal({ open, onOpenChange, community }: EditCommun
     setError("");
 
     try {
-       
       await updateCommunity({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         communityId: community._id as any,
@@ -235,23 +232,17 @@ export function EditCommunityModal({ open, onOpenChange, community }: EditCommun
         slug: slug.trim() !== community.slug ? slug.trim() : undefined,
         pricingType: pricingType as "free" | "monthly" | "annual" | "one_time",
         priceDzd: pricingType !== "free" && price ? parseInt(price) : undefined,
-        chargilyApiKey: pricingType !== "free" && chargilyApiKey ? chargilyApiKey : undefined,
-        chargilyWebhookSecret: pricingType !== "free" && chargilyWebhookSecret ? chargilyWebhookSecret : undefined,
+        sofizpayPublicKey: pricingType !== "free" && sofizpayPublicKey ? sofizpayPublicKey : undefined,
       });
 
       toast.success("Community updated successfully!");
       
-      // Refresh the page to show updated data
       router.refresh();
       onOpenChange(false);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to update community";
       setError(errorMessage);
-      
-      // Clear sensitive fields on error
-      setChargilyApiKey("");
-      setChargilyWebhookSecret("");
-      
+      setSofizpayPublicKey("");
       toast.error(errorMessage);
     } finally {
       setLoading(false);
@@ -263,13 +254,10 @@ export function EditCommunityModal({ open, onOpenChange, community }: EditCommun
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>
-            
             <Text size="6" >This is what people
             <br />
             will see.</Text>
           </DialogTitle>
-      
-          
         </DialogHeader>
 
         <hr className="h-px w-full border-0 rounded-full "
@@ -301,14 +289,13 @@ export function EditCommunityModal({ open, onOpenChange, community }: EditCommun
                 <div className="flex flex-row gap-4 items-center w-full pl-1">
                   <img src="/windw.svg" alt="Website" width={33} height={9} />
                   <div className="flex flex-row gap-1 items-center w-full">
-                  
-                  <Input
-                    value={name}
-                    onChange={(e) => handleNameChange(e.target.value)}
-                    placeholder="type name..."
-                    className="w-full bg-black/60 text-text-primary placeholder-text-muted transition-colors duration-300 ease-in-out focus:outline-none"
-                    disabled={loading}
-                  />
+                    <Input
+                      value={name}
+                      onChange={(e) => handleNameChange(e.target.value)}
+                      placeholder="type name..."
+                      className="w-full bg-black/60 text-text-primary placeholder-text-muted transition-colors duration-300 ease-in-out focus:outline-none"
+                      disabled={loading}
+                    />
                   </div>
                 </div>
 
@@ -413,46 +400,41 @@ export function EditCommunityModal({ open, onOpenChange, community }: EditCommun
                     {pricingType === "annual" && "Members pay this amount annually"}
                     {pricingType === "one_time" && "Members pay this one-time fee"}
                   </Text>
+                  {price && parseFloat(price) < MIN_PAID_PRICE && (
+                    <Text size="2" theme="error" className="mt-1">
+                      Minimum price is {MIN_PAID_PRICE} DZD (SofizPay requirement)
+                    </Text>
+                  )}
                 </div>
               )}
 
-              {/* Chargily Keys (if not free) */}
+              {/* SofizPay Public Key (if not free) */}
               {pricingType !== "free" && (
                 <>
                   <div>
                     <label className="block text-sm font-medium text-text-primary mb-1">
-                      Chargily API Key
+                      SofizPay Public Key
                     </label>
                     <Input
-                      type="password"
-                      value={chargilyApiKey}
-                      onChange={(e) => setChargilyApiKey(e.target.value)}
-                      onBlur={handleChargilyBlur}
-                      placeholder={community.hasChargilyKeys ? "•••••••• (leave empty to keep)" : "type api key..."}
+                      type="text"
+                      value={sofizpayPublicKey}
+                      onChange={(e) => setSofizpayPublicKey(e.target.value)}
+                      onBlur={handleSofizpayBlur}
+                      placeholder={community.sofizpayPublicKey ? "•••••••• (leave empty to keep)" : "GA..."}
                       disabled={loading}
                     />
+                    <Text size="2" theme="secondary" className="mt-1">
+                      Your Stellar public key (starts with G)
+                    </Text>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-text-primary mb-1">
-                      Chargily Webhook Secret
-                    </label>
-                    <Input
-                      type="password"
-                      value={chargilyWebhookSecret}
-                      onChange={(e) => setChargilyWebhookSecret(e.target.value)}
-                      onBlur={handleChargilyBlur}
-                      placeholder={community.hasChargilyKeys ? "•••••••• (leave empty to keep)" : "type webhook secret..."}
-                      disabled={loading}
-                    />
-                  </div>
-                  {chargilyError && (
+                  {sofizpayError && (
                     <Text size="2" theme="error">
-                      {chargilyError}
+                      {sofizpayError}
                     </Text>
                   )}
                   {validatingKeys && (
                     <Text size="2" theme="muted">
-                      Validating keys...
+                      Validating key...
                     </Text>
                   )}
                 </>

@@ -1,59 +1,11 @@
 import { mutation, query, internalMutation } from "../_generated/server";
 import { v } from "convex/values";
-import { safeDecrypt } from "../lib/encryption";
 import { enforceRateLimit } from "../lib/rateLimit";
+import { makeCIBTransaction, verifyPaymentByMemo } from "../lib/sofizpay";
 
-interface ChargilyCheckoutArgs {
-  apiKey: string;
-  amount: number;
-  description: string;
-  email: string;
-  displayName: string;
-  successUrl: string;
-  cancelUrl: string;
-  metadata: Record<string, string>;
-}
+const MIN_PAYMENT_AMOUNT = 1000; // Minimum 1000 DZD per SofizPay/CIB requirements
 
-async function createChargilySession(args: ChargilyCheckoutArgs) {
-  const mode = process.env.CHARGILY_MODE === "live" ? "live" : "test";
-  const baseUrl = mode === "live"
-    ? "https://pay.chargily.net/api/v2"
-    : "https://pay.chargily.net/test/api/v2";
-
-  const nameParts = args.displayName.split(" ");
-  const checkoutData = {
-    amount: args.amount,
-    currency: "dzd",
-    description: args.description,
-    patient: {
-      email: args.email,
-      first_name: nameParts[0] || "User",
-      last_name: nameParts.slice(1).join(" ") || "",
-    },
-    success_url: args.successUrl,
-    failure_url: args.cancelUrl,
-    metadata: { ...args.metadata, mode },
-  };
-
-  const response = await fetch(`${baseUrl}/checkouts`, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${args.apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(checkoutData),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ message: "" }));
-    throw new Error(errorData.message || `Chargily API error: ${response.status}`);
-  }
-
-  const checkout = await response.json() as { checkout_url: string; id: string };
-  return { checkoutUrl: checkout.checkout_url, checkoutId: checkout.id };
-}
-
-// Get expected price for webhook verification
+// Get expected price for payment verification
 export const getExpectedPrice = query({
   args: {
     communityId: v.id("communities"),
@@ -62,7 +14,7 @@ export const getExpectedPrice = query({
   },
   handler: async (ctx, args) => {
     if (args.type === "platform") {
-      return { expectedAmount: 2000 * 100, currency: "dzd" };
+      return { expectedAmount: 2000, currency: "dzd" };
     }
 
     const community = await ctx.db.get(args.communityId);
@@ -71,78 +23,47 @@ export const getExpectedPrice = query({
     if (args.type === "classroom" && args.classroomId) {
       const classroom = await ctx.db.get(args.classroomId);
       if (!classroom?.priceDzd) return null;
-      return { expectedAmount: classroom.priceDzd * 100, currency: "dzd" };
+      return { expectedAmount: classroom.priceDzd, currency: "dzd" };
     }
 
     if (!community.priceDzd) return null;
-    return { expectedAmount: community.priceDzd * 100, currency: "dzd" };
+    return { expectedAmount: community.priceDzd, currency: "dzd" };
   },
 });
 
-// Validate Chargily API keys
-// SECURITY C-4: Now requires auth. communityId is optional:
-// - When provided: verifies ownership before validating (edit flow)
-// - When omitted: validates keys without ownership check (create flow, still requires auth)
-export const validateChargilyKeys = mutation({
+// Validate SofizPay public key format
+export const validateSofizpayKeys = mutation({
   args: {
-    communityId: v.optional(v.id("communities")),
-    apiKey: v.string(),
-    webhookSecret: v.string(),
+    publicKey: v.string(),
   },
   handler: async (ctx, args) => {
-    // SECURITY: Require authentication (prevents anonymous key oracle)
+    // SECURITY: Require authentication
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       throw new Error("You must be signed in");
     }
 
-    // SECURITY: When communityId provided, verify ownership
-    if (args.communityId) {
-      const community = await ctx.db.get(args.communityId);
-      if (!community) {
-        throw new Error("Community not found");
-      }
-
-      const user = await ctx.db
-        .query("users")
-        .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-        .first();
-
-      if (!user || community.ownerId !== user._id) {
-        throw new Error("Only the community owner can validate payment keys");
-      }
+    // Check basic format
+    if (!args.publicKey || typeof args.publicKey !== "string") {
+      return { valid: false, error: "Public key is required" };
     }
 
-    try {
-      const response = await fetch("https://pay.chargily.net/api/v2/checkouts", {
-        method: "GET",
-        headers: {
-          "Authorization": `Bearer ${args.apiKey}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: "" }));
-        return { valid: false, error: errorData.message || `API returned ${response.status}` };
-      }
-
-      if (!args.webhookSecret || args.webhookSecret.length < 10) {
-        return { valid: false, error: "Invalid webhook secret format" };
-      }
-
-      return { valid: true, message: "API keys validated successfully" };
-    } catch (error) {
+    // Stellar public key format: starts with G, 56 characters
+    const stellarPublicKeyRegex = /^G[A-Z0-9]{55}$/;
+    if (!stellarPublicKeyRegex.test(args.publicKey)) {
       return {
         valid: false,
-        error: error instanceof Error ? error.message : "Failed to validate keys",
+        error: "Invalid public key format. Expected Stellar public key (starts with G, 56 characters)",
       };
     }
+
+    return { valid: true, message: "Public key format validated" };
   },
 });
 
-// Create Chargily checkout session (community/classroom payments)
-export const createChargilyCheckout = mutation({
+// Create SofizPay checkout session (community/classroom payments)
+// Key difference from Chargily: NO WEBHOOKS - uses return URL + polling pattern
+export const createSofizpayCheckout = mutation({
   args: {
     communityId: v.id("communities"),
     userId: v.id("users"),
@@ -158,31 +79,61 @@ export const createChargilyCheckout = mutation({
     const user = await ctx.db.get(args.userId);
     if (!user) throw new Error("User not found");
 
+    // Check if user has email - required for SofizPay
+    // If email is missing, try to get it from auth identity and update the user
+    if (!user.email || user.email.trim() === "") {
+      const identity = await ctx.auth.getUserIdentity();
+      if (identity?.email) {
+        // Update user with email from auth
+        await ctx.db.patch(args.userId, {
+          email: identity.email,
+          updatedAt: Date.now(),
+        });
+        user.email = identity.email;
+      } else {
+        throw new Error("Your account doesn't have an email. Please sign out and sign in again to sync your profile.");
+      }
+    }
+
+    // Check if this is a paid community
     const isPaidCommunity = ["monthly", "annual", "one_time"].includes(community.pricingType || "");
-    if (isPaidCommunity && !community.chargilyApiKey) {
+    if (isPaidCommunity && !community.sofizpayPublicKey) {
       throw new Error("This community is not configured for payments. Contact the owner.");
     }
 
-    const encryptedApiKey = community.chargilyApiKey;
-    if (!encryptedApiKey) throw new Error("Community payment configuration not found");
+    const sofizpayPublicKey = community.sofizpayPublicKey;
+    if (!sofizpayPublicKey) throw new Error("Community payment configuration not found");
 
-    const chargilyApiKey = await safeDecrypt(encryptedApiKey);
-    if (!chargilyApiKey) throw new Error("Failed to decrypt payment configuration");
-
+    // Get amount and description
     let amount: number;
     let description: string;
+    let paymentType: string;
 
     if (args.type === "classroom" && args.classroomId) {
       const classroom = await ctx.db.get(args.classroomId);
       if (!classroom) throw new Error("Classroom not found");
       amount = classroom.priceDzd || 0;
       description = `Classroom: ${classroom.title}`;
+      paymentType = "classroom";
     } else {
       amount = community.priceDzd || 0;
       description = `Community: ${community.name}`;
+      paymentType = "community";
     }
 
     if (amount <= 0) throw new Error("Invalid price for this purchase");
+
+    // SECURITY: Minimum amount check
+    if (amount < MIN_PAYMENT_AMOUNT) {
+      throw new Error(`Minimum payment amount is ${MIN_PAYMENT_AMOUNT} DZD`);
+    }
+
+    console.log("Creating SofizPay checkout for:", {
+      community: community.slug,
+      userEmail: user.email,
+      amount: amount,
+      publicKey: sofizpayPublicKey,
+    });
 
     // SECURITY C-5: Rate limit checkout creation
     const identity = await ctx.auth.getUserIdentity();
@@ -190,26 +141,164 @@ export const createChargilyCheckout = mutation({
       await enforceRateLimit(ctx, identity.tokenIdentifier, "checkout_creation");
     }
 
-    return createChargilySession({
-      apiKey: chargilyApiKey,
-      amount: amount * 100,
-      description,
-      email: user.email,
-      displayName: user.displayName || "User",
-      successUrl: args.successUrl,
-      cancelUrl: args.cancelUrl,
-      metadata: {
-        communityId: args.communityId,
-        userId: args.userId,
-        type: args.type,
-        classroomId: args.classroomId || "",
-        priceAmount: String(amount * 100),
-      },
+    // Build memo for payment tracking
+    // Format: Community:{slug} - User:{email} - Type:{type}
+    const memo = `Community:${community.slug} - User:${user.email} - Type:${paymentType}`;
+
+    // Create the CIB transaction
+    let result;
+    try {
+      result = await makeCIBTransaction({
+        account: sofizpayPublicKey,
+        amount,
+        full_name: user.displayName || "User",
+        phone: user.phone || "+213000000000",
+        email: user.email,
+        memo,
+        return_url: args.successUrl,
+        redirect: "yes",
+      });
+    } catch (sdkError) {
+      console.error("SofizPay SDK error:", sdkError);
+      throw new Error(`Payment service error: ${sdkError instanceof Error ? sdkError.message : "Unknown error"}`);
+    }
+
+    if (!result.success || !result.url) {
+      throw new Error(result.error || "Failed to create payment");
+    }
+
+    // Return the payment URL and memo for verification later
+    return {
+      paymentUrl: result.url,
+      memo,
+      amount,
+    };
+  },
+});
+
+// Verify payment status (NO WEBHOOK - uses polling/return URL pattern)
+// Called after user returns from SofizPay
+export const verifyPaymentStatus = mutation({
+  args: {
+    communityId: v.id("communities"),
+    userId: v.id("users"),
+    memo: v.string(),
+    expectedAmount: v.number(),
+    type: v.union(v.literal("community"), v.literal("classroom")),
+    classroomId: v.optional(v.id("classrooms")),
+  },
+  handler: async (ctx, args) => {
+    const community = await ctx.db.get(args.communityId);
+    if (!community) throw new Error("Community not found");
+
+    const user = await ctx.db.get(args.userId);
+    if (!user) throw new Error("User not found");
+
+    const sofizpayPublicKey = community.sofizpayPublicKey;
+    if (!sofizpayPublicKey) throw new Error("Community payment configuration not found");
+
+    // Verify payment by searching transactions
+    const result = await verifyPaymentByMemo({
+      ownerPublicKey: sofizpayPublicKey,
+      memo: args.memo,
+      expectedAmount: args.expectedAmount,
     });
+
+    if (!result.verified) {
+      return {
+        verified: false,
+        error: result.error || "Payment not found or amount mismatch",
+      };
+    }
+
+    // Payment verified! Now grant access
+    const classroomId = args.classroomId;
+    if (args.type === "classroom" && classroomId) {
+      // Grant classroom access
+      const existingAccess = await ctx.db
+        .query("classroomAccess")
+        .withIndex("by_classroom_and_user", (q) =>
+          q.eq("classroomId", classroomId).eq("userId", args.userId)
+        )
+        .first();
+
+        if (existingAccess) {
+        await ctx.db.patch(existingAccess._id, {
+          accessType: "purchased",
+          purchasedAt: Date.now(),
+          paymentReference: result.transaction?.transaction_hash || "unknown",
+        });
+      } else {
+        await ctx.db.insert("classroomAccess", {
+          classroomId: classroomId,
+          userId: args.userId,
+          accessType: "purchased",
+          purchasedAt: Date.now(),
+          paymentReference: result.transaction?.transaction_hash || "unknown",
+          createdAt: Date.now(),
+        });
+      }
+
+      return { verified: true, accessType: "classroom" };
+    } else {
+      // Grant community membership
+      const existingMembership = await ctx.db
+        .query("memberships")
+        .withIndex("by_community_and_user", (q) =>
+          q.eq("communityId", args.communityId).eq("userId", args.userId)
+        )
+        .first();
+
+      const subscriptionType = community.pricingType || "one_time";
+
+      if (existingMembership) {
+        // Update existing membership
+        await ctx.db.patch(existingMembership._id, {
+          status: "active",
+          subscriptionType,
+          subscriptionStartDate: Date.now(),
+          subscriptionEndDate: subscriptionType === "monthly"
+            ? Date.now() + 30 * 24 * 60 * 60 * 1000
+            : subscriptionType === "annual"
+              ? Date.now() + 365 * 24 * 60 * 60 * 1000
+              : undefined,
+          paymentReference: result.transaction?.transaction_hash || "unknown",
+          updatedAt: Date.now(),
+        });
+      } else {
+        // Create new membership
+        await ctx.db.insert("memberships", {
+          communityId: args.communityId,
+          userId: args.userId,
+          role: "member",
+          status: "active",
+          subscriptionType,
+          subscriptionStartDate: Date.now(),
+          subscriptionEndDate: subscriptionType === "monthly"
+            ? Date.now() + 30 * 24 * 60 * 60 * 1000
+            : subscriptionType === "annual"
+              ? Date.now() + 365 * 24 * 60 * 60 * 1000
+              : undefined,
+          paymentReference: result.transaction?.transaction_hash || "unknown",
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        });
+
+        // Update member count
+        const currentCount = community.activeMemberCount || 0;
+        await ctx.db.patch(args.communityId, {
+          activeMemberCount: currentCount + 1,
+          updatedAt: Date.now(),
+        });
+      }
+
+      return { verified: true, accessType: "community" };
+    }
   },
 });
 
 // Create platform subscription checkout
+// Uses platform's SofizPay account (no owner key needed)
 export const createPlatformSubscriptionCheckout = mutation({
   args: {
     communityId: v.id("communities"),
@@ -226,26 +315,74 @@ export const createPlatformSubscriptionCheckout = mutation({
     if (community.ownerId !== user._id) throw new Error("Only the owner can subscribe");
     if (community.platformTier === "subscribed") throw new Error("Already subscribed");
 
-    const platformApiKey = process.env.CHARGILY_PLATFORM_API_KEY;
-    if (!platformApiKey) throw new Error("Platform payment configuration not found");
+    const platformPublicKey = process.env.SOFIZPAY_PLATFORM_PUBLIC_KEY;
+    if (!platformPublicKey) throw new Error("Platform payment configuration not found");
 
-    const amount = 2000 * 100;
+    const amount = 2000;
 
-    return createChargilySession({
-      apiKey: platformApiKey,
+    // Build memo for platform subscription
+    const memo = `Platform:${community.slug} - User:${user.email} - Type:platform`;
+
+    const result = await makeCIBTransaction({
+      account: platformPublicKey,
       amount,
-      description: `Platform subscription: ${community.name}`,
+      full_name: user.displayName || "User",
+      phone: user.phone || "+213000000000",
       email: user.email,
-      displayName: user.displayName || "User",
-      successUrl: args.successUrl,
-      cancelUrl: args.cancelUrl,
-      metadata: {
-        communityId: args.communityId,
-        userId: args.userId,
-        type: "platform",
-        priceAmount: String(amount),
-      },
+      memo,
+      return_url: args.successUrl,
+      redirect: "yes",
     });
+
+    if (!result.success || !result.url) {
+      throw new Error(result.error || "Failed to create payment");
+    }
+
+    return {
+      paymentUrl: result.url,
+      memo,
+      amount,
+    };
+  },
+});
+
+// Verify platform subscription payment
+export const verifyPlatformSubscription = mutation({
+  args: {
+    communityId: v.id("communities"),
+    userId: v.id("users"),
+    memo: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const community = await ctx.db.get(args.communityId);
+    if (!community) throw new Error("Community not found");
+
+    const platformPublicKey = process.env.SOFIZPAY_PLATFORM_PUBLIC_KEY;
+    if (!platformPublicKey) throw new Error("Platform payment configuration not found");
+
+    const amount = 2000;
+
+    // Verify payment
+    const result = await verifyPaymentByMemo({
+      ownerPublicKey: platformPublicKey,
+      memo: args.memo,
+      expectedAmount: amount,
+    });
+
+    if (!result.verified) {
+      return {
+        verified: false,
+        error: result.error || "Payment not found or amount mismatch",
+      };
+    }
+
+    // Update community platform tier
+    await ctx.db.patch(args.communityId, {
+      platformTier: "subscribed",
+      updatedAt: Date.now(),
+    });
+
+    return { verified: true };
   },
 });
 
@@ -277,8 +414,7 @@ export const cancelPlatformSubscription = mutation({
   },
 });
 
-// SECURITY C-3: Internal mutation — only callable from webhook HTTP action
-// Previously was public mutation with no auth check
+// Internal mutation to grant classroom access (called from verifyPaymentStatus)
 export const _grantClassroomAccess = internalMutation({
   args: {
     classroomId: v.id("classrooms"),

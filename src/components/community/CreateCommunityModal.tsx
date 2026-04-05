@@ -31,6 +31,8 @@ const PRICING_TYPES = [
   { value: "one_time", label: "One-time payment" },
 ];
 
+const MIN_PAID_PRICE = 1000; // SofizPay/CIB minimum
+
 export function CreateCommunityModal({ open, onOpenChange }: CreateCommunityModalProps) {
   const router = useRouter();
   const [step, setStep] = useState(1);
@@ -46,12 +48,11 @@ export function CreateCommunityModal({ open, onOpenChange }: CreateCommunityModa
   // Step 2: Pricing
   const [pricingType, setPricingType] = useState("free");
   const [price, setPrice] = useState("");
-  const [chargilyApiKey, setChargilyApiKey] = useState("");
-  const [chargilyWebhookSecret, setChargilyWebhookSecret] = useState("");
+  const [sofizpayPublicKey, setSofizpayPublicKey] = useState("");
 
   // Convex mutations and actions
   const createCommunity = useMutation(api.functions.communities.createCommunity);
-  const validateChargilyKeys = useMutation(api.functions.payments.validateChargilyKeys);
+  const validateSofizpayKeys = useMutation(api.functions.payments.validateSofizpayKeys);
   
   // Check slug availability (debounced) - only check when slug is valid length
   const slugExists = useQuery(
@@ -92,8 +93,6 @@ export function CreateCommunityModal({ open, onOpenChange }: CreateCommunityModa
   const handleSlugChange = (value: string) => {
     const newSlug = generateSlug(value);
     setSlug(newSlug);
-    // Server will validate, but we can do a quick client-side check for UX
-    // The actual availability is determined by the server query
   };
 
   // Validate step 1
@@ -103,7 +102,8 @@ export function CreateCommunityModal({ open, onOpenChange }: CreateCommunityModa
   const isStep2Valid = () => {
     if (pricingType === "free") return true;
     if (!price || parseFloat(price) <= 0) return false;
-    if (pricingType !== "free" && (!chargilyApiKey.trim() || !chargilyWebhookSecret.trim())) {
+    if (parseFloat(price) < MIN_PAID_PRICE) return false;
+    if (pricingType !== "free" && !sofizpayPublicKey.trim()) {
       return false;
     }
     return true;
@@ -125,16 +125,15 @@ export function CreateCommunityModal({ open, onOpenChange }: CreateCommunityModa
     setError("");
     
     try {
-      // Validate Chargily keys if provided (for paid communities)
-      if (pricingType !== "free" && chargilyApiKey && chargilyWebhookSecret) {
+      // Validate SofizPay public key if provided (for paid communities)
+      if (pricingType !== "free" && sofizpayPublicKey) {
         setValidatingKeys(true);
-        const validation = await validateChargilyKeys({
-          apiKey: chargilyApiKey,
-          webhookSecret: chargilyWebhookSecret,
+        const validation = await validateSofizpayKeys({
+          publicKey: sofizpayPublicKey,
         });
         
         if (!validation.valid) {
-          setError(validation.error || "Invalid Chargily keys. Please check and try again.");
+          setError(validation.error || "Invalid SofizPay public key. Please check and try again.");
           setLoading(false);
           setValidatingKeys(false);
           return;
@@ -148,8 +147,7 @@ export function CreateCommunityModal({ open, onOpenChange }: CreateCommunityModa
         slug,
         pricingType: pricingType as "free" | "monthly" | "annual" | "one_time",
         priceDzd: price ? parseInt(price) : undefined,
-        chargilyApiKey: pricingType !== "free" ? chargilyApiKey || undefined : undefined,
-        chargilyWebhookSecret: pricingType !== "free" ? chargilyWebhookSecret || undefined : undefined,
+        sofizpayPublicKey: pricingType !== "free" ? sofizpayPublicKey || undefined : undefined,
       });
       
       toast.success("Community created successfully!");
@@ -175,8 +173,7 @@ export function CreateCommunityModal({ open, onOpenChange }: CreateCommunityModa
     setSlugAvailable(null);
     setPricingType("free");
     setPrice("");
-    setChargilyApiKey("");
-    setChargilyWebhookSecret("");
+    setSofizpayPublicKey("");
     setError("");
     onOpenChange(false);
   };
@@ -289,35 +286,30 @@ export function CreateCommunityModal({ open, onOpenChange }: CreateCommunityModa
                     {pricingType === "annual" && "Members pay this amount annually"}
                     {pricingType === "one_time" && "Members pay this one-time fee"}
                   </Text>
+                  {price && parseFloat(price) < MIN_PAID_PRICE && (
+                    <Text size="2" theme="error" className="mt-1">
+                      Minimum price is {MIN_PAID_PRICE} DZD (SofizPay requirement)
+                    </Text>
+                  )}
                 </div>
               )}
 
-              {/* Chargily Keys (if not free) */}
+              {/* SofizPay Public Key (if not free) */}
               {pricingType !== "free" && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-text-primary mb-1">
-                      Chargily API Key
-                    </label>
-                    <Input
-                      type="password"
-                      value={chargilyApiKey}
-                      onChange={(e) => setChargilyApiKey(e.target.value)}
-                      placeholder="type api key..."
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-text-primary mb-1">
-                      Chargily Webhook Secret
-                    </label>
-                    <Input
-                      type="password"
-                      value={chargilyWebhookSecret}
-                      onChange={(e) => setChargilyWebhookSecret(e.target.value)}
-                      placeholder="type webhook secret..."
-                    />
-                  </div>
-                </>
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-1">
+                    SofizPay Public Key
+                  </label>
+                  <Input
+                    type="text"
+                    value={sofizpayPublicKey}
+                    onChange={(e) => setSofizpayPublicKey(e.target.value)}
+                    placeholder="GA..."
+                  />
+                  <Text size="2" theme="secondary" className="mt-1">
+                    Your Stellar public key (starts with G)
+                  </Text>
+                </div>
               )}
 
               {error && (
@@ -355,7 +347,7 @@ export function CreateCommunityModal({ open, onOpenChange }: CreateCommunityModa
                 className="w-full"
                 size="md"
                 >
-                {validatingKeys ? "Validating keys..." : loading ? "Creating..." : pricingType === "free" ? "Create" : "Create"}
+                {validatingKeys ? "Validating key..." : loading ? "Creating..." : pricingType === "free" ? "Create" : "Create"}
               </Button>
             </>
           )}

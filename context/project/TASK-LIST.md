@@ -26,19 +26,18 @@ Tasks currently being worked on or up next.
 
 <!-- Claude: keep this section short — max 5-7 tasks at a time -->
 
-**Phase 26 — Classroom Cards Enhancements**
+**Phase 27 — SofizPay Integration (No Webhooks - Polling Pattern)**
 
-New features for ClassroomsTab.tsx classroom cards:
+Complete replacement of Chargily Pay with SofizPay:
+- **Key Difference**: No webhooks - use return URL + transaction search pattern
+- T-SF-001: Update schema (remove Chargily, add SofizPay)
+- T-SF-010: Install sofizpay-sdk-js
+- T-SF-011: Create SDK wrapper (createCIBTransaction, verifyPaymentByMemo)
+- T-SF-012: Create validateSofizpayKeys mutation
+- T-SF-013: Replace createSofizpayCheckout mutation
+- T-SF-014: Create verifyPaymentStatus mutation (no webhook!)
 
-- T-CL-CARD-001: Add `order` field to classrooms schema
-- T-CL-CARD-002: Create reorderClassrooms mutation  
-- T-CL-CARD-004: Add drag handle (6-dot grip) on ClassroomCard
-- T-CL-CARD-005: Integrate @dnd-kit sortable into grid
-- T-CL-CARD-010: Create LockedClassroomModal component
-- T-CL-CARD-011: Implement level gating UI
-- T-CL-CARD-012: Implement paid gating UI + checkout
-- T-CL-CARD-020: Refactor ThumbnailUpload to modal-based cropping
-- T-CL-CARD-030: Implement server-side pagination (9 per page)
+[Full task list below →](#phase-27--sofizpay-integration-complete-replacement)
 
 ---
 
@@ -901,6 +900,68 @@ New features requested by user for ClassroomsTab.tsx
 
 ---
 
+### Phase 27 — SofizPay Integration (Complete Replacement)
+
+#### Phase 27A — Schema & Environment
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-SF-001 | `[ ]` | Update schema: remove chargilyApiKey, chargilyWebhookSecret; add sofizpayPublicKey | [context/features/sofizpay-integration.md](../features/sofizpay-integration.md) | |
+| T-SF-002 | `[ ]` | Update .env.example: replace Chargily vars with SofizPay vars | [context/technical/ENVIRONMENT.md](../technical/ENVIRONMENT.md) | |
+| T-SF-003 | `[ ]` | Add migration mutation to clean up old Chargily data | [context/features/sofizpay-integration.md](../features/sofizpay-integration.md) | After testing |
+
+#### Phase 27B — Backend SDK & Mutations
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-SF-010 | `[ ]` | Install sofizpay-sdk-js package | [context/features/sofizpay-integration.md](../features/sofizpay-integration.md) | npm install |
+| T-SF-011 | `[ ]` | Create convex/lib/sofizpay.ts SDK wrapper | [context/features/sofizpay-integration.md](../features/sofizpay-integration.md) | createCIBTransaction, verifyPaymentByMemo |
+| T-SF-012 | `[ ]` | Create validateSofizpayKeys mutation | [context/features/sofizpay-integration.md](../features/sofizpay-integration.md) | Validate public key format |
+| T-SF-013 | `[ ]` | Replace createChargilyCheckout with createSofizpayCheckout | [context/features/sofizpay-integration.md](../features/sofizpay-integration.md) | Use CIB transaction |
+| T-SF-014 | `[ ]` | Create verifyPaymentStatus mutation (no webhook) | [context/features/sofizpay-integration.md](../features/sofizpay-integration.md) | Search transactions by memo |
+| T-SF-015 | `[ ]` | Replace createPlatformSubscriptionCheckout for SofizPay | [context/features/sofizpay-integration.md](../features/sofizpay-integration.md) | Platform account |
+| T-SF-016 | `[ ]` | Update getExpectedPrice to work with new system | [context/features/sofizpay-integration.md](../features/sofizpay-integration.md) | No changes needed likely |
+
+#### Phase 27C — Payment Verification (No Webhooks)
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-SF-020 | `[ ]` | Add return URL param handling in OnboardingModal | [context/features/sofizpay-integration.md](../features/sofizpay-integration.md) | Handle ?status=success/cancelled |
+| T-SF-021 | `[ ]` | Add "Verifying payment..." loading state UI | [context/features/sofizpay-integration.md](../features/sofizpay-integration.md) | Show while checking |
+| T-SF-022 | `[ ]` | Add retry logic for pending payments | [context/features/sofizpay-integration.md](../features/sofizpay-integration.md) | Poll 2-3 times if pending |
+| T-SF-023 | `[ ]` | Add amount verification (match expected from DB) | [context/features/sofizpay-integration.md](../features/sofizpay-integration.md) | Prevent manipulation |
+
+#### Phase 27D — Frontend Updates
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-SF-030 | `[ ]` | Update CreateCommunityModal: SofizPay key input | [context/features/sofizpay-integration.md](../features/sofizpay-integration.md) | Replace Chargily inputs |
+| T-SF-031 | `[ ]` | Update EditCommunityModal: SofizPay key input | [context/features/sofizpay-integration.md](../features/sofizpay-integration.md) | Same as Create |
+| T-SF-032 | `[ ]` | Update OnboardingModal: use createSofizpayCheckout | [context/features/sofizpay-integration.md](../features/sofizpay-integration.md) | Update mutation call |
+| T-SF-033 | `[ ]` | Update LockedClassroomModal: use createSofizpayCheckout | [context/features/sofizpay-integration.md](../features/sofizpay-integration.md) | Same as Onboarding |
+| T-SF-034 | `[ ]` | Update SettingsModal: platform subscription | [context/features/sofizpay-integration.md](../features/sofizpay-integration.md) | Already done in mutations |
+| T-SF-035 | `[ ]` | Update help/page.tsx: SofizPay references | [context/features/sofizpay-integration.md](../features/sofizpay-integration.md) | Replace Chargily text |
+| T-SF-036 | `[ ]` | Update app/layout.tsx: description meta | [context/features/sofizpay-integration.md](../features/sofizpay-integration.md) | Replace Chargily with SofizPay |
+
+#### Phase 27E — Testing & Cleanup
+
+| # | Status | Task | Feature | Notes |
+|---|--------|------|---------|-------|
+| T-SF-040 | `[ ]` | Test: Create community with valid SofizPay key | [context/features/sofizpay-integration.md](../features/sofizpay-integration.md) | E2E |
+| T-SF-041 | `[ ]` | Test: Create community with invalid key (validation error) | [context/features/sofizpay-integration.md](../features/sofizpay-integration.md) | |
+| T-SF-042 | `[ ]` | Test: Create community with price < 1000 DZD (blocked) | [context/features/sofizpay-integration.md](../features/sofizpay-integration.md) | EC-SF-2 |
+| T-SF-043 | `[ ]` | Test: Join free community (no payment) | [context/features/sofizpay-integration.md](../features/sofizpay-integration.md) | |
+| T-SF-044 | `[ ]` | Test: Join paid community (SofizPay flow) | [context/features/sofizpay-integration.md](../features/sofizpay-integration.md) | |
+| T-SF-045 | `[ ]` | Test: Payment return URL handling | [context/features/sofizpay-integration.md](../features/sofizpay-integration.md) | ?status=success/cancelled |
+| T-SF-046 | `[ ]` | Test: Payment verification via transaction search | [context/features/sofizpay-integration.md](../features/sofizpay-integration.md) | memo-based verification |
+| T-SF-047 | `[ ]` | Test: Payment pending retry logic | [context/features/sofizpay-integration.md](../features/sofizpay-integration.md) | Poll when pending |
+| T-SF-048 | `[ ]` | Test: Platform subscription payment | [context/features/sofizpay-integration.md](../features/sofizpay-integration.md) | |
+| T-SF-049 | `[ ]` | Test: Amount verification (prevent manipulation) | [context/features/sofizpay-integration.md](../features/sofizpay-integration.md) | |
+| T-SF-050 | `[ ]` | Delete convex/lib/chargily.ts | [context/features/sofizpay-integration.md](../features/sofizpay-integration.md) | After testing |
+| T-SF-051 | `[ ]` | Delete src/app/api/webhooks/chargily/route.ts | [context/features/sofizpay-integration.md](../features/sofizpay-integration.md) | After testing |
+
+---
+
 ## Blocked
 
 Tasks that can't proceed until something else is resolved.
@@ -910,14 +971,14 @@ Tasks that can't proceed until something else is resolved.
 | T16-T20 | Community creation | [context/features/community-creation.md](../features/community-creation.md) | T5 (Convex schema), T6 (Clerk auth) | Completed |
 | T21-T25 | Community shell + tab persistence | [context/features/community-creation.md](../features/community-creation.md) | T8 (middleware - partial), T19 (createCommunity - partial: doesn't encrypt keys) |
 | T26-T31 | About tab | [context/features/about-tab.md](../features/about-tab.md) | T22 (SPA shell - partial) |
-| T32-T39 | Chargily integration | [context/features/chargily-integration.md](../features/chargily-integration.md) | T18 (key validation - NOT IMPLEMENTED), T19 (keys not encrypted) |
-| T40-T46 | Onboarding modal | [context/features/onboarding-modal.md](../features/onboarding-modal.md) | T8 (middleware - partial), T32 (checkout creation) |
+| T32-T39 | Chargily integration | [context/features/chargily-integration.ARCHIVED.md](../features/chargily-integration.ARCHIVED.md) | COMPLETED - Replaced by SofizPay |
+| T40-T46 | Onboarding modal | [context/features/onboarding-modal.md](../features/onboarding-modal.md) | T8 (middleware - partial), T-SF-013 (checkout creation) |
 | T47-T57 | Community feed | [context/features/community-feed.md](../features/community-feed.md) | T22 (SPA shell - partial), T8 (middleware - partial) |
 | T58-T65 | Feed interactions (upvotes, categories, pin, delete) | [context/features/community-feed.md](../features/community-feed.md) | T53 (post card), T54 (listPosts) |
 | T66-T76 | Classrooms | [context/features/classrooms.md](../features/classrooms.md) | T22 (SPA shell - partial), T35 (classroom access) |
 | T82-T90 | Leaderboard & gamification | [context/features/leaderboard-gamification.md](../features/leaderboard-gamification.md) | T58 (upvotes — pointEvents), T66 (classrooms — lesson progress) |
 | T91-T94 | @Mentions & notifications | [context/features/mentions.md](../features/mentions.md) | T56 (open post modal), T81 (listMembers) |
-| T95-T101 | Modals (profile, settings) | [context/features/settings.md](../features/settings.md) | T22 (SPA shell - partial), T32 (Chargily) |
+| T95-T101 | Modals (profile, settings) | [context/features/settings.md](../features/settings.md) | T22 (SPA shell - partial), T-SF-013 (checkout) |
 | T102-T104 | Explore modal | [context/features/explore-modal.md](../features/explore-modal.md) | T22 (SPA shell - partial) |
 | T106-T109 | Edge cases | All features | Relevant feature tasks |
 | T113-T122 | Polish & launch | [context/features/phase-9-polish-launch.md](../features/phase-9-polish-launch.md) | All feature tasks |
@@ -978,7 +1039,7 @@ Community Creation (T16-T20)
     ↓
 Community Shell & Tab Persistence (T21-T25)
     ↓
-About Tab (T26-T31)  +  Chargily Integration (T32-T39)  [parallel]
+About Tab (T26-T31)  +  Chargily Integration (T32-T39)  [COMPLETED]
     ↓
 Onboarding Modal (T40-T46)
     ↓
@@ -993,4 +1054,6 @@ Leaderboard & Gamification (T82-T90)
 Edge Cases & Security (T106-T112)
     ↓
 Polish & Launch (T113-T122)
+    ↓
+Phase 27 — SofizPay Integration (T-SF-001 to T-SF-051)
 ```

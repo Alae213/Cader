@@ -40,23 +40,23 @@ Clerk auth redirect URLs (set in Clerk dashboard, not env vars):
 
 ---
 
-## Required — Platform Billing (Chargily — Platform's own account)
+## Required — Platform Billing (SofizPay — Platform's own account)
 
-These are for the **platform's** Chargily account — used to charge creators the 2,000 DZD/month subscription.
+These are for the **platform's** SofizPay account — used to charge creators the 2,000 DZD/month subscription.
 
 | Variable | Description | Where to get it |
 |---|---|---|
-| `CHARGILY_PLATFORM_PUBLIC_KEY` | Platform's Chargily public key | Chargily dashboard → API Keys |
-| `CHARGILY_PLATFORM_SECRET_KEY` | Platform's Chargily secret key — **server-side only** | Chargily dashboard → API Keys |
-| `CHARGILY_WEBHOOK_SECRET` | Webhook signature verification secret | Chargily dashboard → Webhooks |
+| `SOFIZPAY_PLATFORM_PUBLIC_KEY` | Platform's SofizPay public key (Stellar format G...) | SofizPay dashboard → API Keys |
+
+**Note:** SofizPay doesn't support webhooks - payment verification uses return URL + transaction search pattern. No webhook secret needed!
 
 ---
 
-## Per-Community Chargily Keys (stored in Convex, not env vars)
+## Per-Community SofizPay Keys (stored in Convex, not env vars)
 
-> Creator Chargily keys are **not** environment variables.
-> They are stored encrypted in the Convex `communities` table after the creator enters them
-> during community creation step 2. Retrieved server-side at checkout time only.
+> Creator SofizPay keys are **not** environment variables.
+> They are stored in the Convex `communities` table after the creator enters them
+> during community creation. Only the public key is stored (no secret needed for CIB flow).
 > Never logged. Never returned to the client.
 
 ---
@@ -97,11 +97,12 @@ npm run dev
 ```
 App runs at `http://localhost:3000`.
 
-### 5. Webhook testing (Clerk + Chargily)
+### 5. Payment testing (Clerk only)
 Use [ngrok](https://ngrok.com/) or [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/) to expose localhost to the internet.
 Register the tunnel URL as the webhook endpoint in:
 - Clerk dashboard → Webhooks → `https://[tunnel]/api/webhooks/clerk`
-- Chargily dashboard → Webhooks → `https://[tunnel]/api/webhooks/chargily`
+
+**Note:** SofizPay doesn't support webhooks - payments are verified via return URL + transaction search. No webhook setup needed for SofizPay!
 
 ---
 
@@ -120,8 +121,10 @@ NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
 CLERK_SECRET_KEY=sk_test_...
 CLERK_WEBHOOK_SECRET=whsec_...
 
-# Chargily (Platform account — for creator subscriptions via manual monthly rebilling)
-CHARGILY_PLATFORM_PUBLIC_KEY=
-CHARGILY_PLATFORM_SECRET_KEY=
-CHARGILY_WEBHOOK_SECRET=
+# SofizPay (Platform account — for creator subscriptions via manual monthly rebilling)
+# Note: No webhooks - use return URL + transaction search pattern
+SOFIZPAY_PLATFORM_PUBLIC_KEY=
+
+# Config
+MIN_PAYMENT_AMOUNT=1000
 ```

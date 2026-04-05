@@ -275,9 +275,8 @@ export const createCommunity = mutation({
     slug: v.string(),
     pricingType: v.union(v.literal("free"), v.literal("monthly"), v.literal("annual"), v.literal("one_time")),
     priceDzd: v.optional(v.number()),
-    // Chargily keys (optional - can be added later via settings)
-    chargilyApiKey: v.optional(v.string()),
-    chargilyWebhookSecret: v.optional(v.string()),
+    // SofizPay public key (optional - can be added later via settings)
+    sofizpayPublicKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     // Get authenticated user from Clerk
@@ -342,10 +341,9 @@ export const createCommunity = mutation({
         throw new Error("Price cannot exceed 100,000 DZD");
       }
     }
-    
-    // Encrypt Chargily keys before storing (security: never store plaintext)
-    const encryptedApiKey = args.chargilyApiKey ? await encrypt(args.chargilyApiKey) : undefined;
-    const encryptedWebhookSecret = args.chargilyWebhookSecret ? await encrypt(args.chargilyWebhookSecret) : undefined;
+
+    // SofizPay public key (no encryption needed - public key is not sensitive)
+    const sofizpayPublicKey = args.sofizpayPublicKey;
 
     // SECURITY C-5: Rate limit community creation
     await enforceRateLimit(ctx, identity.tokenIdentifier, "community_creation");
@@ -364,9 +362,8 @@ export const createCommunity = mutation({
       platformTier: "free",
       memberLimit: 50,
       activeMemberCount: 1, // owner membership created below
-      // Store encrypted Chargily keys
-      chargilyApiKey: encryptedApiKey,
-      chargilyWebhookSecret: encryptedWebhookSecret,
+      // Store SofizPay public key
+      sofizpayPublicKey,
       createdAt: now,
       updatedAt: now,
     });
@@ -400,8 +397,7 @@ export const updateCommunity = mutation({
     links: v.optional(v.array(v.string())),
     pricingType: v.optional(v.union(v.literal("free"), v.literal("monthly"), v.literal("annual"), v.literal("one_time"))),
     priceDzd: v.optional(v.number()),
-    chargilyApiKey: v.optional(v.string()),
-    chargilyWebhookSecret: v.optional(v.string()),
+    sofizpayPublicKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     // Get authenticated user
@@ -459,12 +455,9 @@ export const updateCommunity = mutation({
       updateData.slug = args.slug;
     }
     
-    // Encrypt Chargily keys before storing (security: never store plaintext)
-    if (args.chargilyApiKey !== undefined) {
-      updateData.chargilyApiKey = args.chargilyApiKey ? await encrypt(args.chargilyApiKey) : undefined;
-    }
-    if (args.chargilyWebhookSecret !== undefined) {
-      updateData.chargilyWebhookSecret = args.chargilyWebhookSecret ? await encrypt(args.chargilyWebhookSecret) : undefined;
+    // Store SofizPay public key (no encryption needed - public key is not sensitive)
+    if (args.sofizpayPublicKey !== undefined) {
+      updateData.sofizpayPublicKey = args.sofizpayPublicKey || undefined;
     }
     
     await ctx.db.patch(args.communityId, updateData);
@@ -998,8 +991,8 @@ export const listByIds = query({
     for (const id of args.ids) {
       const community = await ctx.db.get(id);
       if (community) {
-        // SECURITY H-5: Strip encrypted keys
-        const { chargilyApiKey, chargilyWebhookSecret, ...safe } = community;
+        // SECURITY H-5: Strip sensitive payment keys
+        const { sofizpayPublicKey, ...safe } = community;
         communities.push(safe);
       }
     }

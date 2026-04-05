@@ -40,9 +40,12 @@ export default defineSchema({
     pricingType: v.union(v.literal("free"), v.literal("monthly"), v.literal("annual"), v.literal("one_time")),
     priceDzd: v.optional(v.number()),
 
-    // Chargily keys (encrypted)
-    chargilyApiKey: v.optional(v.string()),
-    chargilyWebhookSecret: v.optional(v.string()),
+    // Chargily keys (deprecated - replaced by SofizPay)
+    // chargilyApiKey: v.optional(v.string()),
+    // chargilyWebhookSecret: v.optional(v.string()),
+
+    // SofizPay keys (public key only - no sensitive data)
+    sofizpayPublicKey: v.optional(v.string()),
 
     // Platform tier
     platformTier: v.optional(v.union(v.literal("free"), v.literal("subscribed"))),

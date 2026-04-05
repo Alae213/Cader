@@ -27,6 +27,7 @@ import type * as lib_chargily from "../lib/chargily.js";
 import type * as lib_email from "../lib/email.js";
 import type * as lib_encryption from "../lib/encryption.js";
 import type * as lib_rateLimit from "../lib/rateLimit.js";
+import type * as lib_sofizpay from "../lib/sofizpay.js";
 import type * as seed from "../seed.js";
 
 import type {
@@ -55,6 +56,7 @@ declare const fullApi: ApiFromModules<{
   "lib/email": typeof lib_email;
   "lib/encryption": typeof lib_encryption;
   "lib/rateLimit": typeof lib_rateLimit;
+  "lib/sofizpay": typeof lib_sofizpay;
   seed: typeof seed;
 }>;
 
