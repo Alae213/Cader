@@ -425,10 +425,10 @@ New features requested by user for ClassroomsTab.tsx
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T-CL-CARD-020 | `[ ]` | Refactor ThumbnailUpload to open cropping in modal | [context/features/classrooms.md](../features/classrooms.md) | Move crop UI outside card |
-| T-CL-CARD-021 | `[ ]` | Create ImageCropModal component | [context/features/classrooms.md](../features/classrooms.md) | Modal with crop controls |
-| T-CL-CARD-022 | `[ ]` | Implement crop preview and aspect ratio lock | [context/features/classrooms.md](../features/classrooms.md) | 16:9 aspect for video thumbnails |
-| T-CL-CARD-023 | `[ ]` | Connect crop modal to ThumbnailUpload save flow | [context/features/classrooms.md](../features/classrooms.md) | Pass cropped image to onSave |
+| T-CL-CARD-020 | `[x]` | Refactor ThumbnailUpload to open cropping in modal | [context/features/classrooms.md](../features/classrooms.md) | Move crop UI outside card |
+| T-CL-CARD-021 | `[x]` | Create ImageCropModal component | [context/features/classrooms.md](../features/classrooms.md) | Modal with crop controls |
+| T-CL-CARD-022 | `[x]` | Implement crop preview and aspect ratio lock | [context/features/classrooms.md](../features/classrooms.md) | 16:9 aspect for video thumbnails |
+| T-CL-CARD-023 | `[x]` | Connect crop modal to ThumbnailUpload save flow | [context/features/classrooms.md](../features/classrooms.md) | Pass cropped image to onSave |
 
 #### Phase 26D — Pagination
 
