@@ -8,6 +8,10 @@
     "start": "next start",
     "lint": "eslint"
   },
+  "overrides": {
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
   "dependencies": {
     "@chargily/chargily-pay": "^2.1.0",
     "@clerk/nextjs": "^7.0.6",
