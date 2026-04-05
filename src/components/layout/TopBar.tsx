@@ -12,6 +12,7 @@ import { Avatar } from "@/components/shared/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Dropdown } from "@/components/ui/dropdown";
 import { MenuItem } from "@/components/ui/menu-item";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/Dialog";
 
 interface DropdownPosition {
   top: number;
@@ -247,30 +248,24 @@ export function TopBar({
               </button>
               
               {/* Logout Dialog */}
-              {isLogoutDialogOpen && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
-                  <div className="bg-bg-base rounded-lg p-6 max-w-sm w-full mx-4">
-                    <h2 className="text-lg font-semibold mb-2">Logout</h2>
-                    <p className="text-sm text-muted-foreground mb-6">
+              <Dialog open={isLogoutDialogOpen} onOpenChange={(open) => !open && setIsLogoutDialogOpen(false)}>
+                <DialogContent className="max-w-sm">
+                  <DialogHeader>
+                    <DialogTitle>Logout</DialogTitle>
+                    <DialogDescription>
                       Are you sure you want to logout?
-                    </p>
-                    <div className="flex gap-3 justify-end">
-                      <button 
-                        className="px-4 py-2 text-sm bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80 transition-colors"
-                        onClick={() => setIsLogoutDialogOpen(false)}
-                      >
-                        Cancel
-                      </button>
-                      <button 
-                        className="px-4 py-2 text-sm bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/80 transition-colors"
-                        onClick={handleLogout}
-                      >
-                        Logout
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <DialogFooter>
+                    <Button variant="ghost" onClick={() => setIsLogoutDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button variant="danger" onClick={handleLogout}>
+                      Logout
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
           ) : (
             <SignInButton mode="modal">

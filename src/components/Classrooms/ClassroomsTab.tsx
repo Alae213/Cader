@@ -14,6 +14,7 @@ import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { ClassroomViewer } from "./ClassroomViewer";
 import { ClassroomCard } from "./ClassroomCard";
 import { LockedClassroomModal } from "./LockedClassroomModal";
+import { useCommunityData } from "@/contexts/CommunityDataContext";
 import {
   DndContext,
   closestCenter,
@@ -78,11 +79,20 @@ export function ClassroomsTab({ communityId, isOwner, currentUser: providedUser 
   // Locked classroom modal state
   const [lockedClassroom, setLockedClassroom] = useState<ClassroomData | null>(null);
   
-  // Get community info for locked modal
-  const community = useQuery(
+  // Try to get community from context first, fallback to query
+  let contextCommunity;
+  try {
+    contextCommunity = useCommunityData().community;
+  } catch {
+    contextCommunity = null;
+  }
+  
+  // Use context community if available, otherwise query
+  const communityQuery = contextCommunity ? null : useQuery(
     api.functions.communities.getById,
     communityId ? { communityId: communityId as Id<"communities"> } : "skip"
   );
+  const community = contextCommunity || communityQuery;
   
   // Confirmation modal state
   const [confirmModal, setConfirmModal] = useState<{
@@ -376,7 +386,7 @@ export function ClassroomsTab({ communityId, isOwner, currentUser: providedUser 
                       setShowCreateModal(true);
                     }
                   }}
-                  className="hover:bg-accent-subtle rounded-[16px] bg-black/20 shadow-input-shadow border-2 border-dashed border-white/20 flex items-center justify-center cursor-pointer hover:border-accent transition-colors min-h-[180px]"
+                  className="h-[300px] hover:bg-accent-subtle rounded-[16px] bg-black/20 shadow-input-shadow border-2 border-dashed border-white/20 flex items-center justify-center cursor-pointer hover:border-accent transition-colors"
                 >
                   <Text size="2" theme="secondary" >+ Add Classroom</Text>
                 </div>

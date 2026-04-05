@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback } from "react";
 import { usePaginatedQuery, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
+import { useCommunityData } from "@/contexts/CommunityDataContext";
 
 type SortOption = "newest" | "most_liked" | "most_commented";
 
@@ -38,6 +39,27 @@ export function useFeedData(communityId: string) {
 
   const communityIdTyped = communityId as Id<"communities">;
 
+  // Try to get community data from context (optimized path)
+  let contextCommunityData;
+  let contextCommunityStats;
+  try {
+    contextCommunityData = useCommunityData().community;
+  } catch {
+    // Not in community page context - will query separately
+    contextCommunityData = null;
+  }
+
+  // Use context data if available, otherwise query
+  const communityData = contextCommunityData || 
+    useQuery(api.functions.communities.getById, { communityId: communityIdTyped });
+
+  // For stats, we need streak which isn't in getById - use context if available
+  const communityStats = contextCommunityData ? {
+    memberCount: contextCommunityData.memberCount,
+    onlineCount: contextCommunityData.onlineCount,
+    streak: contextCommunityData.streak,
+  } : useQuery(api.functions.communities.getCommunityStats, { communityId: communityIdTyped });
+
   const { results: allPosts, status, loadMore: loadMoreConvex } = usePaginatedQuery(
     api.functions.feed.listPosts,
     {
@@ -61,16 +83,6 @@ export function useFeedData(communityId: string) {
     api.functions.categories.listCategories,
     { communityId: communityIdTyped }
   ) || [];
-
-  const communityData = useQuery(
-    api.functions.communities.getById,
-    { communityId: communityIdTyped }
-  );
-
-  const communityStats = useQuery(
-    api.functions.communities.getCommunityStats,
-    { communityId: communityIdTyped }
-  );
 
   const membership = useQuery(
     api.functions.memberships.getMyMembership,

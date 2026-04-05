@@ -1,5 +1,6 @@
 import { query, mutation, internalMutation } from "../_generated/server";
 import { v } from "convex/values";
+import { internal } from "../_generated/api";
 
 // SECURITY H-2: Internal mutation — only callable from webhook HTTP action
 // Previously was public mutation with no auth check
@@ -343,6 +344,16 @@ export const updateUserProfile = mutation({
     if (args.wilaya !== undefined) updates.wilaya = args.wilaya;
 
     await ctx.db.patch(args.userId, updates);
+
+    // Sync owner info to communities if displayName or avatarUrl changed
+    if (args.displayName !== undefined || args.avatarUrl !== undefined) {
+      await ctx.runMutation(internal.functions.communities._syncOwnerInfo, {
+        userId: args.userId,
+        displayName: args.displayName,
+        avatarUrl: args.avatarUrl,
+      });
+    }
+
     return true;
   },
 });

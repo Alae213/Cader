@@ -10,6 +10,7 @@ import { Heading, Text } from "@/components/ui/Text";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Avatar } from "@/components/shared/Avatar";
+import { useCommunityData } from "@/contexts/CommunityDataContext";
 import {
   Shield, CreditCard, AlertTriangle, LogOut, Trash2,
   Loader2, Tags, Plus, X, Pencil, Bell, Mail, MessageSquare, AtSign, Users
@@ -69,10 +70,19 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
 
   const currentUser = useQuery(api.functions.users.getUserByClerkId, clerkId ? { clerkId } : "skip");
 
-  const community = useQuery(
+  // Try to get community from context first (community page), fallback to query (account settings)
+  let contextCommunity;
+  try {
+    contextCommunity = useCommunityData().community;
+  } catch {
+    contextCommunity = null;
+  }
+
+  const communityQuery = useQuery(
     api.functions.communities.getBySlug,
-    communitySlug ? { slug: communitySlug } : "skip"
+    communitySlug && !contextCommunity ? { slug: communitySlug } : "skip"
   );
+  const community = contextCommunity || communityQuery;
 
   const [nextBillingDate] = useState(() =>
     new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString("ar-DZ", {

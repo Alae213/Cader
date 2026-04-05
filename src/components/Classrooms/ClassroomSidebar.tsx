@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useEffect, useRef } from "react";
+import { useMemo, useEffect, useRef, memo, useCallback } from "react";
+import * as React from "react";
 import Image from "next/image";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -20,8 +21,6 @@ import { CSS } from "@dnd-kit/utilities";
 import { ChevronLeft, ChevronDown, X, Trash2, Edit3, Play, Plus, GripVertical, MoreVertical } from "lucide-react";
 import { ProgressRing } from "@/components/ui/ProgressRing";
 import { getVideoThumbnail } from "@/lib/utils";
-import { Dropdown, /* DropdownLabel, DropdownSeparator */ } from "@/components/ui/dropdown";
-import { MenuItem } from "@/components/ui/menu-item";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import type { SensorDescriptor } from "@dnd-kit/core";
 
@@ -51,29 +50,28 @@ interface ClassroomSidebarProps {
   onChapterDragEnd: (event: DragEndEvent) => void;
   onLessonDragEnd: (moduleId: string, event: DragEndEvent) => void;
   sensors: SensorDescriptor<object>[];
-  openChapterMenu: string | null;
-  setOpenChapterMenu: (id: string | null) => void;
-  openLessonMenu: string | null;
-  setOpenLessonMenu: (id: string | null) => void;
   editingChapterId: string | null;
   setEditingChapterId: (id: string | null) => void;
   editingChapterTitle: string;
   setEditingChapterTitle: (title: string) => void;
   handleChapterTitleBlur: (chapterId: string) => void;
   handleChapterTitleKeyDown: (e: React.KeyboardEvent, chapterId: string) => void;
-  deleteConfirmChapter: { id: string; title: string; lessonCount: number } | null;
   setDeleteConfirmChapter: (data: { id: string; title: string; lessonCount: number } | null) => void;
-  handleDeleteChapter: () => void;
-  deleteConfirmLesson: { id: string; title: string } | null;
   setDeleteConfirmLesson: (data: { id: string; title: string } | null) => void;
-  handleDeleteLesson: () => void;
   isPageCompleted: (pageId: string) => boolean;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   optimisticLessonOrders: Record<string, any[]>;
+  // Lesson title editing
+  editingLessonId: string | null;
+  setEditingLessonId: (id: string | null) => void;
+  editingLessonTitle: string;
+  setEditingLessonTitle: (title: string) => void;
+  handleLessonTitleBlur: () => void;
+  handleLessonTitleKeyDown: (e: React.KeyboardEvent) => void;
 }
 
 // Sortable Chapter Wrapper
-function SortableChapter({ 
+const SortableChapter = memo(function SortableChapter({ 
   module, 
   children,
   isOwner 
@@ -98,14 +96,17 @@ function SortableChapter({
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...(isOwner ? attributes : {})} {...(isOwner ? listeners : {})}>
-      {children}
+    <div ref={setNodeRef} style={style}>
+      {React.cloneElement(children as React.ReactElement<{ dragAttrs?: Record<string, unknown>; dragListeners?: Record<string, unknown> }>, {
+        dragAttrs: isOwner ? { ...attributes } : undefined,
+        dragListeners: isOwner ? { ...listeners } : undefined,
+      })}
     </div>
   );
-}
+});
 
 // Sortable Lesson Wrapper
-function SortableLesson({ 
+const SortableLesson = memo(function SortableLesson({ 
   page, 
   moduleId,
   children,
@@ -132,14 +133,17 @@ function SortableLesson({
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...(isOwner ? attributes : {})} {...(isOwner ? listeners : {})}>
-      {children}
+    <div ref={setNodeRef} style={style}>
+      {React.cloneElement(children as React.ReactElement<{ dragAttrs?: Record<string, unknown>; dragListeners?: Record<string, unknown> }>, {
+        dragAttrs: isOwner ? { ...attributes } : undefined,
+        dragListeners: isOwner ? { ...listeners } : undefined,
+      })}
     </div>
   );
-}
+});
 
 // Chapter Header Component
-function ChapterHeader({
+const ChapterHeader = memo(function ChapterHeader({
   module,
   isCollapsed,
   isActive,
@@ -149,8 +153,6 @@ function ChapterHeader({
   chapterProgress,
   onToggleCollapse,
   onAddLesson,
-  openMenu,
-  setOpenMenu,
   editingChapterId,
   setEditingChapterId,
   editingChapterTitle,
@@ -158,6 +160,10 @@ function ChapterHeader({
   handleTitleBlur,
   handleTitleKeyDown,
   setDeleteConfirm,
+  onRenameSelect,
+  onDeleteSelect,
+  dragAttrs,
+  dragListeners,
 }: {
   module: ModuleData;
   isCollapsed: boolean;
@@ -168,8 +174,6 @@ function ChapterHeader({
   chapterProgress: number;
   onToggleCollapse: () => void;
   onAddLesson: () => void;
-  openMenu: boolean;
-  setOpenMenu: (open: boolean) => void;
   editingChapterId: string | null;
   setEditingChapterId: (id: string | null) => void;
   editingChapterTitle: string;
@@ -177,6 +181,10 @@ function ChapterHeader({
   handleTitleBlur: () => void;
   handleTitleKeyDown: (e: React.KeyboardEvent) => void;
   setDeleteConfirm: () => void;
+  onRenameSelect: () => void;
+  onDeleteSelect: () => void;
+  dragAttrs?: Record<string, unknown>;
+  dragListeners?: Record<string, unknown>;
 }) {
   const isEditing = editingChapterId === module._id;
 
@@ -185,6 +193,8 @@ function ChapterHeader({
       {/* Drag handle - absolutely positioned, visible on hover for owner */}
       {isOwner && (
         <div
+          {...dragAttrs}
+          {...dragListeners}
           className="absolute -left-1 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded cursor-grab active:cursor-grabbing text-text-muted opacity-0 group-hover/chapter:opacity-100 transition-opacity hover:bg-bg-elevated/20 hover:text-text-primary"
         >
           <GripVertical className="w-3 h-3" />
@@ -197,7 +207,6 @@ function ChapterHeader({
           type="button"
           onClick={onToggleCollapse}
           className="flex h-8 w-6 items-center cursor-pointer justify-center rounded-full hover:bg-white/10 text-text-muted"
-          style={{ transform: isCollapsed ? 'rotate(0deg)' : 'rotate(180deg)' }}
           aria-label={isCollapsed ? "Expand" : "Collapse"}
         > 
           <svg
@@ -223,7 +232,8 @@ function ChapterHeader({
           onChange={(e) => setEditingChapterTitle(e.target.value)}
           onBlur={handleTitleBlur}
           onKeyDown={handleTitleKeyDown}
-          className="flex-1 bg-white/10  rounded px-2 py-1 text-sm font-medium focus:outline-none w-fit"
+          maxLength={100}
+          className="flex-1 bg-white/10 rounded px-2 py-1 focus:outline-none w-fit"
           autoFocus
         />
       ) : (
@@ -257,10 +267,9 @@ function ChapterHeader({
       {isOwner && (
         <Select onValueChange={(value) => {
           if (value === "rename") {
-            setEditingChapterId(module._id);
-            setEditingChapterTitle(module.title);
+            onRenameSelect();
           } else if (value === "delete") {
-            setDeleteConfirm();
+            onDeleteSelect();
           }
         }}>
           <SelectTrigger 
@@ -286,18 +295,27 @@ function ChapterHeader({
       )}
     </div>
   );
-}
+});
 
 // Lesson Item Component
-function LessonItem({
+const LessonItem = memo(function LessonItem({
   page,
+  moduleId,
   isSelected,
   isOwner,
   isCompleted,
   onSelect,
-  openMenu,
-  setOpenMenu,
   onDelete,
+  editingLessonId,
+  setEditingLessonId,
+  editingLessonTitle,
+  setEditingLessonTitle,
+  handleLessonTitleBlur,
+  handleLessonTitleKeyDown,
+  onRenameSelect,
+  onDeleteSelect,
+  dragAttrs,
+  dragListeners,
 }: {
   page: { _id: string; title: string; videoUrl?: string; isViewed?: boolean };
   moduleId: string;
@@ -305,15 +323,27 @@ function LessonItem({
   isOwner: boolean;
   isCompleted: boolean;
   onSelect: () => void;
-  openMenu: boolean;
-  setOpenMenu: (open: boolean) => void;
   onDelete: () => void;
+  editingLessonId: string | null;
+  setEditingLessonId: (id: string | null) => void;
+  editingLessonTitle: string;
+  setEditingLessonTitle: (title: string) => void;
+  handleLessonTitleBlur: () => void;
+  handleLessonTitleKeyDown: (e: React.KeyboardEvent) => void;
+  onRenameSelect: () => void;
+  onDeleteSelect: () => void;
+  dragAttrs?: Record<string, unknown>;
+  dragListeners?: Record<string, unknown>;
 }) {
+  const isEditing = editingLessonId === page._id;
+
   return (
     <div className="relative flex items-center group/lesson">
       {/* Drag handle - absolutely positioned, visible on hover for owner */}
       {isOwner && (
         <div
+          {...dragAttrs}
+          {...dragListeners}
           className="absolute left-0.5 top-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center rounded cursor-grab active:cursor-grabbing text-text-muted opacity-0 group-hover/lesson:opacity-100 transition-opacity z-10"
         >
           <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
@@ -353,19 +383,46 @@ function LessonItem({
 
         {/* Title and completion */}
         <div className="flex flex-1 items-center gap-1 min-w-0 justify-between">
-          <span className="truncate text-xs text-text-primary">{page.title}</span>
-          {isCompleted && (
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" className="text-success shrink-0">
-              <path d="M13.3333 4L6.00001 11.3333L2.66667 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+          {isEditing && isOwner ? (
+            <span style={{ display: 'inline-grid' }}>
+              <span style={{ gridArea: '1/1', visibility: 'hidden', whiteSpace: 'pre', fontSize: '0.75rem', fontWeight: 500 }}>{editingLessonTitle || ' '}</span>
+              <input
+                type="text"
+                value={editingLessonTitle}
+                onChange={(e) => setEditingLessonTitle(e.target.value)}
+                onBlur={(e) => {
+                  e.stopPropagation();
+                  handleLessonTitleBlur();
+                }}
+                onKeyDown={(e) => {
+                  e.stopPropagation();
+                  handleLessonTitleKeyDown(e);
+                }}
+                onClick={(e) => e.stopPropagation()}
+                maxLength={100}
+                style={{ gridArea: '1/1', width: '100%', background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '0.25rem', padding: '0.125rem 0.25rem', fontSize: '0.75rem', fontWeight: 500, outline: 'none' }}
+                autoFocus
+              />
+            </span>
+          ) : (
+            <>
+              <span className="truncate text-xs text-text-primary">{page.title}</span>
+              {isCompleted && (
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" className="text-success shrink-0">
+                  <path d="M13.3333 4L6.00001 11.3333L2.66667 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              )}
+            </>
           )}
         </div>
 
         {/* 3-dot menu - owner only */}
-        {isOwner && (
+        {isOwner && !isEditing && (
           <Select onValueChange={(value) => {
-            if (value === "delete") {
-              onDelete();
+            if (value === "rename") {
+              onRenameSelect();
+            } else if (value === "delete") {
+              onDeleteSelect();
             }
           }}>
             <SelectTrigger 
@@ -375,6 +432,12 @@ function LessonItem({
               <MoreVertical className="w-3 h-3" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="rename">
+                <div className="flex items-center gap-2">
+                  <Edit3 className="w-3 h-3" />
+                  Rename
+                </div>
+              </SelectItem>
               <SelectItem value="delete" className="text-red-500">
                 <div className="flex items-center gap-2">
                   <Trash2 className="w-3 h-3" />
@@ -387,7 +450,7 @@ function LessonItem({
       </div>
     </div>
   );
-}
+});
 
 export function ClassroomSidebar({
   classroomContent,
@@ -405,27 +468,22 @@ export function ClassroomSidebar({
   onChapterDragEnd,
   onLessonDragEnd,
   sensors,
-  openChapterMenu,
-  setOpenChapterMenu,
-  openLessonMenu,
-  setOpenLessonMenu,
   editingChapterId,
   setEditingChapterId,
   editingChapterTitle,
   setEditingChapterTitle,
   handleChapterTitleBlur,
   handleChapterTitleKeyDown,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  deleteConfirmChapter,
   setDeleteConfirmChapter,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  handleDeleteChapter,
   setDeleteConfirmLesson,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  handleDeleteLesson,
   isPageCompleted,
-   
   optimisticLessonOrders,
+  editingLessonId,
+  setEditingLessonId,
+  editingLessonTitle,
+  setEditingLessonTitle,
+  handleLessonTitleBlur,
+  handleLessonTitleKeyDown,
 }: ClassroomSidebarProps) {
   // Calculate overall progress
   const progress = useMemo(() => {
@@ -433,13 +491,13 @@ export function ClassroomSidebar({
     const total = allPages.length;
     const completed = allPages.filter(p => p.isViewed).length;
     return total > 0 ? Math.round((completed / total) * 100) : 0;
-  }, [classroomContent]);
+  }, [classroomContent?.modules]);
 
-  const handleOverlayKeyDown = (e: React.KeyboardEvent) => {
+  const handleOverlayKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
       onCloseSidebar();
     }
-  };
+  }, [onCloseSidebar]);
 
   const getChapterProgress = (module: ModuleData) => {
     const total = module.pages?.length || 0;
@@ -449,16 +507,6 @@ export function ClassroomSidebar({
 
   // Close menus when clicking outside
   const sidebarRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (sidebarRef.current && !sidebarRef.current.contains(e.target as Node)) {
-        setOpenChapterMenu(null);
-        setOpenLessonMenu(null);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [setOpenChapterMenu, setOpenLessonMenu]);
 
   const renderChapters = () => {
     if (!classroomContent) {
@@ -517,8 +565,6 @@ export function ClassroomSidebar({
                       chapterProgress={chapterProgress}
                       onToggleCollapse={() => onToggleCollapse(module._id)}
                       onAddLesson={() => onAddLesson(module._id)}
-                      openMenu={openChapterMenu === module._id}
-                      setOpenMenu={(open) => setOpenChapterMenu(open ? module._id : null)}
                       editingChapterId={editingChapterId}
                       setEditingChapterId={setEditingChapterId}
                       editingChapterTitle={editingChapterTitle}
@@ -526,6 +572,15 @@ export function ClassroomSidebar({
                       handleTitleBlur={() => handleChapterTitleBlur(module._id)}
                       handleTitleKeyDown={(e) => handleChapterTitleKeyDown(e, module._id)}
                       setDeleteConfirm={() => setDeleteConfirmChapter({
+                        id: module._id,
+                        title: module.title,
+                        lessonCount: module.pages?.length || 0
+                      })}
+                      onRenameSelect={() => {
+                        setEditingChapterId(module._id);
+                        setEditingChapterTitle(module.title);
+                      }}
+                      onDeleteSelect={() => setDeleteConfirmChapter({
                         id: module._id,
                         title: module.title,
                         lessonCount: module.pages?.length || 0
@@ -556,9 +611,21 @@ export function ClassroomSidebar({
                                   isOwner={isOwner}
                                   isCompleted={isPageCompleted(page._id)}
                                   onSelect={() => onSelectPage(page._id)}
-                                  openMenu={openLessonMenu === page._id}
-                                  setOpenMenu={(open) => setOpenLessonMenu(open ? page._id : null)}
                                   onDelete={() => setDeleteConfirmLesson({
+                                    id: page._id,
+                                    title: page.title,
+                                  })}
+                                  editingLessonId={editingLessonId}
+                                  setEditingLessonId={setEditingLessonId}
+                                  editingLessonTitle={editingLessonTitle}
+                                  setEditingLessonTitle={setEditingLessonTitle}
+                                  handleLessonTitleBlur={handleLessonTitleBlur}
+                                  handleLessonTitleKeyDown={handleLessonTitleKeyDown}
+                                  onRenameSelect={() => {
+                                    setEditingLessonId(page._id);
+                                    setEditingLessonTitle(page.title);
+                                  }}
+                                  onDeleteSelect={() => setDeleteConfirmLesson({
                                     id: page._id,
                                     title: page.title,
                                   })}

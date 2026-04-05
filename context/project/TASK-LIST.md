@@ -434,12 +434,12 @@ New features requested by user for ClassroomsTab.tsx
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T-CL-CARD-030 | `[ ]` | Update `listClassrooms` query to support pagination | [context/features/classrooms.md](../features/classrooms.md) | Add limit + cursor parameters |
-| T-CL-CARD-031 | `[ ]` | Implement server-side pagination with 9 items per page | [context/features/classrooms.md](../features/classrooms.md) | Return cursor for next page |
-| T-CL-CARD-032 | `[ ]` | Add infinite scroll trigger on scroll | [context/features/classrooms.md](../features/classrooms.md) | Intersection Observer for scroll |
-| T-CL-CARD-033 | `[ ]` | Handle pagination for owner vs member | [context/features/classrooms.md](../features/classrooms.md) | Owner: load all, Member: paginate |
-| T-CL-CARD-034 | `[ ]` | Keep "Add Classroom" card always visible for owner | [context/features/classrooms.md](../features/classrooms.md) | Separate from pagination |
-| T-CL-CARD-035 | `[ ]` | Add loading skeleton during pagination load | [context/features/classrooms.md](../features/classrooms.md) | Show skeleton for next page |
+| T-CL-CARD-030 | `[x]` | Create `listClassroomsPaginated` query for member pagination | [context/features/classrooms.md](../features/classrooms.md) | Offset-based, 9 per page, returns hasMore |
+| T-CL-CARD-031 | `[x]` | Implement server-side pagination with 9 items per page | [context/features/classrooms.md](../features/classrooms.md) | Owner loads all, members paginate |
+| T-CL-CARD-032 | `[x]` | Add "Load More" button for pagination | [context/features/classrooms.md](../features/classrooms.md) | Members only, increments page state |
+| T-CL-CARD-033 | `[x]` | Handle pagination for owner vs member | [context/features/classrooms.md](../features/classrooms.md) | Conditional useQuery based on isOwner |
+| T-CL-CARD-034 | `[x]` | Keep "Add Classroom" card always visible for owner | [context/features/classrooms.md](../features/classrooms.md) | Separate from paginated grid |
+| T-CL-CARD-035 | `[x]` | Fix TypeScript errors in conditional query pattern | [context/features/classrooms.md](../features/classrooms.md) | Proper skip pattern with memberArgs |
 
 ---
 

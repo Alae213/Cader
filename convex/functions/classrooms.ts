@@ -937,7 +937,17 @@ export const updatePageContent = mutation({
       updatedAt: Date.now(),
     };
 
-    if (args.title !== undefined) updateData.title = args.title;
+    // Validate title
+    if (args.title !== undefined) {
+      const trimmed = args.title.trim();
+      if (!trimmed) {
+        throw new Error("Title cannot be empty");
+      }
+      if (trimmed.length > 100) {
+        throw new Error("Title cannot exceed 100 characters");
+      }
+      updateData.title = trimmed;
+    }
     if (args.content !== undefined) updateData.content = args.content;
     if (args.videoUrl !== undefined) updateData.videoUrl = args.videoUrl;
     if (args.description !== undefined) updateData.description = args.description;
@@ -945,6 +955,70 @@ export const updatePageContent = mutation({
     await ctx.db.patch(args.pageId, updateData);
 
     return args.pageId;
+  },
+});
+
+// Update lesson title only (owner only) — dedicated mutation to avoid race conditions
+export const updateLessonTitle = mutation({
+  args: {
+    lessonId: v.id("pages"),
+    title: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("You must be signed in");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const page = await ctx.db.get(args.lessonId);
+    if (!page) {
+      throw new Error("Lesson not found");
+    }
+
+    const moduleData = await ctx.db.get(page.moduleId);
+    if (!moduleData) {
+      throw new Error("Chapter not found");
+    }
+
+    const classroom = await ctx.db.get(moduleData.classroomId);
+    if (!classroom) {
+      throw new Error("Classroom not found");
+    }
+
+    const community = await ctx.db.get(classroom.communityId);
+    if (!community) {
+      throw new Error("Community not found");
+    }
+
+    // Check ownership
+    if (community.ownerId !== user._id) {
+      throw new Error("Only the community owner can edit lessons");
+    }
+
+    // Validate title
+    const trimmed = args.title.trim();
+    if (!trimmed) {
+      throw new Error("Title cannot be empty");
+    }
+    if (trimmed.length > 100) {
+      throw new Error("Title cannot exceed 100 characters");
+    }
+
+    await ctx.db.patch(args.lessonId, {
+      title: trimmed,
+      updatedAt: Date.now(),
+    });
+
+    return args.lessonId;
   },
 });
 
@@ -989,8 +1063,18 @@ export const updateChapter = mutation({
       throw new Error("Only the community owner can edit chapters");
     }
 
+    // Validate title
+    const trimmed = args.title.trim();
+    if (!trimmed) {
+      throw new Error("Title cannot be empty");
+    }
+    if (trimmed.length > 100) {
+      throw new Error("Title cannot exceed 100 characters");
+    }
+
     await ctx.db.patch(args.chapterId, {
-      title: args.title,
+      title: trimmed,
+      updatedAt: Date.now(),
     });
 
     return args.chapterId;

@@ -22,6 +22,7 @@ import {
   sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
 import { ChevronLeft, Menu, AlertCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/Dialog";
 
 interface ClassroomViewerProps {
   classroomId: string;
@@ -77,23 +78,24 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
   // T-CL-FIX-160: Delete button loading states
   const [isDeletingChapter, setIsDeletingChapter] = useState(false);
   const [isDeletingLesson, setIsDeletingLesson] = useState(false);
+  
+  // Optimistic state for chapter title updates
+  const [optimisticChapterTitles, setOptimisticChapterTitles] = useState<Record<string, string>>({});
 
-  // Chapter menu state
-  const [openChapterMenu, setOpenChapterMenu] = useState<string | null>(null);
-  
-  // Lesson menu state
-  const [openLessonMenu, setOpenLessonMenu] = useState<string | null>(null);
-  
   // Inline editing state for chapter titles
   const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
   const [editingChapterTitle, setEditingChapterTitle] = useState("");
   const chapterDebounceRef = useRef<NodeJS.Timeout | null>(null);
   
-  // Lesson title editing debounce
+  // Inline editing state for lesson titles (sidebar)
+  const [editingLessonId, setEditingLessonId] = useState<string | null>(null);
+  const [editingLessonTitle, setEditingLessonTitle] = useState("");
   const lessonTitleDebounceRef = useRef<NodeJS.Timeout | null>(null);
   
-  // T-CL-FIX-170 & T-CL-FIX-173: Refs for modal focus management
+  // T-CL-FIX-170 & T-CL-FIX-173: Refs for modal focus management (no longer needed with Radix Dialog, kept for future use)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const chapterModalRef = useRef<HTMLDivElement>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const lessonModalRef = useRef<HTMLDivElement>(null);
 
   // T-CL-FIX-242: Cancel lesson title debounce when selected page changes
@@ -122,31 +124,8 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
     };
   }, []);
 
-  // T-CL-FIX-172 & T-CL-FIX-173: Handle Escape key and focus management for modals
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        if (deleteConfirmChapter) setDeleteConfirmChapter(null);
-        if (deleteConfirmLesson) setDeleteConfirmLesson(null);
-      }
-    };
-    
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [deleteConfirmChapter, deleteConfirmLesson]);
-
-  // T-CL-FIX-173: Focus modal when opened
-  useEffect(() => {
-    if (deleteConfirmChapter && chapterModalRef.current) {
-      chapterModalRef.current.focus();
-    }
-  }, [deleteConfirmChapter]);
-
-  useEffect(() => {
-    if (deleteConfirmLesson && lessonModalRef.current) {
-      lessonModalRef.current.focus();
-    }
-  }, [deleteConfirmLesson]);
+  // T-CL-FIX-172: Handle Escape key for modals (Radix Dialog handles this automatically,
+  // but we keep this for any non-Dialog modals that may be added)
 
   // Use provided user
   const userId = providedUser?._id;
@@ -169,6 +148,7 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const markPageViewed = useMutation(api.functions.classrooms.markPageViewed);
   const updatePageContent = useMutation(api.functions.classrooms.updatePageContent);
+  const updateLessonTitle = useMutation(api.functions.classrooms.updateLessonTitle);
   const createModule = useMutation(api.functions.classrooms.createModule);
   const createPage = useMutation(api.functions.classrooms.createPage);
   const updateChapter = useMutation(api.functions.classrooms.updateChapter);
@@ -192,11 +172,16 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
     isInitialLoad.current = true;
   }, [classroomId]);
 
-  // Get current modules (optimistic or real)
-  const modules = useMemo(
-    () => optimisticChapters || classroomContent?.modules || [],
-    [optimisticChapters, classroomContent?.modules]
-  );
+  // Get current modules (optimistic or real) with optimistic title overrides
+  const modules = useMemo(() => {
+    const base = optimisticChapters || classroomContent?.modules || [];
+    if (Object.keys(optimisticChapterTitles).length === 0) return base;
+    return base.map(m => 
+      optimisticChapterTitles[m._id] 
+        ? { ...m, title: optimisticChapterTitles[m._id] }
+        : m
+    );
+  }, [optimisticChapters, classroomContent?.modules, optimisticChapterTitles]);
 
   useEffect(() => {
     // Clear optimistic chapters when data changes
@@ -260,32 +245,58 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
     }
   }, [selectedPageId, classroomContent?.modules]);
 
-  // Save lesson title with debounce (1.5s)
-  const handleSaveLessonTitle = useCallback((newTitle: string) => {
-    if (!selectedPageId || !pageContent) return;
-    if (!newTitle.trim()) {
-      toast.error("Lesson title cannot be empty");
+  // Save lesson title from sidebar editing (debounced 1.5s)
+  const saveLessonTitle = useCallback(async (lessonId: string, newTitle: string, immediate = false) => {
+    if (!newTitle.trim()) return;
+    
+    // Max length validation
+    if (newTitle.trim().length > 100) {
+      toast.error("Lesson title cannot exceed 100 characters");
       return;
     }
     
-    if (lessonTitleDebounceRef.current) {
-      clearTimeout(lessonTitleDebounceRef.current);
-    }
-    
-    lessonTitleDebounceRef.current = setTimeout(async () => {
+    const doSave = async () => {
       try {
-        await updatePageContent({
-          pageId: selectedPageId as Id<"pages">,
+        await updateLessonTitle({
+          lessonId: lessonId as Id<"pages">,
           title: newTitle.trim(),
-          content: pageContent.content,
-          videoUrl: pageContent.videoUrl,
-          description: pageContent.description,
         });
-      } catch {
-        toast.error("Failed to update lesson title");
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to update lesson title");
+      } finally {
+        setEditingLessonId(null);
       }
-    }, 1500);
-  }, [selectedPageId, pageContent, updatePageContent]);
+    };
+
+    if (immediate) {
+      if (lessonTitleDebounceRef.current) {
+        clearTimeout(lessonTitleDebounceRef.current);
+      }
+      doSave();
+    } else {
+      if (lessonTitleDebounceRef.current) {
+        clearTimeout(lessonTitleDebounceRef.current);
+      }
+      lessonTitleDebounceRef.current = setTimeout(doSave, 1500);
+    }
+  }, [updateLessonTitle]);
+
+  const handleLessonTitleBlur = useCallback(() => {
+    if (editingLessonId && editingLessonTitle.trim()) {
+      saveLessonTitle(editingLessonId, editingLessonTitle, true);
+    }
+  }, [saveLessonTitle, editingLessonId, editingLessonTitle]);
+
+  const handleLessonTitleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (editingLessonId) {
+        saveLessonTitle(editingLessonId, editingLessonTitle, true);
+      }
+    } else if (e.key === "Escape") {
+      setEditingLessonId(null);
+    }
+  }, [saveLessonTitle, editingLessonId, editingLessonTitle]);
 
   // Add Chapter - auto-create with a default lesson inside
   const handleAddChapter = useCallback(async () => {
@@ -399,7 +410,7 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
     }
   }, [selectedPageId, pageContent, updatePageContent]);
 
-  // Save chapter title with debounce
+  // Save chapter title with debounce + optimistic UI
   const saveChapterTitle = useCallback(async (chapterId: string, newTitle: string, immediate = false) => {
     if (!newTitle.trim()) return;
     
@@ -408,14 +419,25 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
       toast.error("Chapter title cannot exceed 100 characters");
       return;
     }
+
+    const trimmed = newTitle.trim();
     
+    // Optimistic update
+    setOptimisticChapterTitles(prev => ({ ...prev, [chapterId]: trimmed }));
+
     const doSave = async () => {
       try {
         await updateChapter({
           chapterId: chapterId as Id<"modules">,
-          title: newTitle.trim(),
+          title: trimmed,
         });
       } catch {
+        // Revert optimistic update on error
+        setOptimisticChapterTitles(prev => {
+          const next = { ...prev };
+          delete next[chapterId];
+          return next;
+        });
         toast.error("Failed to update chapter title");
       } finally {
         setEditingChapterId(null);
@@ -457,7 +479,6 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
     try {
       await deleteModule({ moduleId: deleteConfirmChapter.id as Id<"modules"> });
       setDeleteConfirmChapter(null);
-      setOpenChapterMenu(null);
       toast.success("Chapter deleted");
     } catch {
       toast.error("Failed to delete chapter");
@@ -666,31 +687,28 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
           setSelectedPageId(pageId);
           setIsSidebarOpen(false);
           mainContentRef.current?.focus();
-          setOpenLessonMenu(null);
         }}
         onAddChapter={handleAddChapter}
         onAddLesson={handleAddLesson}
         onChapterDragEnd={handleChapterDragEnd}
         onLessonDragEnd={handleLessonDragEnd}
         sensors={sensors}
-        openChapterMenu={openChapterMenu}
-        setOpenChapterMenu={setOpenChapterMenu}
-        openLessonMenu={openLessonMenu}
-        setOpenLessonMenu={setOpenLessonMenu}
         editingChapterId={editingChapterId}
         setEditingChapterId={setEditingChapterId}
         editingChapterTitle={editingChapterTitle}
         setEditingChapterTitle={setEditingChapterTitle}
         handleChapterTitleBlur={handleChapterTitleBlur}
         handleChapterTitleKeyDown={handleChapterTitleKeyDown}
-        deleteConfirmChapter={deleteConfirmChapter}
         setDeleteConfirmChapter={setDeleteConfirmChapter}
-        handleDeleteChapter={handleDeleteChapter}
-        deleteConfirmLesson={deleteConfirmLesson}
         setDeleteConfirmLesson={setDeleteConfirmLesson}
-        handleDeleteLesson={handleDeleteLesson}
         isPageCompleted={isPageCompleted}
         optimisticLessonOrders={optimisticLessonOrders}
+        editingLessonId={editingLessonId}
+        setEditingLessonId={setEditingLessonId}
+        editingLessonTitle={editingLessonTitle}
+        setEditingLessonTitle={setEditingLessonTitle}
+        handleLessonTitleBlur={handleLessonTitleBlur}
+        handleLessonTitleKeyDown={handleLessonTitleKeyDown}
       />
 
       {/* Main content - Right section */}
@@ -726,70 +744,48 @@ export function ClassroomViewer({ classroomId, onBack, isOwner, currentUser: pro
           onDescriptionUpdate={handleDescriptionUpdate}
           videoModalOpen={videoModalOpen}
           onVideoModalOpenChange={setVideoModalOpen}
-          onSaveLessonTitle={handleSaveLessonTitle}
+          onSaveLessonTitle={selectedPageId ? (title: string) => saveLessonTitle(selectedPageId, title, false) : undefined}
         />
 
         {/* T-CL-FIX-170, T-CL-FIX-171: Delete Chapter Confirmation Modal */}
-        {deleteConfirmChapter && (
-            <div 
-              className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-              role="dialog"
-              aria-modal="true"
-              aria-label="Delete chapter confirmation"
-              onClick={() => !isDeletingChapter && setDeleteConfirmChapter(null)}
-            >
-              <div 
-                className="bg-bg-surface p-6 rounded-lg max-w-sm w-full mx-4"
-                ref={chapterModalRef}
-                tabIndex={-1}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <Heading size="4" className="mb-2">Delete Chapter?</Heading>
-              <Text size="2" theme="secondary" className="mb-4">
-                This will permanently delete &quot;{deleteConfirmChapter.title}&quot; and {deleteConfirmChapter.lessonCount} lesson{deleteConfirmChapter.lessonCount !== 1 ? 's' : ''}. This action cannot be undone.
-              </Text>
-              <div className="flex gap-3 justify-end">
-                <Button variant="ghost" onClick={() => setDeleteConfirmChapter(null)} disabled={isDeletingChapter}>
-                  Cancel
-                </Button>
-                <Button variant="danger" onClick={handleDeleteChapter} disabled={isDeletingChapter}>
-                  {isDeletingChapter ? "Deleting..." : "Delete"}
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
+        <Dialog open={!!deleteConfirmChapter} onOpenChange={(open) => !open && !isDeletingChapter && setDeleteConfirmChapter(null)}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Delete Chapter?</DialogTitle>
+              <DialogDescription>
+                This will permanently delete &quot;{deleteConfirmChapter?.title}&quot; and {deleteConfirmChapter?.lessonCount} lesson{deleteConfirmChapter?.lessonCount !== 1 ? 's' : ''}. This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setDeleteConfirmChapter(null)} disabled={isDeletingChapter}>
+                Cancel
+              </Button>
+              <Button variant="danger" onClick={handleDeleteChapter} disabled={isDeletingChapter}>
+                {isDeletingChapter ? "Deleting..." : "Delete"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* T-CL-FIX-170, T-CL-FIX-171: Delete Lesson Confirmation Modal */}
-        {deleteConfirmLesson && (
-            <div 
-              className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-              role="dialog"
-              aria-modal="true"
-              aria-label="Delete lesson confirmation"
-              onClick={() => !isDeletingLesson && setDeleteConfirmLesson(null)}
-            >
-              <div 
-                className="bg-bg-surface p-6 rounded-lg max-w-sm w-full mx-4"
-                ref={lessonModalRef}
-                tabIndex={-1}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <Heading size="4" className="mb-2">Delete Lesson?</Heading>
-              <Text size="2" theme="secondary" className="mb-4">
-                This will permanently delete &quot;{deleteConfirmLesson.title}&quot;. This action cannot be undone.
-              </Text>
-              <div className="flex gap-3 justify-end">
-                <Button variant="ghost" onClick={() => setDeleteConfirmLesson(null)} disabled={isDeletingLesson}>
-                  Cancel
-                </Button>
-                <Button variant="danger" onClick={handleDeleteLesson} disabled={isDeletingLesson}>
-                  {isDeletingLesson ? "Deleting..." : "Delete"}
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
+        <Dialog open={!!deleteConfirmLesson} onOpenChange={(open) => !open && !isDeletingLesson && setDeleteConfirmLesson(null)}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Delete Lesson?</DialogTitle>
+              <DialogDescription>
+                This will permanently delete &quot;{deleteConfirmLesson?.title}&quot;. This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setDeleteConfirmLesson(null)} disabled={isDeletingLesson}>
+                Cancel
+              </Button>
+              <Button variant="danger" onClick={handleDeleteLesson} disabled={isDeletingLesson}>
+                {isDeletingLesson ? "Deleting..." : "Delete"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

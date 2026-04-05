@@ -8,7 +8,7 @@
  */
 
 import { httpAction } from "../_generated/server";
-import { internal } from "../_generated/api";
+import { internal, api } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 
 export const handleChargilyWebhook = httpAction(async (ctx, request) => {
@@ -135,6 +135,9 @@ export const handleClerkWebhook = httpAction(async (ctx, request) => {
       username,
       avatarUrl: event.data.image_url || undefined,
     });
+    
+    // Note: Owner info sync to communities happens lazily when the user
+    // updates their profile or visits their community. No need to do it here.
   } catch (error) {
     console.error("Clerk webhook sync error:", error);
   }

@@ -1,6 +1,7 @@
 import { query, mutation, internalMutation } from "../_generated/server";
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
+import { Id } from "../_generated/dataModel";
 import { encrypt } from "../lib/encryption";
 import { sendRenewalReminderEmail } from "../lib/email";
 import { enforceRateLimit } from "../lib/rateLimit";
@@ -112,28 +113,96 @@ export const getBySlug = query({
     // Use denormalized counter for member count (Fix #3)
     const memberCount = community.activeMemberCount ?? 0;
 
-    // Get owner details
-    const owner = await ctx.db.get(community.ownerId) as { displayName?: string; avatarUrl?: string } | null;
-
-    // Online count: presence heartbeats in last 5 minutes
-    const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
-    const onlinePresence = await ctx.db
-      .query("presence")
-      .withIndex("by_community_and_last_seen", (q) =>
-        q.eq("communityId", community._id).gte("lastSeen", fiveMinutesAgo)
-      )
-      .collect();
-    const onlineCount = onlinePresence.length;
+    // Online count: denormalized counter maintained by sendHeartbeat/cleanupPresence
+    const onlineCount = community.onlineCount ?? 0;
 
     return {
-      ...community,
+      _id: community._id,
+      _creationTime: community._creationTime,
+      slug: community.slug,
+      name: community.name,
+      tagline: community.tagline,
+      description: community.description,
+      logoUrl: community.logoUrl,
+      videoUrl: community.videoUrl,
+      links: community.links,
+      pricingType: community.pricingType,
+      priceDzd: community.priceDzd,
+      platformTier: community.platformTier,
+      ownerId: community.ownerId, // Needed for ownership checks
       memberCount,
       onlineCount,
-      ownerName: owner?.displayName || "Unknown",
-      ownerAvatar: owner?.avatarUrl || null,
-      // SECURITY H-5: Never expose encrypted payment keys in public queries
-      chargilyApiKey: undefined,
-      chargilyWebhookSecret: undefined,
+      ownerName: community.ownerName || "Unknown",
+      ownerAvatar: community.ownerAvatar || null,
+    };
+  },
+});
+
+// Merged query: returns community info + stats in a single call
+// Replaces the need to call getBySlug + getById + getCommunityStats separately
+export const getCommunityPageData = query({
+  args: { slug: v.string() },
+  handler: async (ctx, args) => {
+    const community = await ctx.db
+      .query("communities")
+      .withIndex("by_slug", (q) => q.eq("slug", args.slug))
+      .first();
+
+    if (!community) return null;
+
+    // Use denormalized counters
+    const memberCount = community.activeMemberCount ?? 0;
+    const onlineCount = community.onlineCount ?? 0;
+
+    // Streak calculation
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const oneDayMs = 24 * 60 * 60 * 1000;
+    const thirtyDaysAgo = Date.now() - 30 * oneDayMs;
+    const streakEvents = await ctx.db
+      .query("pointEvents")
+      .withIndex("by_community_eventType_createdAt", (q) =>
+        q.eq("communityId", community._id)
+         .eq("eventType", "streak_day_awarded")
+         .gte("createdAt", thirtyDaysAgo)
+      )
+      .collect();
+
+    const daysWithActivity = new Set<number>();
+    for (const event of streakEvents) {
+      daysWithActivity.add(Math.floor(event.createdAt / oneDayMs));
+    }
+
+    const todayDay = Math.floor(today.getTime() / oneDayMs);
+    let streak = 0;
+    let checkDay = todayDay - 1;
+    while (daysWithActivity.has(checkDay)) {
+      streak++;
+      checkDay--;
+    }
+    streak += 1;
+
+    return {
+      // Community fields (projected — no sensitive data)
+      _id: community._id,
+      _creationTime: community._creationTime,
+      slug: community.slug,
+      name: community.name,
+      tagline: community.tagline,
+      description: community.description,
+      logoUrl: community.logoUrl,
+      videoUrl: community.videoUrl,
+      links: community.links,
+      pricingType: community.pricingType,
+      priceDzd: community.priceDzd,
+      platformTier: community.platformTier,
+      ownerId: community.ownerId,
+      // Computed stats
+      memberCount,
+      onlineCount,
+      streak,
+      ownerName: community.ownerName || "Unknown",
+      ownerAvatar: community.ownerAvatar || null,
     };
   },
 });
@@ -148,15 +217,8 @@ export const getCommunityStats = query({
     // Use denormalized counter for member count (Fix #3)
     const memberCount = community.activeMemberCount ?? 0;
 
-    // Online count: users with presence heartbeat in last 5 minutes
-    const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
-    const onlinePresence = await ctx.db
-      .query("presence")
-      .withIndex("by_community_and_last_seen", (q) =>
-        q.eq("communityId", args.communityId).gte("lastSeen", fiveMinutesAgo)
-      )
-      .collect();
-    const onlineCount = onlinePresence.length;
+    // Online count: denormalized counter maintained by sendHeartbeat/cleanupPresence
+    const onlineCount = community.onlineCount ?? 0;
 
     // Streak: count consecutive days (including today) where at least one member
     // has a streak_day_awarded pointEvent. Walk backwards from today until we find a gap.
@@ -169,12 +231,10 @@ export const getCommunityStats = query({
     const thirtyDaysAgo = Date.now() - 30 * oneDayMs;
     const streakEvents = await ctx.db
       .query("pointEvents")
-      .withIndex("by_community_id", (q) => q.eq("communityId", args.communityId))
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("eventType"), "streak_day_awarded"),
-          q.gte(q.field("createdAt"), thirtyDaysAgo)
-        )
+      .withIndex("by_community_eventType_createdAt", (q) =>
+        q.eq("communityId", args.communityId)
+         .eq("eventType", "streak_day_awarded")
+         .gte("createdAt", thirtyDaysAgo)
       )
       .collect();
 
@@ -299,6 +359,8 @@ export const createCommunity = mutation({
       pricingType: args.pricingType,
       priceDzd: args.priceDzd,
       ownerId: user._id,
+      ownerName: user.displayName,
+      ownerAvatar: user.avatarUrl,
       platformTier: "free",
       memberLimit: 50,
       activeMemberCount: 1, // owner membership created below
@@ -500,6 +562,34 @@ export const _updatePlatformTier = internalMutation({
     });
 
     return args.communityId;
+  },
+});
+
+/**
+ * Sync owner name/avatar to all communities they own.
+ * Called when a user updates their display name or avatar.
+ */
+export const _syncOwnerInfo = internalMutation({
+  args: {
+    userId: v.id("users"),
+    displayName: v.optional(v.string()),
+    avatarUrl: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const communities = await ctx.db
+      .query("communities")
+      .withIndex("by_owner_id", (q) => q.eq("ownerId", args.userId))
+      .collect();
+
+    const updateData: Record<string, unknown> = {};
+    if (args.displayName !== undefined) updateData.ownerName = args.displayName;
+    if (args.avatarUrl !== undefined) updateData.ownerAvatar = args.avatarUrl;
+
+    if (Object.keys(updateData).length === 0) return;
+
+    for (const community of communities) {
+      await ctx.db.patch(community._id, updateData);
+    }
   },
 });
 
@@ -927,28 +1017,27 @@ export const getById = query({
     // Use denormalized counter for member count (Fix #3)
     const memberCount = community.activeMemberCount ?? 0;
 
-    // Get owner details
-    const owner = await ctx.db.get(community.ownerId) as { displayName?: string; avatarUrl?: string } | null;
-
-    // Online count: presence heartbeats in last 5 minutes
-    const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
-    const onlinePresence = await ctx.db
-      .query("presence")
-      .withIndex("by_community_and_last_seen", (q) =>
-        q.eq("communityId", community._id).gte("lastSeen", fiveMinutesAgo)
-      )
-      .collect();
-    const onlineCount = onlinePresence.length;
+    // Online count: denormalized counter maintained by sendHeartbeat/cleanupPresence
+    const onlineCount = community.onlineCount ?? 0;
 
     return {
-      ...community,
+      _id: community._id,
+      _creationTime: community._creationTime,
+      slug: community.slug,
+      name: community.name,
+      tagline: community.tagline,
+      description: community.description,
+      logoUrl: community.logoUrl,
+      videoUrl: community.videoUrl,
+      links: community.links,
+      pricingType: community.pricingType,
+      priceDzd: community.priceDzd,
+      platformTier: community.platformTier,
+      ownerId: community.ownerId, // Needed for ownership checks
       memberCount,
       onlineCount,
-      ownerName: owner?.displayName || "Unknown",
-      ownerAvatar: owner?.avatarUrl || null,
-      // SECURITY H-5: Never expose encrypted payment keys in public queries
-      chargilyApiKey: undefined,
-      chargilyWebhookSecret: undefined,
+      ownerName: community.ownerName || "Unknown",
+      ownerAvatar: community.ownerAvatar || null,
     };
   },
 });
@@ -998,6 +1087,13 @@ export const sendHeartbeat = mutation({
         userId: user._id,
         lastSeen: now,
       });
+      // Increment denormalized online count
+      const community = await ctx.db.get(args.communityId);
+      if (community) {
+        await ctx.db.patch(args.communityId, {
+          onlineCount: Math.min(9999, (community.onlineCount ?? 0) + 1),
+        });
+      }
     }
 
     return { ok: true };
@@ -1016,10 +1112,24 @@ export const cleanupPresence = internalMutation({
     // Find all stale presence records
     const allPresence = await ctx.db.query("presence").collect();
     let cleaned = 0;
+    // Track how many stale records per community for batch decrement
+    const communityCounts = new Map<Id<"communities">, number>();
+
     for (const p of allPresence) {
       if (p.lastSeen < fiveMinutesAgo) {
         await ctx.db.delete(p._id);
         cleaned++;
+        communityCounts.set(p.communityId, (communityCounts.get(p.communityId) ?? 0) + 1);
+      }
+    }
+
+    // Batch decrement onlineCount for each affected community
+    for (const [communityId, count] of communityCounts) {
+      const community = await ctx.db.get(communityId);
+      if (community) {
+        await ctx.db.patch(communityId, {
+          onlineCount: Math.max(0, (community.onlineCount ?? 0) - count),
+        });
       }
     }
 

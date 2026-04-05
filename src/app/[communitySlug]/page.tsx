@@ -9,6 +9,7 @@ import { CommunityShell } from "@/components/layout/CommunityShell";
 import { CreateCommunityModal } from "@/components/community/CreateCommunityModal";
 import { OnboardingModal } from "@/components/community/OnboardingModal";
 import { Heading, Text } from "@/components/ui/Text";
+import { CommunityDataContext, type CommunityPageData } from "@/contexts/CommunityDataContext";
 
 export default function CommunityPage() {
   const params = useParams();
@@ -19,8 +20,8 @@ export default function CommunityPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
 
-  // Fetch community from Convex
-  const community = useQuery(api.functions.communities.getBySlug, { slug: communitySlug });
+  // Fetch community page data (single query with all needed data)
+  const communityData = useQuery(api.functions.communities.getCommunityPageData, { slug: communitySlug });
 
   // Fetch membership status (only if logged in)
   const membership = useQuery(
@@ -78,11 +79,11 @@ export default function CommunityPage() {
 
   // Handle video URL change
   const handleVideoChange = async (url: string) => {
-    if (!community?._id) return;
+    if (!communityData?._id) return;
     
     try {
       await updateCommunity({
-        communityId: community._id,
+        communityId: communityData._id,
         videoUrl: url,
       });
     } catch (error) {
@@ -91,7 +92,7 @@ export default function CommunityPage() {
   };
 
   // Loading state (while community loads)
-  if (community === undefined) {
+  if (communityData === undefined) {
     return (
       <div className="min-h-screen ">
         <div className="mx-auto max-w-[1200px] px-4 py-6 animate-pulse">
@@ -120,7 +121,7 @@ export default function CommunityPage() {
   }
 
   // 404 - Community not found
-  if (community === null) {
+  if (communityData === null) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -142,21 +143,21 @@ export default function CommunityPage() {
   const showAllTabs = true;
 
   // Transform Convex data to match CommunityShell interface
-  const communityData = {
-    id: community._id,
-    name: community.name,
-    slug: community.slug,
-    description: community.description,
-    imageUrl: community.logoUrl,
-    memberCount: community.memberCount,
+  const communityShellData = {
+    id: communityData._id,
+    name: communityData.name,
+    slug: communityData.slug,
+    description: communityData.description,
+    imageUrl: communityData.logoUrl,
+    memberCount: communityData.memberCount,
     isVerified: false,
-    platformTier: community.platformTier || "free",
+    platformTier: communityData.platformTier || "free",
   };
 
   return (
-    <>
+    <CommunityDataContext.Provider value={{ community: communityData as CommunityPageData }}>
       <CommunityShell 
-        community={communityData}
+        community={communityShellData}
         showTabs={showAllTabs}
         isOwner={isOwner}
         isAdmin={isAdmin}
@@ -177,7 +178,7 @@ export default function CommunityPage() {
           onJoinClick: handleJoinClick,
           onEditClick: handleEditClick,
           onVideoChange: handleVideoChange,
-          communityData: community,
+          communityData: communityData,
         }}
         onCreateCommunity={() => setShowCreateModal(true)}
         onExploreCommunities={() => window.location.href = "/explore"}
@@ -190,19 +191,19 @@ export default function CommunityPage() {
       />
 
       {/* Onboarding Modal for joining */}
-      {community && (
+      {communityData && (
         <OnboardingModal
           community={{
-            _id: community._id,
-            name: community.name,
-            slug: community.slug,
-            pricingType: community.pricingType,
-            priceDzd: community.priceDzd,
+            _id: communityData._id,
+            name: communityData.name,
+            slug: communityData.slug,
+            pricingType: communityData.pricingType,
+            priceDzd: communityData.priceDzd,
           }}
           open={showOnboarding}
           onOpenChange={setShowOnboarding}
         />
       )}
-    </>
+    </CommunityDataContext.Provider>
   );
 }

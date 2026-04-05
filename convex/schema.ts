@@ -33,6 +33,8 @@ export default defineSchema({
 
     // Ownership
     ownerId: v.id("users"),
+    ownerName: v.optional(v.string()), // Denormalized — updated when user changes display name
+    ownerAvatar: v.optional(v.string()), // Denormalized — updated when user changes avatar
 
     // Pricing
     pricingType: v.union(v.literal("free"), v.literal("monthly"), v.literal("annual"), v.literal("one_time")),
@@ -50,6 +52,7 @@ export default defineSchema({
 
     // Denormalized counters (avoid scanning memberships table)
     activeMemberCount: v.optional(v.number()),
+    onlineCount: v.optional(v.number()), // Denormalized — updated by sendHeartbeat/cleanupPresence
 
     // Timestamps
     createdAt: v.number(),
@@ -209,6 +212,7 @@ export default defineSchema({
     .index("by_created_at", ["createdAt"])
     // Composite indexes for efficient leaderboard and dedup queries
     .index("by_community_and_user", ["communityId", "userId"])
+    .index("by_community_eventType_createdAt", ["communityId", "eventType", "createdAt"])
     .index("by_user_event_source", ["userId", "eventType", "sourceId"])
     .index("by_user_community_created", ["userId", "communityId", "createdAt"]),
 
@@ -242,6 +246,7 @@ export default defineSchema({
     title: v.string(),
     order: v.number(),
     createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
   }).index("by_classroom_id", ["classroomId"]),
 
   // Pages - lessons within a chapter

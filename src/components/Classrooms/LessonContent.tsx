@@ -59,12 +59,10 @@ export function LessonContent({
   onVideoModalOpenChange,
   onSaveLessonTitle,
 }: LessonContentProps) {
-  // ── Inline title editing (optimistic: UI updates instantly, server syncs in background) ──
+  // ── Inline title editing (delegates save to parent) ──
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState("");
   const [confirmedTitle, setConfirmedTitle] = useState("");
-  const titleDebounceRef = useRef<NodeJS.Timeout | null>(null);
-  const [titleSaving, setTitleSaving] = useState(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
 
   // ── Optimistic completion state ──
@@ -99,40 +97,21 @@ export function LessonContent({
     }
   }, [isEditingTitle]);
 
-  // Cleanup debounce on unmount
-  useEffect(() => {
-    return () => {
-      if (titleDebounceRef.current) {
-        clearTimeout(titleDebounceRef.current);
-      }
-    };
-  }, []);
-
-  // ── Title save with debounce (1.5 s) — optimistic UI ──
+  // ── Title save — delegates to parent's debounced callback ──
   const doSaveTitle = useCallback(
     (title: string, immediate = false) => {
       const trimmed = title.trim();
       if (!trimmed) return;
 
-      const save = () => {
-        // Optimistic: update confirmed title immediately
-        setConfirmedTitle(trimmed);
-        setTitleSaving(true);
-        onSaveLessonTitle?.(trimmed);
-        // Simulate async feedback
-        setTimeout(() => setTitleSaving(false), 300);
-        setIsEditingTitle(false);
-      };
-
-      if (titleDebounceRef.current) {
-        clearTimeout(titleDebounceRef.current);
-      }
-
+      // Optimistic: update confirmed title immediately
+      setConfirmedTitle(trimmed);
       if (immediate) {
-        save();
+        onSaveLessonTitle?.(trimmed);
       } else {
-        titleDebounceRef.current = setTimeout(save, 1500);
+        // Parent handles debounce
+        onSaveLessonTitle?.(trimmed);
       }
+      setIsEditingTitle(false);
     },
     [onSaveLessonTitle]
   );
@@ -143,9 +122,6 @@ export function LessonContent({
         e.preventDefault();
         doSaveTitle(editedTitle, true);
       } else if (e.key === "Escape") {
-        if (titleDebounceRef.current) {
-          clearTimeout(titleDebounceRef.current);
-        }
         // Revert to last confirmed title
         setEditedTitle(confirmedTitle);
         setIsEditingTitle(false);
@@ -263,23 +239,17 @@ export function LessonContent({
                   )}
 
                   {isEditingTitle ? (
-                    <div className="inline-block">
-                      <input
-                        ref={titleInputRef}
-                        type="text"
-                        value={editedTitle}
-                        onChange={(e) => setEditedTitle(e.target.value)}
-                        onKeyDown={handleTitleKeyDown}
-                        onBlur={handleTitleBlur}
-                        className="p-1 pr-2 text-[20px] leading-[20px] font-bold bg-transparent hover:bg-bg-elevated focus-visible:bg-bg-elevated rounded-lg focus-visible:outline-none cursor-text transition-colors"
-                        style={{ width: `${Math.max(editedTitle.length, 1)}ch` }}
-                      />
-                      {titleSaving && (
-                        <Text size="1" theme="muted" className="mt-1">
-                          Saving...
-                        </Text>
-                      )}
-                    </div>
+                    <input
+                      ref={titleInputRef}
+                      type="text"
+                      value={editedTitle}
+                      onChange={(e) => setEditedTitle(e.target.value)}
+                      onKeyDown={handleTitleKeyDown}
+                      onBlur={handleTitleBlur}
+                      maxLength={100}
+                      className="p-1 pr-2 text-[20px] leading-[20px] font-bold bg-transparent hover:bg-bg-elevated focus-visible:bg-bg-elevated rounded-lg focus-visible:outline-none cursor-text transition-colors"
+                      style={{ width: `${Math.max(editedTitle.length, 1)}ch` }}
+                    />
                   ) : (
                     <div className="flex items-center gap-2">
                       <span
@@ -319,7 +289,7 @@ export function LessonContent({
 
               {/* ── Video Embed ── */}
               <VideoEmbed
-                url={pageContent.videoUrl}
+                url={pageContent.videoUrl} 
                 isOwner={isOwner}
                 modalOpen={videoModalOpen}
                 onModalOpenChange={onVideoModalOpenChange}

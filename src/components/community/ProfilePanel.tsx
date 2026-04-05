@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Heading, Text } from "@/components/ui/Text";
 import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/Dialog";
 import { Avatar } from "@/components/shared/Avatar";
 import { X, Loader2, Calendar, Camera, ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -468,21 +469,16 @@ export function ProfilePanel({ userId, open, onOpenChange }: ProfilePanelProps) 
       </div>
 
       {/* Clerk UserProfile Modal */}
-      {showClerkProfile && (
-        <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4" onClick={() => setShowClerkProfile(false)}>
-          <div className="bg-bg-base rounded-xl max-w-lg w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
-              <Heading size="h4">Update Profile Image</Heading>
-              <button onClick={() => setShowClerkProfile(false)} className="p-1.5 rounded-lg hover:bg-bg-elevated">
-                <X className="h-5 w-5 text-text-secondary" />
-              </button>
-            </div>
-            <div className="p-4">
-              <UserProfile routing="hash" appearance={{ elements: { rootBox: "w-full" } }} />
-            </div>
+      <Dialog open={showClerkProfile} onOpenChange={setShowClerkProfile}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Update Profile Image</DialogTitle>
+          </DialogHeader>
+          <div className="p-0">
+            <UserProfile routing="hash" appearance={{ elements: { rootBox: "w-full" } }} />
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
