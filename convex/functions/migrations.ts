@@ -159,3 +159,70 @@ export const seedDefaultCategories = mutation({
     };
   },
 });
+
+/**
+ * Migration: Backfill `order` field for existing classrooms.
+ * Run this ONCE to fix classrooms created before the order field was added.
+ *
+ * Usage: npx convex run functions/migrations:backfillClassroomOrder
+ */
+export const backfillClassroomOrder = mutation({
+  args: { dryRun: v.optional(v.boolean()) },
+  handler: async (ctx, args) => {
+    const dryRun = args.dryRun ?? true;
+    const communities = await ctx.db.query("communities").collect();
+    const results: { communityId: string; name: string; updated: number }[] = [];
+
+    for (const community of communities) {
+      // Get all classrooms for this community, ordered by creation time
+      const classrooms = await ctx.db
+        .query("classrooms")
+        .withIndex("by_community_id", (q) => q.eq("communityId", community._id))
+        .collect();
+
+      // Filter to only classrooms missing order field
+      const classroomsMissingOrder = classrooms.filter((c) => c.order === undefined);
+
+      if (classroomsMissingOrder.length === 0) continue;
+
+      // Find the max existing order value (from classrooms that already have order)
+      const classroomsWithOrder = classrooms.filter((c) => c.order !== undefined);
+      const maxExistingOrder = classroomsWithOrder.length > 0
+        ? Math.max(...classroomsWithOrder.map((c) => c.order!))
+        : -1;
+
+      // Assign sequential order starting from maxExistingOrder + 1
+      // based on creation time (oldest first)
+      classroomsMissingOrder.sort((a, b) => a._creationTime - b._creationTime);
+
+      let updated = 0;
+      for (let i = 0; i < classroomsMissingOrder.length; i++) {
+        const classroom = classroomsMissingOrder[i];
+        const newOrder = maxExistingOrder + 1 + i;
+
+        if (!dryRun) {
+          await ctx.db.patch(classroom._id, { order: newOrder, updatedAt: Date.now() });
+        }
+        updated++;
+      }
+
+      results.push({
+        communityId: community._id,
+        name: community.name,
+        updated,
+      });
+    }
+
+    const totalUpdated = results.reduce((sum, r) => sum + r.updated, 0);
+
+    return {
+      dryRun,
+      totalClassrooms: results.reduce((sum, r) => sum + r.updated, 0),
+      communitiesAffected: results.length,
+      details: results,
+      message: dryRun
+        ? `DRY RUN: ${totalUpdated} classrooms across ${results.length} communities need order backfill`
+        : `Updated ${totalUpdated} classrooms across ${results.length} communities`,
+    };
+  },
+});
