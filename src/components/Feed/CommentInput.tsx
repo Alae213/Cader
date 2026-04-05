@@ -193,11 +193,10 @@ export function CommentInput({
     
     try {
       // Fire mutation without awaiting - UI already updated
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       createComment({
-        postId: postId as any,
+        postId: postId as Id<"posts">,
         content: pendingContent,
-        parentCommentId: parentCommentId ? parentCommentId as any : undefined,
+        parentCommentId: parentCommentId ? parentCommentId as Id<"comments"> : undefined,
         mediaUrls: pendingMedia.length > 0 ? pendingMedia : undefined,
       })
         .then(() => {

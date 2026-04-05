@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/Button";
 import { TextArea } from "@/components/ui/TextArea";
 import { Input } from "@/components/ui/Input";
@@ -130,22 +130,28 @@ export function PostComposer({
   const [showVideoError, setShowVideoError] = useState(false);
   const prevPostTypeRef = useRef(postType);
   // Local Select value state to handle the "__add_new__" special value
-  const [selectValue, setSelectValue] = useState(composerCategoryId || "none");
+  const [selectValue, setSelectValue] = useState<string>(() => composerCategoryId || "none");
   // Ref to track pending action when Select closes (Radix closes before onClick fires)
   const pendingActionRef = useRef<string | null>(null);
 
-  useEffect(() => {
-    setSelectValue(composerCategoryId || "none");
-  }, [composerCategoryId]);
+  // Update select value when composerCategoryId changes (using callback pattern)
+  const handleCategoryChange = useCallback((value: string) => {
+    setSelectValue(value);
+    if (value === "__add_new__") {
+      pendingActionRef.current = "add_category";
+    }
+  }, []);
 
+  // Clear URL errors when postType changes - use ref to track previous value
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     if (prevPostTypeRef.current !== postType) {
-      // Clear URL errors when switching post types
       setShowVideoError(false);
       prevPostTypeRef.current = postType;
     }
   }, [postType]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     if (!videoUrl || isValidVideoUrl(videoUrl)) {
       setShowVideoError(false);

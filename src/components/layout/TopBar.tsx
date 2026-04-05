@@ -64,14 +64,10 @@ export function TopBar({
   const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [userMenuPos, setUserMenuPos] = useState<DropdownPosition>({ top: 0, right: 0 });
-  const [isMounted, setIsMounted] = useState(false);
+  // Use lazy initializer to detect client-side (SSR safety) - avoids setState in effect
+  const [isMounted] = useState(() => typeof window !== "undefined");
   const dropdownRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-
-  // Ensure we only portal after mount (SSR safety)
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
 
   const handleLogout = () => {
     setIsLogoutDialogOpen(false);

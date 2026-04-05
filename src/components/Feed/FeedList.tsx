@@ -6,6 +6,32 @@ import { Button } from "@/components/ui/Button";
 import { Heading, Text } from "@/components/ui/Text";
 import { Card } from "../ui/Card";
 
+// Type that matches what PostCard expects
+interface PostCardPost {
+  _id: string;
+  communityId?: string;
+  author?: {
+    _id: string;
+    clerkId?: string;
+    displayName: string;
+    username?: string | null;
+    avatarUrl?: string | null;
+  } | null;
+  category?: {
+    _id: string;
+    name: string;
+  } | null;
+  content: string;
+  contentType: "text" | "image" | "video";
+  mediaUrls?: string[];
+  videoUrl?: string;
+  isPinned: boolean;
+  upvoteCount: number;
+  commentCount: number;
+  createdAt: number;
+  authorId?: string;
+}
+
 export interface Post {
   _id: string;
   communityId: string;
@@ -67,7 +93,7 @@ export function FeedList({
           {pinnedPosts.map((post) => (  
             <PostCard
               key={post._id}
-              post={{ ...post, communityId } as any}
+              post={{ ...post, communityId } as PostCardPost}
               communityId={communityId}
               currentUserId={userId}
               isAdmin={isAdmin}
@@ -82,7 +108,7 @@ export function FeedList({
       {regularPosts.map((post) => (
         <PostCard
           key={post._id}
-          post={{ ...post, communityId } as any}
+          post={{ ...post, communityId } as PostCardPost}
           communityId={communityId}
           currentUserId={userId}
           isAdmin={isAdmin}

@@ -70,13 +70,9 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
 
   const currentUser = useQuery(api.functions.users.getUserByClerkId, clerkId ? { clerkId } : "skip");
 
-  // Try to get community from context first (community page), fallback to query (account settings)
-  let contextCommunity;
-  try {
-    contextCommunity = useCommunityData().community;
-  } catch {
-    contextCommunity = null;
-  }
+  // Always call hooks unconditionally - handle conditional logic after
+  const contextData = useCommunityData();
+  const contextCommunity = contextData?.community;
 
   const communityQuery = useQuery(
     api.functions.communities.getBySlug,

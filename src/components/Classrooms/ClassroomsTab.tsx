@@ -79,18 +79,18 @@ export function ClassroomsTab({ communityId, isOwner, currentUser: providedUser 
   // Locked classroom modal state
   const [lockedClassroom, setLockedClassroom] = useState<ClassroomData | null>(null);
   
-  // Try to get community from context first, fallback to query
-  let contextCommunity;
-  try {
-    contextCommunity = useCommunityData().community;
-  } catch {
-    contextCommunity = null;
-  }
+  // Always call hooks unconditionally - handle conditional logic after
+  const contextData = useCommunityData();
+  const contextCommunity = contextData?.community;
   
-  // Use context community if available, otherwise query
-  const communityQuery = contextCommunity ? null : useQuery(
+  // Always call useQuery with the same args structure - skip if context has data
+  const communityQuery = useQuery(
     api.functions.communities.getById,
-    communityId ? { communityId: communityId as Id<"communities"> } : "skip"
+    contextCommunity 
+      ? "skip" 
+      : communityId 
+        ? { communityId: communityId as Id<"communities"> } 
+        : "skip"
   );
   const community = contextCommunity || communityQuery;
   

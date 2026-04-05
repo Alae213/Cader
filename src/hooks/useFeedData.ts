@@ -39,26 +39,29 @@ export function useFeedData(communityId: string) {
 
   const communityIdTyped = communityId as Id<"communities">;
 
-  // Try to get community data from context (optimized path)
-  let contextCommunityData;
-  let contextCommunityStats;
-  try {
-    contextCommunityData = useCommunityData().community;
-  } catch {
-    // Not in community page context - will query separately
-    contextCommunityData = null;
-  }
+  // Always call hooks unconditionally - handle conditional logic after
+  const contextData = useCommunityData();
+  const contextCommunityData = contextData?.community;
 
-  // Use context data if available, otherwise query
-  const communityData = contextCommunityData || 
-    useQuery(api.functions.communities.getById, { communityId: communityIdTyped });
+  // Always call useQuery - pass "skip" when context has data to avoid duplicate fetching
+  const communityDataQuery = useQuery(
+    api.functions.communities.getById,
+    contextCommunityData ? "skip" : { communityId: communityIdTyped }
+  );
 
-  // For stats, we need streak which isn't in getById - use context if available
+  // Always call useQuery for stats - skip when context has data
+  const communityStatsQuery = useQuery(
+    api.functions.communities.getCommunityStats,
+    contextCommunityData ? "skip" : { communityId: communityIdTyped }
+  );
+
+  // Use context data if available, otherwise use query results
+  const communityData = contextCommunityData || communityDataQuery;
   const communityStats = contextCommunityData ? {
     memberCount: contextCommunityData.memberCount,
     onlineCount: contextCommunityData.onlineCount,
     streak: contextCommunityData.streak,
-  } : useQuery(api.functions.communities.getCommunityStats, { communityId: communityIdTyped });
+  } : communityStatsQuery;
 
   const { results: allPosts, status, loadMore: loadMoreConvex } = usePaginatedQuery(
     api.functions.feed.listPosts,

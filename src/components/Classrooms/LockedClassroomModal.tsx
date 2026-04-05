@@ -161,7 +161,7 @@ export function LockedClassroomModal({ classroom, community, open, onOpenChange 
           <div className="flex items-center gap-3">
             <AlertCircle className="w-5 h-5 text-yellow-500 flex-shrink-0" />
             <Text size="sm" className="text-yellow-200">
-              Payment was cancelled. You can try again when you're ready.
+              Payment was cancelled. You can try again when you are ready.
             </Text>
           </div>
         </div>
