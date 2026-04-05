@@ -399,14 +399,14 @@ New features requested by user for ClassroomsTab.tsx
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T-CL-CARD-001 | `[ ]` | Add `order` field to `classrooms` table in schema | [context/features/classrooms.md](../features/classrooms.md) | Integer field for sorting |
-| T-CL-CARD-002 | `[ ]` | Create `reorderClassrooms` Convex mutation | [context/features/classrooms.md](../features/classrooms.md) | Update order field for multiple classrooms |
-| T-CL-CARD-003 | `[ ]` | Update `listClassrooms` query to return ordered results | [context/features/classrooms.md](../features/classrooms.md) | Order by `order` field ASC |
-| T-CL-CARD-004 | `[ ]` | Implement drag handle (6-dot grip icon) on ClassroomCard | [context/features/classrooms.md](../features/classrooms.md) | Visible to owner only |
-| T-CL-CARD-005 | `[ ]` | Integrate @dnd-kit sortable into classroom grid | [context/features/classrooms.md](../features/classrooms.md) | Use SortableContext for grid items |
-| T-CL-CARD-006 | `[ ]` | Implement optimistic UI for reordering — update local state immediately | [context/features/classrooms.md](../features/classrooms.md) | UI updates before server confirmation |
-| T-CL-CARD-007 | `[ ]` | Handle reorder errors — rollback on server failure | [context/features/classrooms.md](../features/classrooms.md) | Show error toast, revert position |
-| T-CL-CARD-008 | `[ ]` | Set default order for new classrooms — append to end | [context/features/classrooms.md](../features/classrooms.md) | Use max(order) + 1 |
+| T-CL-CARD-001 | `[x]` | Add `order` field to `classrooms` table in schema | [context/features/classrooms.md](../features/classrooms.md) | Integer field for sorting |
+| T-CL-CARD-002 | `[x]` | Create `reorderClassrooms` Convex mutation | [context/features/classrooms.md](../features/classrooms.md) | Update order field for multiple classrooms |
+| T-CL-CARD-003 | `[x]` | Update `listClassrooms` query to return ordered results | [context/features/classrooms.md](../features/classrooms.md) | Order by `order` field ASC |
+| T-CL-CARD-004 | `[x]` | Implement drag handle (6-dot grip icon) on ClassroomCard | [context/features/classrooms.md](../features/classrooms.md) | Visible to owner only |
+| T-CL-CARD-005 | `[x]` | Integrate @dnd-kit sortable into classroom grid | [context/features/classrooms.md](../features/classrooms.md) | Use SortableContext for grid items |
+| T-CL-CARD-006 | `[x]` | Implement optimistic UI for reordering — update local state immediately | [context/features/classrooms.md](../features/classrooms.md) | UI updates before server confirmation |
+| T-CL-CARD-007 | `[x]` | Handle reorder errors — rollback on server failure | [context/features/classrooms.md](../features/classrooms.md) | Show error toast, revert position |
+| T-CL-CARD-008 | `[x]` | Set default order for new classrooms — append to end | [context/features/classrooms.md](../features/classrooms.md) | Use max(order) + 1 |
 
 #### Phase 26B — Access Gating Modal
 
