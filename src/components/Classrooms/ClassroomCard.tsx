@@ -51,6 +51,7 @@ export const ClassroomCard = memo(function ClassroomCard({
   const [menuOpen, setMenuOpen] = useState(false);
   
   // Sortable hooks (only active for owner)
+  const sortableProps = useSortable({ id: classroom._id, disabled: !isOwner });
   const {
     attributes,
     listeners,
@@ -58,7 +59,7 @@ export const ClassroomCard = memo(function ClassroomCard({
     transform,
     transition,
     isDragging: isSortableDragging,
-  } = useSortable({ id: classroom._id });
+  } = sortableProps;
 
   const style = {
     transform: CSS.Transform.toString(transform),

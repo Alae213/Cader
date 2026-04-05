@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
@@ -27,7 +27,7 @@ import {
   arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
-  horizontalListSortingStrategy,
+  rectSortingStrategy,
 } from "@dnd-kit/sortable";
 
 // Access type options for select
@@ -143,17 +143,15 @@ export function ClassroomsTab({ communityId, isOwner, currentUser: providedUser 
   const [orderedClassrooms, setOrderedClassrooms] = useState<ClassroomData[]>([]);
   const [isReordering, setIsReordering] = useState(false);
   const [reorderError, setReorderError] = useState<string | null>(null);
+  const orderedClassroomsRef = useRef<ClassroomData[]>([]);
 
   // Sync orderedClassrooms when classrooms query returns
   useEffect(() => {
     if (classrooms && Array.isArray(classrooms) && classrooms.length > 0) {
-      const sorted = [...classrooms].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-      // Only update if not currently reordering
-      if (!isReordering) {
-        setOrderedClassrooms(sorted);
-      }
+      setOrderedClassrooms([...classrooms]);
+      orderedClassroomsRef.current = [...classrooms];
     }
-  }, [classrooms, isReordering]);
+  }, [classrooms]);
 
   // DnD sensors
   const sensors = useSensors(
@@ -174,16 +172,18 @@ export function ClassroomsTab({ communityId, isOwner, currentUser: providedUser 
       return;
     }
 
-    const oldIndex = orderedClassrooms.findIndex((c) => c._id === active.id);
-    const newIndex = orderedClassrooms.findIndex((c) => c._id === over.id);
+    const currentOrder = orderedClassroomsRef.current;
+    const oldIndex = currentOrder.findIndex((c) => c._id === active.id);
+    const newIndex = currentOrder.findIndex((c) => c._id === over.id);
 
     if (oldIndex === -1 || newIndex === -1) {
       return;
     }
 
     // Optimistic update
-    const newOrder = arrayMove(orderedClassrooms, oldIndex, newIndex);
+    const newOrder = arrayMove(currentOrder, oldIndex, newIndex);
     setOrderedClassrooms(newOrder);
+    orderedClassroomsRef.current = newOrder;
     setIsReordering(true);
     setReorderError(null);
 
@@ -201,14 +201,11 @@ export function ClassroomsTab({ communityId, isOwner, currentUser: providedUser 
     } catch (error) {
       // Rollback on error
       setReorderError(error instanceof Error ? error.message : "Failed to reorder");
-      const sortedClassrooms = classrooms 
-        ? [...classrooms].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-        : [];
-      setOrderedClassrooms(sortedClassrooms);
+      setOrderedClassrooms(orderedClassroomsRef.current);
     } finally {
       setIsReordering(false);
     }
-  }, [orderedClassrooms, reorderClassrooms, communityId, classrooms]);
+  }, [reorderClassrooms, communityId]);
 
   const handleCreateClassroom = useCallback(async () => {
     if (!title.trim()) {
@@ -328,45 +325,45 @@ export function ClassroomsTab({ communityId, isOwner, currentUser: providedUser 
           </Text>
         </div>
       ) : (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={orderedClassrooms.map((c) => c._id)}
-            strategy={horizontalListSortingStrategy}
+        isOwner ? (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
           >
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {orderedClassrooms.map((classroom: ClassroomData) => (
-                <ClassroomCard
-                  key={classroom._id}
-                  classroom={classroom}
-                  onClick={() => {
-                    if (!classroom.hasAccess && !isOwner) {
-                      setLockedClassroom(classroom);
-                    } else {
-                      setSelectedClassroomId(classroom._id);
-                    }
-                  }}
-                  onDelete={() => triggerDelete(classroom._id)}
-                  onEdit={() => {
-                    setEditingClassroomId(classroom._id);
-                    setTitle(classroom.title);
-                    setDescription(classroom.description || "");
-                    setAccessType(classroom.accessType);
-                    setMinLevel(classroom.minLevel);
-                    setPriceDzd(classroom.priceDzd?.toString() || "");
-                    setShowCreateModal(true);
-                  }}
-                  onUpdateThumbnail={(thumbnailData) => updateClassroom({ classroomId: classroom._id, thumbnailUrl: thumbnailData })}
-                  isOwner={isOwner}
-                  isDragging={isReordering}
-                />
-              ))}
-              
-              {/* Add Classroom Card (owner only) */}
-              {isOwner && (
+            <SortableContext
+              items={orderedClassrooms.map((c) => c._id)}
+              strategy={rectSortingStrategy}
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {orderedClassrooms.map((classroom: ClassroomData) => (
+                  <ClassroomCard
+                    key={classroom._id}
+                    classroom={classroom}
+                    onClick={() => {
+                      if (!classroom.hasAccess && !isOwner) {
+                        setLockedClassroom(classroom);
+                      } else {
+                        setSelectedClassroomId(classroom._id);
+                      }
+                    }}
+                    onDelete={() => triggerDelete(classroom._id)}
+                    onEdit={() => {
+                      setEditingClassroomId(classroom._id);
+                      setTitle(classroom.title);
+                      setDescription(classroom.description || "");
+                      setAccessType(classroom.accessType);
+                      setMinLevel(classroom.minLevel);
+                      setPriceDzd(classroom.priceDzd?.toString() || "");
+                      setShowCreateModal(true);
+                    }}
+                    onUpdateThumbnail={(thumbnailData) => updateClassroom({ classroomId: classroom._id, thumbnailUrl: thumbnailData })}
+                    isOwner={isOwner}
+                    isDragging={isReordering}
+                  />
+                ))}
+                
+                {/* Add Classroom Card (owner only) */}
                 <div
                   role="button"
                   tabIndex={0}
@@ -382,10 +379,39 @@ export function ClassroomsTab({ communityId, isOwner, currentUser: providedUser 
                 >
                   <Text size="2" theme="secondary" >+ Add Classroom</Text>
                 </div>
-              )}
-            </div>
-          </SortableContext>
-        </DndContext>
+              </div>
+            </SortableContext>
+          </DndContext>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {orderedClassrooms.map((classroom: ClassroomData) => (
+              <ClassroomCard
+                key={classroom._id}
+                classroom={classroom}
+                onClick={() => {
+                  if (!classroom.hasAccess && !isOwner) {
+                    setLockedClassroom(classroom);
+                  } else {
+                    setSelectedClassroomId(classroom._id);
+                  }
+                }}
+                onDelete={() => triggerDelete(classroom._id)}
+                onEdit={() => {
+                  setEditingClassroomId(classroom._id);
+                  setTitle(classroom.title);
+                  setDescription(classroom.description || "");
+                  setAccessType(classroom.accessType);
+                  setMinLevel(classroom.minLevel);
+                  setPriceDzd(classroom.priceDzd?.toString() || "");
+                  setShowCreateModal(true);
+                }}
+                onUpdateThumbnail={(thumbnailData) => updateClassroom({ classroomId: classroom._id, thumbnailUrl: thumbnailData })}
+                isOwner={isOwner}
+                isDragging={isReordering}
+              />
+            ))}
+          </div>
+        )
       )}
 
       {/* Load More Button (members only, when paginated) */}
