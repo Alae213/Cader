@@ -137,6 +137,131 @@ export const listClassrooms = query({
   },
 });
 
+// List classrooms for a community with offset-based pagination (for members, not owners)
+export const listClassroomsPaginated = query({
+  args: {
+    communityId: v.id("communities"),
+    userId: v.optional(v.id("users")),
+    limit: v.number(),
+    offset: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const limit = Math.min(args.limit, 20); // Max 20 per page
+    
+    // Get all classrooms ordered by order field
+    const allClassrooms = await ctx.db
+      .query("classrooms")
+      .withIndex("by_community_and_order", (q) => q.eq("communityId", args.communityId))
+      .collect();
+    
+    const total = allClassrooms.length;
+    const classrooms = allClassrooms.slice(args.offset, args.offset + limit);
+    const hasMore = args.offset + limit < total;
+
+    // If no user provided, return classrooms without access info
+    if (!args.userId) {
+      return {
+        classrooms: classrooms.map((c) => ({
+          ...c,
+          hasAccess: false,
+          progress: 0,
+        })),
+        total,
+        hasMore,
+      };
+    }
+
+    // Get user's membership to check role
+    const membership = await ctx.db
+      .query("memberships")
+      .withIndex("by_community_and_user", (q) =>
+        q.eq("communityId", args.communityId).eq("userId", args.userId!)
+      )
+      .first();
+
+    // Get user's classroom access records
+    const userAccessRecords = await ctx.db
+      .query("classroomAccess")
+      .withIndex("by_user_id", (q) => q.eq("userId", args.userId!))
+      .collect();
+
+    // Get user's lesson progress
+    const userProgress = await ctx.db
+      .query("lessonProgress")
+      .withIndex("by_user_id", (q) => q.eq("userId", args.userId!))
+      .collect();
+
+    // Calculate progress for each classroom
+    const classroomsWithAccess = await Promise.all(
+      classrooms.map(async (classroom) => {
+        // Owner/admin always has access
+        const isOwner = membership && (membership.role === "owner" || membership.role === "admin");
+        
+        // Check access based on type
+        let hasAccess = false;
+        
+        if (isOwner) {
+          hasAccess = true;
+        } else if (classroom.accessType === "open") {
+          hasAccess = membership?.status === "active";
+        } else if (classroom.accessType === "level") {
+          const userLevel = membership ? await getUserLevel(ctx, classroom.communityId, membership.userId) : 0;
+          const requiredLevel = classroom.minLevel ?? 1;
+          hasAccess = membership?.status === "active" && userLevel >= requiredLevel;
+        } else if (classroom.accessType === "price") {
+          const accessRecord = userAccessRecords.find(
+            (a) => a.classroomId === classroom._id
+          );
+          hasAccess = !!accessRecord;
+        } else if (classroom.accessType === "level_and_price") {
+          const accessRecord = userAccessRecords.find(
+            (a) => a.classroomId === classroom._id
+          );
+          hasAccess = membership?.status === "active" && !!accessRecord;
+        }
+
+        // Calculate progress (lessons completed / total lessons)
+        let progress = 0;
+        if (hasAccess) {
+          const classroomModules = await ctx.db
+            .query("modules")
+            .withIndex("by_classroom_id", (q) => q.eq("classroomId", classroom._id))
+            .collect();
+
+          const allPageIds: string[] = [];
+          for (const mod of classroomModules) {
+            const modPages = await ctx.db
+              .query("pages")
+              .withIndex("by_module_id", (q) => q.eq("moduleId", mod._id))
+              .collect();
+            allPageIds.push(...modPages.map((p) => p._id));
+          }
+
+          const viewedPages = userProgress.filter(
+            (p) => p.classroomId === classroom._id && allPageIds.includes(p.pageId)
+          );
+
+          progress = allPageIds.length > 0 
+            ? Math.round((viewedPages.length / allPageIds.length) * 100)
+            : 0;
+        }
+
+        return {
+          ...classroom,
+          hasAccess,
+          progress,
+        };
+      })
+    );
+
+    return {
+      classrooms: classroomsWithAccess,
+      total,
+      hasMore,
+    };
+  },
+});
+
 // Get classroom content (module/page tree + current page content)
 export const getClassroomContent = query({
   args: {
