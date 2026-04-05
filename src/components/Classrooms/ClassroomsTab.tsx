@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { ClassroomViewer } from "./ClassroomViewer";
 import { ClassroomCard } from "./ClassroomCard";
+import { LockedClassroomModal } from "./LockedClassroomModal";
 import {
   DndContext,
   closestCenter,
@@ -72,6 +73,15 @@ export function ClassroomsTab({ communityId, isOwner, currentUser: providedUser 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingClassroomId, setEditingClassroomId] = useState<string | null>(null);
   const [selectedClassroomId, setSelectedClassroomId] = useState<string | null>(null);
+  
+  // Locked classroom modal state
+  const [lockedClassroom, setLockedClassroom] = useState<ClassroomData | null>(null);
+  
+  // Get community info for locked modal
+  const community = useQuery(
+    api.functions.communities.getById,
+    communityId ? { communityId: communityId as Id<"communities"> } : "skip"
+  );
   
   // Confirmation modal state
   const [confirmModal, setConfirmModal] = useState<{
@@ -314,7 +324,13 @@ export function ClassroomsTab({ communityId, isOwner, currentUser: providedUser 
                 <ClassroomCard
                   key={classroom._id}
                   classroom={classroom}
-                  onClick={() => setSelectedClassroomId(classroom._id)}
+                  onClick={() => {
+                    if (!classroom.hasAccess && !isOwner) {
+                      setLockedClassroom(classroom);
+                    } else {
+                      setSelectedClassroomId(classroom._id);
+                    }
+                  }}
                   onDelete={() => triggerDelete(classroom._id)}
                   onEdit={() => {
                     setEditingClassroomId(classroom._id);
@@ -497,6 +513,27 @@ export function ClassroomsTab({ communityId, isOwner, currentUser: providedUser 
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Locked Classroom Modal */}
+      {lockedClassroom && community && (
+        <LockedClassroomModal
+          classroom={{
+            _id: lockedClassroom._id,
+            title: lockedClassroom.title,
+            accessType: lockedClassroom.accessType,
+            minLevel: lockedClassroom.minLevel,
+            priceDzd: lockedClassroom.priceDzd,
+            hasAccess: lockedClassroom.hasAccess,
+          }}
+          community={{
+            _id: community._id,
+            name: community.name,
+            slug: community.slug,
+          }}
+          open={!!lockedClassroom}
+          onOpenChange={(open) => !open && setLockedClassroom(null)}
+        />
+      )}
     </div>
     </ErrorBoundary>
   );
