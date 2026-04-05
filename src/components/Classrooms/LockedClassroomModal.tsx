@@ -181,50 +181,182 @@ export function LockedClassroomModal({ classroom, community, open, onOpenChange 
       );
     }
 
-    // Level gating UI
-    if (classroom.accessType === "level" || classroom.accessType === "level_and_price") {
-      const requiredLevel = classroom.minLevel || 1;
-      const isLevelMet = currentLevel >= requiredLevel;
-      
-      return (
-        <div className="space-y-4">
-          {/* Level info */}
-          <div className="flex items-center gap-3 p-4 bg-accent/10 rounded-xl border border-accent/20">
-            <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center">
-              <Lock className="w-5 h-5 text-accent" />
+    // Render content based on access type using switch for type safety
+    switch (classroom.accessType) {
+      case "level": {
+        const requiredLevel = classroom.minLevel || 1;
+        const isLevelMet = currentLevel >= requiredLevel;
+        
+        return (
+          <div className="space-y-4">
+            {/* Level info */}
+            <div className="flex items-center gap-3 p-4 bg-accent/10 rounded-xl border border-accent/20">
+              <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center">
+                <Lock className="w-5 h-5 text-accent" />
+              </div>
+              <div>
+                <Text size="sm" theme="secondary">Level Required</Text>
+                <Heading size="sm">Level {requiredLevel}</Heading>
+              </div>
             </div>
-            <div>
-              <Text size="sm" theme="secondary">Level Required</Text>
-              <Heading size="sm">Level {requiredLevel}</Heading>
-            </div>
+            
+            {/* Current level status */}
+            {isLevelMet ? (
+              <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-xl">
+                <Text size="sm" className="text-green-400">
+                  You have access! Click anywhere on the card to enter.
+                </Text>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <Text size="sm" theme="secondary">Your current level</Text>
+                  <Text size="sm" fontWeight="semibold">Level {currentLevel}</Text>
+                </div>
+                <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-accent rounded-full transition-all"
+                    style={{ width: `${(currentLevel / 5) * 100}%` }}
+                  />
+                </div>
+                <Text size="1" theme="muted">
+                  Earn more points to unlock this classroom
+                </Text>
+              </div>
+            )}
           </div>
-          
-          {/* Current level status */}
-          {isLevelMet ? (
-            <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-xl">
-              <Text size="sm" className="text-green-400">
-                You have access! Click anywhere on the card to enter.
-              </Text>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <Text size="sm" theme="secondary">Your current level</Text>
-                <Text size="sm" fontWeight="semibold">Level {currentLevel}</Text>
+        );
+      }
+      
+      case "price": {
+        return (
+          <div className="space-y-4">
+            {/* Price info */}
+            <div className="flex items-center gap-3 p-4 bg-accent/10 rounded-xl border border-accent/20">
+              <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center">
+                <CreditCard className="w-5 h-5 text-accent" />
               </div>
-              <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-accent rounded-full transition-all"
-                  style={{ width: `${(currentLevel / 5) * 100}%` }}
-                />
+              <div>
+                <Text size="sm" theme="secondary">One-time Purchase</Text>
+                <Heading size="sm">{classroom.priceDzd} DZD</Heading>
               </div>
-              <Text size="1" theme="muted">
-                Earn more points to unlock this classroom
-              </Text>
             </div>
-          )}
-        </div>
-      );
+            
+            {/* Error message */}
+            {error && (
+              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                <Text size="sm" className="text-red-400">{error}</Text>
+              </div>
+            )}
+            
+            {/* Purchase button */}
+            <Button 
+              onClick={handlePurchase}
+              disabled={isLoading || isRedirecting}
+              className="w-full"
+            >
+              {isLoading || isRedirecting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {isRedirecting ? "Redirecting..." : "Processing..."}
+                </>
+              ) : (
+                <>
+                  <CreditCard className="w-4 h-4 mr-2" />
+                  Buy Now
+                </>
+              )}
+            </Button>
+            
+            <Text size="1" theme="muted" className="text-center">
+              Secure payment via Chargily
+            </Text>
+          </div>
+        );
+      }
+      
+      case "level_and_price": {
+        const requiredLevel = classroom.minLevel || 1;
+        const isLevelMet = currentLevel >= requiredLevel;
+        
+        return (
+          <div className="space-y-4">
+            {/* Level requirement */}
+            <div className="flex items-center gap-3 p-3 bg-accent/10 rounded-xl border border-accent/20">
+              <Lock className="w-4 h-4 text-accent" />
+              <Text size="sm">Level {requiredLevel} required</Text>
+            </div>
+            
+            {/* Price requirement */}
+            <div className="flex items-center gap-3 p-3 bg-accent/10 rounded-xl border border-accent/20">
+              <CreditCard className="w-4 h-4 text-accent" />
+              <Text size="sm">{classroom.priceDzd} DZD</Text>
+            </div>
+            
+            {/* Current level status */}
+            {isLevelMet ? (
+              <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+                <Text size="sm" className="text-green-400">
+                  Level requirement met! Purchase to unlock.
+                </Text>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <Text size="sm" theme="secondary">Your current level</Text>
+                  <Text size="sm" fontWeight="semibold">Level {currentLevel}</Text>
+                </div>
+                <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-accent rounded-full transition-all"
+                    style={{ width: `${(currentLevel / 5) * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
+            
+            {/* Error message */}
+            {error && (
+              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                <Text size="sm" className="text-red-400">{error}</Text>
+              </div>
+            )}
+            
+            {/* Purchase button */}
+            <Button 
+              onClick={handlePurchase}
+              disabled={isLoading || isRedirecting || !isLevelMet}
+              className="w-full"
+            >
+              {isLoading || isRedirecting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {isRedirecting ? "Redirecting..." : "Processing..."}
+                </>
+              ) : (
+                <>
+                  <CreditCard className="w-4 h-4 mr-2" />
+                  Buy Now
+                </>
+              )}
+            </Button>
+            
+            <Text size="1" theme="muted" className="text-center">
+              Secure payment via Chargily
+            </Text>
+          </div>
+        );
+      }
+      
+      default: {
+        return (
+          <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
+            <Text size="sm" className="text-yellow-200">
+              This classroom should be accessible. Please contact support.
+            </Text>
+          </div>
+        );
+      }
     }
     
     // Price gating UI (only price, not level_and_price)
@@ -276,8 +408,8 @@ export function LockedClassroomModal({ classroom, community, open, onOpenChange 
     }
 
     // Level + Price gating UI (level_and_price only - price was handled above)
-    // Since we already handled "price" above, check for "open" to exclude, rest is level_and_price
-    if (classroom.accessType !== "level" && classroom.accessType !== "price") {
+    // At this point, only "level_and_price" remains
+    if (classroom.accessType === "level_and_price") {
       return (
         <div className="space-y-4">
           {/* Level requirement */}

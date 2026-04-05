@@ -2,13 +2,13 @@
  * Type validation utilities for Convex IDs
  */
 
-import { Id } from "../../convex/_generated/dataModel";
+import { Id, TableNames } from "../../convex/_generated/dataModel";
 
 /**
  * Validate and cast a string to a Convex Id type
  * Throws error if validation fails
  */
-export function validateId<T extends string>(
+export function validateId<T extends TableNames>(
   id: string,
   tableName: T
 ): Id<T> {
@@ -49,7 +49,7 @@ export function validateUserId(userId: string): Id<"users"> {
 /**
  * Safe validation - returns null instead of throwing
  */
-export function safeValidateId<T extends string>(
+export function safeValidateId<T extends TableNames>(
   id: string | undefined | null,
   tableName: T
 ): Id<T> | null {

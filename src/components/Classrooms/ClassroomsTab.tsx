@@ -104,16 +104,34 @@ export function ClassroomsTab({ communityId, isOwner, currentUser: providedUser 
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  // Pagination state
+  const PAGE_SIZE = 9;
+  const [page, setPage] = useState(0);
+
   // Use provided user or skip query
   const userId = providedUser?._id;
   
-  // Get classrooms
-  const classrooms = useQuery(
+  // Owner gets all classrooms
+  const allClassrooms = useQuery(
     api.functions.classrooms.listClassrooms, 
     userId 
       ? { communityId: communityId as Id<"communities">, userId }
       : { communityId: communityId as Id<"communities">, userId: undefined }
   );
+  
+  // Member pagination args (or skip for owners)
+  const memberArgs = userId && !isOwner
+    ? { communityId: communityId as Id<"communities">, userId, limit: PAGE_SIZE, offset: page * PAGE_SIZE }
+    : undefined;
+
+  const paginatedData = useQuery(
+    api.functions.classrooms.listClassroomsPaginated,
+    memberArgs ?? "skip"
+  );
+
+  // Choose data source based on ownership
+  const classrooms = isOwner ? allClassrooms : paginatedData?.classrooms;
+  const hasMore = !isOwner && paginatedData?.hasMore;
 
   // Create classroom mutation
   const createClassroom = useMutation(api.functions.classrooms.createClassroom);
@@ -128,7 +146,7 @@ export function ClassroomsTab({ communityId, isOwner, currentUser: providedUser 
 
   // Sync orderedClassrooms when classrooms query returns
   useEffect(() => {
-    if (classrooms && classrooms.length > 0) {
+    if (classrooms && Array.isArray(classrooms) && classrooms.length > 0) {
       const sorted = [...classrooms].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
       // Only update if not currently reordering
       if (!isReordering) {
@@ -368,6 +386,19 @@ export function ClassroomsTab({ communityId, isOwner, currentUser: providedUser 
             </div>
           </SortableContext>
         </DndContext>
+      )}
+
+      {/* Load More Button (members only, when paginated) */}
+      {!isOwner && hasMore && (
+        <div className="flex justify-center mt-6">
+          <Button 
+            onClick={() => setPage((p) => p + 1)}
+            variant="secondary"
+            className="px-6 py-2"
+          >
+            Load More
+          </Button>
+        </div>
       )}
 
       {/* Create/Edit Classroom Modal */}
