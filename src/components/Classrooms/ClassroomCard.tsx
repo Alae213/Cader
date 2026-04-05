@@ -92,7 +92,7 @@ export const ClassroomCard = memo(function ClassroomCard({
     <Card
       ref={setNodeRef}
       style={style}
-      className={`cursor-pointer hover:ring-2 hover:ring-accent transition-all group flex flex-col ${isSortableDragging ? 'ring-2 ring-accent' : ''}`}
+      className={`relative cursor-pointer hover:ring-2 hover:ring-accent transition-all group flex flex-col ${isSortableDragging ? 'ring-2 ring-accent' : ''}`}
       onClick={onClick}
     >
       {/* Drag handle (owner only) - top-left corner */}
@@ -100,10 +100,11 @@ export const ClassroomCard = memo(function ClassroomCard({
         <div
           {...attributes}
           {...listeners}
-          className="absolute top-3 left-3 z-10 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity"
+          className="absolute top-2 left-2 z-20 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity"
           onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
         >
-          <div className="w-8 h-8 rounded-full bg-bg-base/80 flex items-center justify-center hover:bg-bg-base/90">
+          <div className="w-8 h-8 rounded-full bg-bg-base/90 backdrop-blur-sm flex items-center justify-center hover:bg-bg-base shadow-lg">
             <GripVertical className="w-4 h-4 text-text-secondary" />
           </div>
         </div>
