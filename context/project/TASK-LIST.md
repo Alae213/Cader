@@ -412,14 +412,14 @@ New features requested by user for ClassroomsTab.tsx
 
 | # | Status | Task | Feature | Notes |
 |---|--------|------|---------|-------|
-| T-CL-CARD-010 | `[ ]` | Create `LockedClassroomModal` component | [context/features/classrooms.md](../features/classrooms.md) | Shows when non-owner clicks locked card |
-| T-CL-CARD-011 | `[ ]` | Implement level gating UI — show current level + points needed | [context/features/classrooms.md](../features/classrooms.md) | Query pointEvents to derive level |
-| T-CL-CARD-012 | `[ ]` | Implement paid gating UI — show price + "Buy now" button | [context/features/classrooms.md](../features/classrooms.md) | Create Chargily checkout on button click |
-| T-CL-CARD-013 | `[ ]` | Implement level+price gating UI — show both requirements | [context/features/classrooms.md](../features/classrooms.md) | Combined state in modal |
-| T-CL-CARD-014 | `[ ]` | Create classroom checkout flow using owner's Chargily keys | [context/features/classrooms.md](../features/classrooms.md) | Reuse pattern from OnboardingModal |
-| T-CL-CARD-015 | `[ ]` | Handle classroom checkout edge cases | [context/features/classrooms.md](../features/classrooms.md) | Expired, canceled, already purchased |
-| T-CL-CARD-016 | `[ ]` | Add classroom purchase webhook handler | [context/features/classrooms.md](../features/classrooms.md) | grantClassroomAccess on payment |
-| T-CL-CARD-017 | `[ ]` | Verify payment amount against stored price (prevent manipulation) | [context/features/classrooms.md](../features/classrooms.md) | EC-18 pattern |
+| T-CL-CARD-010 | `[x]` | Create `LockedClassroomModal` component | [context/features/classrooms.md](../features/classrooms.md) | Shows when non-owner clicks locked card |
+| T-CL-CARD-011 | `[x]` | Implement level gating UI — show current level + points needed | [context/features/classrooms.md](../features/classrooms.md) | Query pointEvents to derive level |
+| T-CL-CARD-012 | `[x]` | Implement paid gating UI — show price + "Buy now" button | [context/features/classrooms.md](../features/classrooms.md) | Create Chargily checkout on button click |
+| T-CL-CARD-013 | `[x]` | Implement level+price gating UI — show both requirements | [context/features/classrooms.md](../features/classrooms.md) | Combined state in modal |
+| T-CL-CARD-014 | `[x]` | Create classroom checkout flow using owner's Chargily keys | [context/features/classrooms.md](../features/classrooms.md) | Reuse pattern from OnboardingModal |
+| T-CL-CARD-015 | `[x]` | Handle classroom checkout edge cases | [context/features/classrooms.md](../features/classrooms.md) | Expired, canceled, already purchased |
+| T-CL-CARD-016 | `[x]` | Add classroom purchase webhook handler | [context/features/classrooms.md](../features/classrooms.md) | grantClassroomAccess on payment |
+| T-CL-CARD-017 | `[x]` | Verify payment amount against stored price (prevent manipulation) | [context/features/classrooms.md](../features/classrooms.md) | EC-18 pattern |
 
 #### Phase 26C — Thumbnail Upload Cropping Modal
 
