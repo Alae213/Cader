@@ -226,7 +226,7 @@ export default defineSchema({
     priceDzd: v.optional(v.number()),
     
     // Ordering for drag-and-drop reordering
-    order: v.number(),
+    order: v.optional(v.number()),
     
     createdAt: v.number(),
     updatedAt: v.number(),

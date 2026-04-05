@@ -58,13 +58,14 @@ interface ClassroomsTabProps {
 // Proper TypeScript interface for classroom data
 interface ClassroomData {
   _id: Id<"classrooms">;
+  _creationTime?: number;
   title: string;
   description?: string;
   thumbnailUrl?: string;
   accessType: "open" | "level" | "price" | "level_and_price";
   minLevel?: number;
   priceDzd?: number;
-  order: number;
+  order?: number;
   hasAccess: boolean;
   progress: number;
 }
