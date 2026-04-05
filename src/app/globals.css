@@ -6,8 +6,8 @@
      FONTS
      ============================================ */
   --font-display: var(--font-instrument-serif);
-  --font-sans: var(--font-inter);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-space-mono);
+  --font-mono: var(--font-jetbrains-mono);
 
    /* ============================================
      SHADOWS

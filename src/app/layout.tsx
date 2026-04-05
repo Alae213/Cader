@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Instrument_Serif, Inter, Geist_Mono } from "next/font/google";
+import { Instrument_Serif, Space_Mono, JetBrains_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { ConvexClientProvider } from "@/providers/ConvexProvider";
 import { Toaster } from "sonner";
@@ -12,14 +12,14 @@ const instrumentSerif = Instrument_Serif({
   style: ["normal", "italic"],
 });
 
-const inter = Inter({
-  variable: "--font-inter",
+const spaceMono = Space_Mono({
+  variable: "--font-space-mono",
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: ["400", "700"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
   subsets: ["latin"],
 });
 
@@ -38,7 +38,7 @@ export default function RootLayout({
       <ConvexClientProvider>
         <html
           lang="en"
-          className={`${instrumentSerif.variable} ${inter.variable} ${geistMono.variable} h-full antialiased`}
+          className={`${instrumentSerif.variable} ${spaceMono.variable} ${jetbrainsMono.variable} h-full antialiased`}
         >
           <body suppressHydrationWarning className="h-full flex flex-col text-text-primary">
             {children}

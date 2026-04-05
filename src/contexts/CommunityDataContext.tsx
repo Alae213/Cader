@@ -20,6 +20,7 @@ export interface CommunityPageData {
   streak: number;
   ownerName: string;
   ownerAvatar: string | null;
+  [key: string]: unknown; // Allow extra fields for component compatibility
 }
 
 interface CommunityDataContextValue {
