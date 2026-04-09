@@ -21,7 +21,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { ChevronLeft, ChevronDown, X, Trash2, Edit3, Play, Plus, GripVertical, MoreVertical } from "lucide-react";
 import { ProgressRing } from "@/components/ui/ProgressRing";
 import { getVideoThumbnail } from "@/lib/utils";
-import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/Select";
 import type { SensorDescriptor } from "@dnd-kit/core";
 
 interface ModuleData {

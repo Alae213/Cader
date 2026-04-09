@@ -17,7 +17,7 @@ import {
   SelectSeparator,
   SelectTrigger,
   SelectValue,
-} from "../ui/select";
+} from "@/components/ui/Select";
 
 const POST_TYPES: { value: PostType; icon: React.ReactNode; color: string }[] = [
   { value: "text", icon: <Type className="w-4 h-4" />, color: "text-blue-400" },

@@ -47,13 +47,13 @@ Tasks that are planned but not started yet. Ordered by dependency (build top-dow
 
 ### Phase 1 — Foundation & Auth (T8–T12)
 
-| # | Status | Task | Feature | Notes |
-|---|--------|------|---------|-------|
-| T8 | `[x]` | Build Clerk + membership middleware — protects `/create`, `/explore`, `/settings`. `/[communitySlug]` is public (About tab visible to all). Membership check in page components. | [context/features/onboarding-modal.md](../features/onboarding-modal.md) | Renamed to middleware.ts. /[communitySlug] intentionally public for About tab |
-| T9 | `[x]` | Create `.env.example` — list all env vars (Convex, Clerk, Chargily webhook secret, platform Chargily keys) | Foundation | |
-| T10 | `[x]` | Wrap root layout in `WhopApp appearance="dark" accentColor="green"` | [context/design/DESIGN_SYSTEM.md](../design/DESIGN_SYSTEM.md) | Using custom CSS variables instead (WhopApp had import issues) |
-| T11 | `[x]` | Build `app/layout.tsx` — root layout with providers (ClerkProvider, ConvexProvider, WhopApp, Toaster) | Foundation | |
-| T12 | `[x]` | Set up shared utility files — `lib/utils.ts` (slugify, formatDZD), `lib/constants.ts` (level thresholds: 0/20/60/140/280, tier limit 50, platform price 2000), `lib/validations.ts` (Zod schemas) | Foundation | |
+| #   | Status | Task                                                                                                                                                                                              | Feature                                                                 | Notes                                                                         |
+| --- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| T8  | `[x]`  | Build Clerk + membership middleware — protects `/create`, `/explore`, `/settings`. `/[communitySlug]` is public (About tab visible to all). Membership check in page components.                  | [context/features/onboarding-modal.md](../features/onboarding-modal.md) | Renamed to middleware.ts. /[communitySlug] intentionally public for About tab |
+| T9  | `[x]`  | Create `.env.example` — list all env vars (Convex, Clerk, Chargily webhook secret, platform Chargily keys)                                                                                        | Foundation                                                              |                                                                               |
+| T10 | `[x]`  | Wrap root layout in `WhopApp appearance="dark" accentColor="green"`                                                                                                                               | [context/design/DESIGN_SYSTEM.md](../design/DESIGN_SYSTEM.md)           | Using custom CSS variables instead (WhopApp had import issues)                |
+| T11 | `[x]`  | Build `app/layout.tsx` — root layout with providers (ClerkProvider, ConvexProvider, WhopApp, Toaster)                                                                                             | Foundation                                                              |                                                                               |
+| T12 | `[x]`  | Set up shared utility files — `lib/utils.ts` (slugify, formatDZD), `lib/constants.ts` (level thresholds: 0/20/60/140/280, tier limit 50, platform price 2000), `lib/validations.ts` (Zod schemas) | Foundation                                                              |                                                                               |
 
 ### Phase 2 — Platform Landing & Help (T13–T15)
 

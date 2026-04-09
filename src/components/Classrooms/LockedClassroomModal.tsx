@@ -37,7 +37,12 @@ interface LockedClassroomModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
-type PaymentStatus = "idle" | "pending" | "verifying" | "verified" | "cancelled" | "failed";
+type PaymentStatus = "idle" | "pending" | "verifying" | "verified" | "cancelled" | "failed" | "expired";
+
+// States where purchase button should be shown
+const showPurchaseButton = (status: PaymentStatus): boolean => {
+  return status === "idle" || status === "cancelled" || status === "expired" || status === "failed";
+};
 
 export function LockedClassroomModal({ classroom, community, open, onOpenChange }: LockedClassroomModalProps) {
   const { userId } = useAuth();
@@ -156,7 +161,8 @@ export function LockedClassroomModal({ classroom, community, open, onOpenChange 
     setPaymentStatus("idle");
     
     try {
-      const result = await createSofizpayCheckout({
+      // Step 1: Get payment data from Convex
+      const paymentDataResult = await createSofizpayCheckout({
         communityId: community._id as Id<"communities">,
         userId: convexUser._id as Id<"users">,
         type: "classroom",
@@ -165,12 +171,23 @@ export function LockedClassroomModal({ classroom, community, open, onOpenChange 
         cancelUrl: `${window.location.origin}/${community.slug}?status=cancelled`,
       });
       
-      if (result.paymentUrl) {
+      // Step 2: Call Next.js API to create payment and get URL
+      const apiResponse = await fetch("/api/sofizpay/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(paymentDataResult.paymentData),
+      });
+      
+      const apiResult = await apiResponse.json();
+      
+      if (apiResult.success && apiResult.paymentUrl) {
         setIsRedirecting(true);
         setPaymentStatus("pending");
         setTimeout(() => {
-          window.location.href = result.paymentUrl;
+          window.location.href = apiResult.paymentUrl;
         }, 1500);
+      } else {
+        setError(apiResult.error || "Failed to create payment");
       }
     } catch (err) {
       if (err instanceof Error && err.message.includes("not configured")) {
@@ -230,9 +247,31 @@ export function LockedClassroomModal({ classroom, community, open, onOpenChange 
         return (
           <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
             <div className="flex items-center gap-3">
-              <XCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+              <XCircle className="w-5 h-5 text-red-500" />
               <Text size="sm" className="text-red-200">
                 Payment verification failed. Please try again.
+              </Text>
+            </div>
+          </div>
+        );
+      case "expired":
+        return (
+          <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-yellow-500" />
+              <Text size="sm" className="text-yellow-200">
+                Payment expired. You can try again when you are ready.
+              </Text>
+            </div>
+          </div>
+        );
+      case "pending":
+        return (
+          <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl">
+            <div className="flex items-center gap-3">
+              <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
+              <Text size="sm" className="text-blue-200">
+                Redirecting to payment...
               </Text>
             </div>
           </div>
@@ -308,7 +347,7 @@ export function LockedClassroomModal({ classroom, community, open, onOpenChange 
             )}
             
             {/* Purchase button */}
-            {(paymentStatus === "idle" || paymentStatus === "cancelled") && (
+            {showPurchaseButton(paymentStatus) && (
               <Button 
                 onClick={handlePurchase}
                 disabled={isLoading || isRedirecting}
@@ -384,7 +423,7 @@ export function LockedClassroomModal({ classroom, community, open, onOpenChange 
             )}
             
             {/* Purchase button */}
-            {(paymentStatus === "idle" || paymentStatus === "cancelled") && (
+            {showPurchaseButton(paymentStatus) && (
               <Button 
                 onClick={handlePurchase}
                 disabled={isLoading || isRedirecting || !isLevelMet}

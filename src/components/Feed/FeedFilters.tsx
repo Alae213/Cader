@@ -9,7 +9,7 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-} from "@/components/ui/select";
+} from "@/components/ui/Select";
 
 export const SORT_OPTIONS: { value: "newest" | "most_liked" | "most_commented"; label: string; icon: typeof Clock }[] = [
   { value: "newest", label: "Newest first", icon: Clock },

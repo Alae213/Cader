@@ -13,7 +13,7 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-} from "@/components/ui/select";
+} from "@/components/ui/Select";
 import { Avatar } from "@/components/shared/Avatar";
 import { 
   Heart, 

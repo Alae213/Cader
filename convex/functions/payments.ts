@@ -4,8 +4,6 @@ import { enforceRateLimit } from "../lib/rateLimit";
 import { makeCIBTransaction, verifyPaymentByMemo } from "../lib/sofizpay";
 
 const MIN_PAYMENT_AMOUNT = 1000; // Minimum 1000 DZD per SofizPay/CIB requirements
-
-// Get expected price for payment verification
 export const getExpectedPrice = query({
   args: {
     communityId: v.id("communities"),
@@ -61,8 +59,9 @@ export const validateSofizpayKeys = mutation({
   },
 });
 
-// Create SofizPay checkout session (community/classroom payments)
-// Key difference from Chargily: NO WEBHOOKS - uses return URL + polling pattern
+// Create SofizPay checkout session
+// NOTE: The actual payment creation happens in the Next.js API route
+// This mutation just returns the data needed to call that API
 export const createSofizpayCheckout = mutation({
   args: {
     communityId: v.id("communities"),
@@ -80,75 +79,45 @@ export const createSofizpayCheckout = mutation({
     if (!user) throw new Error("User not found");
 
     // Check if user has email - required for SofizPay
-    // If email is missing, try to get it from auth identity and update the user
     if (!user.email || user.email.trim() === "") {
-      const identity = await ctx.auth.getUserIdentity();
-      if (identity?.email) {
-        // Update user with email from auth
-        await ctx.db.patch(args.userId, {
-          email: identity.email,
-          updatedAt: Date.now(),
-        });
-        user.email = identity.email;
-      } else {
-        throw new Error("Your account doesn't have an email. Please sign out and sign in again to sync your profile.");
-      }
+      throw new Error("Your account doesn't have an email.");
     }
 
     // Check if this is a paid community
     const isPaidCommunity = ["monthly", "annual", "one_time"].includes(community.pricingType || "");
     if (isPaidCommunity && !community.sofizpayPublicKey) {
-      throw new Error("This community is not configured for payments. Contact the owner.");
+      throw new Error("This community is not configured for payments.");
     }
 
     const sofizpayPublicKey = community.sofizpayPublicKey;
     if (!sofizpayPublicKey) throw new Error("Community payment configuration not found");
 
-    // Get amount and description
+    // Get amount
     let amount: number;
-    let description: string;
     let paymentType: string;
 
     if (args.type === "classroom" && args.classroomId) {
       const classroom = await ctx.db.get(args.classroomId);
       if (!classroom) throw new Error("Classroom not found");
       amount = classroom.priceDzd || 0;
-      description = `Classroom: ${classroom.title}`;
       paymentType = "classroom";
     } else {
       amount = community.priceDzd || 0;
-      description = `Community: ${community.name}`;
       paymentType = "community";
     }
 
     if (amount <= 0) throw new Error("Invalid price for this purchase");
-
-    // SECURITY: Minimum amount check
     if (amount < MIN_PAYMENT_AMOUNT) {
       throw new Error(`Minimum payment amount is ${MIN_PAYMENT_AMOUNT} DZD`);
     }
 
-    console.log("Creating SofizPay checkout for:", {
-      community: community.slug,
-      userEmail: user.email,
-      amount: amount,
-      publicKey: sofizpayPublicKey,
-    });
-
-    // SECURITY C-5: Rate limit checkout creation
-    const identity = await ctx.auth.getUserIdentity();
-    if (identity) {
-      await enforceRateLimit(ctx, identity.tokenIdentifier, "checkout_creation");
-    }
-
     // Build memo for payment tracking
-    // Format: Community:{slug} - User:{email} - Type:{type}
     const memo = `Community:${community.slug} - User:${user.email} - Type:${paymentType}`;
 
-    // Create the CIB transaction
-    let result;
-    try {
-      result = await makeCIBTransaction({
+    // Return the data needed to create payment via API
+    // The frontend will call the Next.js API route to create the actual payment
+    return {
+      paymentData: {
         account: sofizpayPublicKey,
         amount,
         full_name: user.displayName || "User",
@@ -157,19 +126,7 @@ export const createSofizpayCheckout = mutation({
         memo,
         return_url: args.successUrl,
         redirect: "yes",
-      });
-    } catch (sdkError) {
-      console.error("SofizPay SDK error:", sdkError);
-      throw new Error(`Payment service error: ${sdkError instanceof Error ? sdkError.message : "Unknown error"}`);
-    }
-
-    if (!result.success || !result.url) {
-      throw new Error(result.error || "Failed to create payment");
-    }
-
-    // Return the payment URL and memo for verification later
-    return {
-      paymentUrl: result.url,
+      },
       memo,
       amount,
     };

@@ -212,7 +212,9 @@ export function SettingsModal({ open, onOpenChange, communitySlug, initialSectio
         successUrl: `${window.location.origin}/${community.slug}?subscribed=true`,
         cancelUrl: `${window.location.origin}/${community.slug}?subscription=cancelled`,
       });
-      window.open(result.checkoutUrl, "_blank");
+      if (result.paymentUrl) {
+        window.open(result.paymentUrl, "_blank");
+      }
     } catch (error) {
       toast.error(getErrorMessage(error, "Failed to create checkout"));
     }

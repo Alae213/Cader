@@ -68,7 +68,7 @@ export {
 // Layout Primitives
 export { Box, Flex } from "./BoxFlex";
 
-// Select Component (shadcn)
+// Select Component
 export {
   Select,
   SelectGroup,
@@ -78,4 +78,4 @@ export {
   SelectLabel,
   SelectItem,
   SelectSeparator,
-} from "./select";
+} from "./Select";

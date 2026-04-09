@@ -259,7 +259,8 @@ export function OnboardingModal({ community, open, onOpenChange, onComplete }: O
       console.log("Creating checkout for community:", community._id, "user:", userConvexId);
       
       try {
-        const result = await createSofizpayCheckout({
+        // First get payment data from Convex
+        const paymentResult = await createSofizpayCheckout({
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           communityId: community._id as any,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -268,15 +269,27 @@ export function OnboardingModal({ community, open, onOpenChange, onComplete }: O
           successUrl: `${window.location.origin}/${community.slug}?status=success&joined=true`,
           cancelUrl: `${window.location.origin}/${community.slug}?status=cancelled`,
         });
-        console.log("Checkout result:", result);
+        console.log("Payment result:", paymentResult);
         
-        if (result.paymentUrl) {
+        // Now call the Next.js API to create the actual payment
+        const apiResponse = await fetch('/api/sofizpay/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(paymentResult.paymentData),
+        });
+        
+        const apiData = await apiResponse.json();
+        console.log("API response:", apiData);
+        
+        if (apiData.success && apiData.paymentUrl) {
           // Show redirecting state before navigating
           setIsRedirecting(true);
           setPaymentStatus("pending");
           setTimeout(() => {
-            window.location.href = result.paymentUrl;
+            window.location.href = apiData.paymentUrl;
           }, 1500);
+        } else {
+          setError(apiData.error || "Failed to create payment");
         }
       } catch (err) {
         console.error("Checkout error:", err);
